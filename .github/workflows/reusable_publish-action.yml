@@ -1,0 +1,80 @@
+name: "Reusable · Publish action version"
+
+on:
+  workflow_call:
+    inputs:
+      source-tag:
+        description: Published stable semantic-version tag, such as v1.2.3.
+        required: true
+        type: string
+    outputs:
+      major-tag:
+        description: Major compatibility tag that was created or updated.
+        value: ${{ jobs.publish.outputs.major-tag }}
+
+permissions: {}
+
+jobs:
+  publish:
+    name: "job: Publish major action version"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      major-tag: ${{ steps.publish.outputs.major-tag }}
+
+    steps:
+      - id: publish
+        name: Publish major tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_TAG: ${{ inputs.source-tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if ! [[ "$SOURCE_TAG" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(\+[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::source-tag must be a stable semantic-version tag such as v1.2.3."
+            exit 1
+          fi
+
+          MAJOR_TAG="${SOURCE_TAG%%.*}"
+
+          RELEASE_JSON="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$SOURCE_TAG" 2>/dev/null)" || {
+            echo "::error::No GitHub Release was found for $SOURCE_TAG."
+            exit 1
+          }
+
+          if [ "$(jq -r '.prerelease' <<< "$RELEASE_JSON")" = "true" ]; then
+            echo "::error::The release for $SOURCE_TAG is marked as a prerelease; major-tag promotion is not supported."
+            exit 1
+          fi
+
+          SOURCE_REF="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$SOURCE_TAG" 2>/dev/null)" || {
+            echo "::error::The source tag $SOURCE_TAG does not exist."
+            exit 1
+          }
+
+          SOURCE_SHA="$(jq -r '.object.sha' <<< "$SOURCE_REF")"
+
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$MAJOR_TAG" >/dev/null 2>&1; then
+            echo "Updating $MAJOR_TAG to point to $SOURCE_TAG ($SOURCE_SHA)."
+            gh api               --method PATCH               "repos/$GITHUB_REPOSITORY/git/refs/tags/$MAJOR_TAG"               -f sha="$SOURCE_SHA"               -F force=true >/dev/null
+          else
+            echo "Creating $MAJOR_TAG from $SOURCE_TAG ($SOURCE_SHA)."
+            gh api               --method POST               "repos/$GITHUB_REPOSITORY/git/refs"               -f ref="refs/tags/$MAJOR_TAG"               -f sha="$SOURCE_SHA" >/dev/null
+          fi
+
+          echo "major-tag=$MAJOR_TAG" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "# Publish action version"
+            echo
+            echo "| Setting | Value |"
+            echo "| --- | --- |"
+            printf '| Source tag | `%s` |\n' "$SOURCE_TAG"
+            printf '| Major alias | `%s` |\n' "$MAJOR_TAG"
+            printf '| Source SHA | `%s` |\n' "$SOURCE_SHA"
+            echo "| Release state | **published** |"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"

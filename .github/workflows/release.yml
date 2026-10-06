@@ -218,12 +218,8 @@ jobs:
       - resolve
       - release
     if: ${{ !inputs.dry-run && inputs.update-major-tag }}
-    runs-on: ubuntu-latest
     permissions:
       contents: write
-    steps:
-      - name: Publish major version
-        uses: actions/publish-action@c8df519c7dab554ada68e7b776a5d57865ecbe39
-        with:
-          source-tag: ${{ format('v{0}', needs.resolve.outputs.version) }}
-          token: ${{ github.token }}
+    uses: ./.github/workflows/reusable_publish-action.yml
+    with:
+      source-tag: ${{ format('v{0}', needs.resolve.outputs.version) }}
