@@ -1,55 +1,59 @@
-name: "Reusable · Delete release tag"
+name: "Reusable · Delete release and tag"
 
-run-name: Delete release tag · ${{ inputs.tag }} · dry-run=${{ inputs.dry-run }}
+run-name: Delete release and tag · ${{ inputs.tag }} · dry-run=${{ inputs.dry-run }}
 
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Exact Git tag or fuzzy search text
+        description: Exact release tag or fuzzy search text
         required: true
         type: string
       dry-run:
-        description: Preview tag resolution without deleting
+        description: Preview release and tag cleanup without deleting
         required: true
         default: true
         type: boolean
   workflow_call:
     inputs:
       tag:
-        description: Exact Git tag or fuzzy search text
+        description: Exact release tag or fuzzy search text
         required: true
         type: string
       dry-run:
-        description: Preview tag resolution without deleting
+        description: Preview release and tag cleanup without deleting
         required: false
         default: true
         type: boolean
     outputs:
       resolved-tag:
         description: Exact tag resolved from the supplied tag or fuzzy search text
-        value: ${{ jobs.delete-tag.outputs.resolved-tag }}
+        value: ${{ jobs.delete-release.outputs.resolved-tag }}
       tag-existed:
-        description: Whether a matching tag existed before the workflow ran
-        value: ${{ jobs.delete-tag.outputs.tag-existed }}
+        description: Whether the Git tag existed before cleanup
+        value: ${{ jobs.delete-release.outputs.tag-existed }}
+      release-existed:
+        description: Whether the GitHub Release existed before cleanup
+        value: ${{ jobs.delete-release.outputs.release-existed }}
       deleted:
-        description: Whether the resolved tag was deleted
-        value: ${{ jobs.delete-tag.outputs.deleted }}
+        description: Whether cleanup deleted the resolved release/tag state
+        value: ${{ jobs.delete-release.outputs.deleted }}
       previous-tag-sha:
         description: Commit or tag-object SHA previously referenced by the resolved tag
-        value: ${{ jobs.delete-tag.outputs.previous-tag-sha }}
+        value: ${{ jobs.delete-release.outputs.previous-tag-sha }}
 
 permissions: {}
 
 jobs:
-  delete-tag:
-    name: "job: Delete tag"
+  delete-release:
+    name: "job: Delete release and tag"
     runs-on: ubuntu-latest
     permissions:
       contents: write
     outputs:
       resolved-tag: ${{ steps.resolve.outputs.tag }}
-      tag-existed: ${{ steps.resolve.outputs.exists }}
+      tag-existed: ${{ steps.resolve.outputs.tag-exists }}
+      release-existed: ${{ steps.resolve.outputs.release-exists }}
       deleted: ${{ steps.delete.outputs.deleted || 'false' }}
       previous-tag-sha: ${{ steps.resolve.outputs.sha }}
     env:
@@ -64,29 +68,37 @@ jobs:
           set -euo pipefail
 
           if [ -z "$TAG_QUERY" ]; then
-            echo "::error::Tag search text must not be empty."
+            echo "::error::Release tag search text must not be empty."
             exit 1
           fi
 
-      - name: Resolve tag
+      - name: Resolve release and tag
         id: resolve
         shell: bash
         run: |
           set -euo pipefail
 
           TAGS="$(
-            gh api --paginate "repos/$GH_REPO/tags?per_page=100" \
-              --jq '.[].name'
+            gh api --paginate "repos/$GH_REPO/tags?per_page=100" --jq '.[].name'
+          )"
+          RELEASES="$(
+            gh api --paginate "repos/$GH_REPO/releases?per_page=100" --jq '.[].tag_name'
+          )"
+          CANDIDATES="$(
+            {
+              printf '%s\n' "$TAGS"
+              printf '%s\n' "$RELEASES"
+            } | sed '/^$/d' | sort -u
           )"
 
-          EXACT="$(printf '%s\n' "$TAGS" | grep -Fx -- "$TAG_QUERY" || true)"
+          EXACT="$(printf '%s\n' "$CANDIDATES" | grep -Fx -- "$TAG_QUERY" || true)"
 
           if [ -n "$EXACT" ]; then
             RESOLVED_TAG="$EXACT"
             MATCH_COUNT=1
           else
             MATCHES="$(
-              printf '%s\n' "$TAGS" |
+              printf '%s\n' "$CANDIDATES" |
                 awk -v query="$TAG_QUERY" '
                   BEGIN { q = tolower(query) }
                   index(tolower($0), q) > 0
@@ -97,55 +109,89 @@ jobs:
             if [ "$MATCH_COUNT" -eq 1 ]; then
               RESOLVED_TAG="$MATCHES"
             elif [ "$MATCH_COUNT" -eq 0 ]; then
-              echo "exists=false" >> "$GITHUB_OUTPUT"
               echo "tag=" >> "$GITHUB_OUTPUT"
+              echo "tag-exists=false" >> "$GITHUB_OUTPUT"
+              echo "release-exists=false" >> "$GITHUB_OUTPUT"
+              echo "release-id=" >> "$GITHUB_OUTPUT"
+              echo "release-assets=0" >> "$GITHUB_OUTPUT"
               echo "sha=" >> "$GITHUB_OUTPUT"
               echo "match-count=0" >> "$GITHUB_OUTPUT"
-              echo "No tag matched: $TAG_QUERY"
+              echo "Nothing matched: $TAG_QUERY"
               exit 0
             else
               {
-                echo "## Ambiguous tag search"
+                echo "## Ambiguous release search"
                 echo
                 printf 'Search: `%s`\n\n' "$TAG_QUERY"
-                echo "Matching tags:"
+                echo "Matching release tags:"
                 echo
                 printf '%s\n' "$MATCHES" | sed 's/^/- `/' | sed 's/$/`/'
               } >> "$GITHUB_STEP_SUMMARY"
 
-              echo "::error::Tag search matched $MATCH_COUNT tags. Use a more specific value."
+              echo "::error::Release search matched $MATCH_COUNT tags. Use a more specific value."
               exit 1
             fi
           fi
 
+          TAG_EXISTS=false
+          TAG_SHA=""
           ENCODED_TAG="$(jq -rn --arg value "$RESOLVED_TAG" '$value | @uri')"
-          REF="$(gh api "repos/$GH_REPO/git/ref/tags/$ENCODED_TAG")"
+          if REF="$(gh api "repos/$GH_REPO/git/ref/tags/$ENCODED_TAG" 2>/dev/null)"; then
+            TAG_EXISTS=true
+            TAG_SHA="$(jq -r '.object.sha' <<< "$REF")"
+          fi
 
-          echo "exists=true" >> "$GITHUB_OUTPUT"
-          echo "tag=$RESOLVED_TAG" >> "$GITHUB_OUTPUT"
-          echo "sha=$(jq -r '.object.sha' <<< "$REF")" >> "$GITHUB_OUTPUT"
-          echo "match-count=$MATCH_COUNT" >> "$GITHUB_OUTPUT"
+          RELEASE="$(
+            gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100" |
+              jq -c --arg tag "$RESOLVED_TAG" '
+                [.[][] | select(.tag_name == $tag)] | first // empty
+              '
+          )"
 
-      - name: Delete tag
+          RELEASE_EXISTS=false
+          RELEASE_ID=""
+          RELEASE_ASSETS=0
+          if [ -n "$RELEASE" ]; then
+            RELEASE_EXISTS=true
+            RELEASE_ID="$(jq -r '.id' <<< "$RELEASE")"
+            RELEASE_ASSETS="$(jq -r '.assets | length' <<< "$RELEASE")"
+          fi
+
+          {
+            echo "tag=$RESOLVED_TAG"
+            echo "tag-exists=$TAG_EXISTS"
+            echo "release-exists=$RELEASE_EXISTS"
+            echo "release-id=$RELEASE_ID"
+            echo "release-assets=$RELEASE_ASSETS"
+            echo "sha=$TAG_SHA"
+            echo "match-count=$MATCH_COUNT"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Delete release and tag
         id: delete
-        if: ${{ !inputs.dry-run && steps.resolve.outputs.exists == 'true' }}
+        if: ${{ !inputs.dry-run && steps.resolve.outputs.tag != '' }}
         env:
           RESOLVED_TAG: ${{ steps.resolve.outputs.tag }}
+          RELEASE_EXISTS: ${{ steps.resolve.outputs.release-exists }}
+          TAG_EXISTS: ${{ steps.resolve.outputs.tag-exists }}
         shell: bash
         run: |
           set -euo pipefail
 
-          ENCODED_TAG="$(jq -rn --arg value "$RESOLVED_TAG" '$value | @uri')"
-
-          gh api \
-            --method DELETE \
-            "repos/$GH_REPO/git/refs/tags/$ENCODED_TAG"
+          if [ "$RELEASE_EXISTS" = "true" ]; then
+            gh release delete "$RESOLVED_TAG"               --cleanup-tag               --yes               --repo "$GH_REPO"
+          elif [ "$TAG_EXISTS" = "true" ]; then
+            ENCODED_TAG="$(jq -rn --arg value "$RESOLVED_TAG" '$value | @uri')"
+            gh api               --method DELETE               "repos/$GH_REPO/git/refs/tags/$ENCODED_TAG"
+          else
+            echo "No GitHub Release or Git tag exists for $RESOLVED_TAG."
+          fi
 
           echo "deleted=true" >> "$GITHUB_OUTPUT"
 
-      - name: Verify tag was deleted
-        id: verify-deleted
-        if: ${{ !inputs.dry-run && steps.resolve.outputs.exists == 'true' }}
+      - name: Verify cleanup
+        id: verify
+        if: ${{ !inputs.dry-run && steps.resolve.outputs.tag != '' }}
         env:
           RESOLVED_TAG: ${{ steps.resolve.outputs.tag }}
         shell: bash
@@ -156,7 +202,13 @@ jobs:
 
           if gh api "repos/$GH_REPO/git/ref/tags/$ENCODED_TAG" >/dev/null 2>&1; then
             echo "deleted=false" >> "$GITHUB_OUTPUT"
-            echo "::error::Tag still exists after deletion: $RESOLVED_TAG"
+            echo "::error::Git tag still exists after cleanup: $RESOLVED_TAG"
+            exit 1
+          fi
+
+          if gh release view "$RESOLVED_TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
+            echo "deleted=false" >> "$GITHUB_OUTPUT"
+            echo "::error::GitHub Release still exists after cleanup: $RESOLVED_TAG"
             exit 1
           fi
 
@@ -167,26 +219,28 @@ jobs:
         shell: bash
         run: |
           {
-            echo "# Delete release tag"
+            echo "# Delete release and tag"
             echo
             echo "| Setting | Value |"
             echo "| --- | --- |"
             printf '| Repository | `%s` |\n' "$GH_REPO"
             printf '| Dry run | **%s** |\n' "$DRY_RUN"
-            printf '| Tag search | `%s` |\n' "$TAG_QUERY"
+            printf '| Search | `%s` |\n' "$TAG_QUERY"
             printf '| Resolved tag | `%s` |\n' "${{ steps.resolve.outputs.tag || 'none' }}"
             printf '| Match count | `%s` |\n' "${{ steps.resolve.outputs.match-count || '0' }}"
+            printf '| Git tag existed | **%s** |\n' "${{ steps.resolve.outputs.tag-exists || 'false' }}"
             printf '| Previous tag SHA | `%s` |\n' "${{ steps.resolve.outputs.sha || 'none' }}"
-            echo "| Tag existed | **${{ steps.resolve.outputs.exists || 'false' }}** |"
+            printf '| GitHub Release existed | **%s** |\n' "${{ steps.resolve.outputs.release-exists || 'false' }}"
+            printf '| GitHub Release ID | `%s` |\n' "${{ steps.resolve.outputs.release-id || 'none' }}"
+            printf '| Attached release assets | `%s` |\n' "${{ steps.resolve.outputs.release-assets || '0' }}"
 
             if [ "$DRY_RUN" = "true" ]; then
-              echo "| Delete requested | **preview only** |"
-              echo "| Deletion verified | **not applicable** |"
+              echo "| Cleanup | **preview only** |"
+              echo "| Verification | **not applicable** |"
             else
-              echo "| Delete requested | **${{ steps.delete.outputs.deleted || 'not needed' }}** |"
-              echo "| Deletion verified | **${{ steps.verify-deleted.outputs.deleted || 'not needed' }}** |"
+              echo "| Cleanup requested | **${{ steps.delete.outputs.deleted || 'not needed' }}** |"
+              echo "| Cleanup verified | **${{ steps.verify.outputs.deleted || 'not needed' }}** |"
             fi
 
-            echo "| GitHub Release | **unchanged** |"
             echo "| Result | **${{ job.status }}** |"
           } >> "$GITHUB_STEP_SUMMARY"
