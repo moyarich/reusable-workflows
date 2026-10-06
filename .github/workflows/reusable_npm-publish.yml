@@ -28,7 +28,7 @@ on:
           - npm
           - all
       tag:
-        description: Distribution tag; leave empty to preview the suggested tag. Publishing requires an explicit value.
+        description: Distribution tag; leave empty to use the suggested tag.
         required: false
         default: ""
         type: string
@@ -82,7 +82,7 @@ on:
         default: github
         type: string
       tag:
-        description: npm distribution tag; leave empty to preview the suggested tag. Publishing requires an explicit value.
+        description: npm distribution tag; leave empty to use the suggested tag.
         required: false
         default: ""
         type: string
@@ -254,17 +254,17 @@ jobs:
           ' >/dev/null
 
           PACKAGE_VERSION="$(jq -r '.packages[0].version' <<< "$PLAN")"
-          RESOLVED_DIST_TAG="${{ inputs.tag }}"
+          REQUESTED_DIST_TAG="${{ inputs.tag }}"
           SUGGESTED_DIST_TAG="$(jq -r '.suggestedTag // .packages[0].suggestedTag // "latest"' <<< "$PLAN")"
+          RESOLVED_DIST_TAG="${REQUESTED_DIST_TAG:-$SUGGESTED_DIST_TAG}"
 
           if [ -n "$RESOLVED_DIST_TAG" ] && ! [[ "$RESOLVED_DIST_TAG" =~ ^[A-Za-z][A-Za-z0-9._-]*$ ]]; then
             echo "::error::Invalid npm distribution tag: $RESOLVED_DIST_TAG"
             exit 1
           fi
 
-          if [ "${{ inputs.dry-run }}" != "true" ] && [ -z "$RESOLVED_DIST_TAG" ]; then
-            echo "::error::An explicit npm distribution tag is required for publishing."
-            echo "::error::Suggested tag: $SUGGESTED_DIST_TAG"
+          if [ -z "$RESOLVED_DIST_TAG" ]; then
+            echo "::error::Unable to resolve an npm distribution tag."
             exit 1
           fi
 
