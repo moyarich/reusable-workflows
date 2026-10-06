@@ -7,6 +7,10 @@ on:
         required: true
         default: true
         type: boolean
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   publish:
     uses: moyarich/reusable-workflows/.github/workflows/reusable_codemod-publish.yml@v0
