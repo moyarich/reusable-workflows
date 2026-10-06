@@ -35,3 +35,33 @@ Standalone actions use the same release line:
 - `CHANGELOG.md` covers only user-facing workflow and action capabilities.
 
 The npm/CLI implementation is released separately as `@moyarich/workspace-tools`.
+
+
+## Workspace Tools source
+
+Reusable workflows that need Workspace Tools default to the published package:
+
+```yaml
+with:
+  workspace-tools-source: package
+  workspace-tools-version: "0.1.0"
+```
+
+The `workspace-tools` repository itself uses the current checked-out caller source instead:
+
+```yaml
+with:
+  workspace-tools-source: caller
+```
+
+In caller mode the workflow verifies that the checked-out root package is `@moyarich/workspace-tools`, builds the current checkout, and runs the CLIs from `dist/bin`. This lets Workspace Tools test and release CLI changes before that version has been published.
+
+The dependency direction remains one-way for normal consumers:
+
+```text
+consumer
+  ↓
+moyarich/reusable-workflows
+  ↓
+@moyarich/workspace-tools
+```
