@@ -20,16 +20,22 @@ on:
         description: npm distribution tag
         required: true
         type: string
+      dry-run:
+        description: Preview without publishing
+        required: true
+        default: true
+        type: boolean
 permissions:
   contents: write
   packages: write
 jobs:
   publish:
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_npm-publish.yml@v0.1.0
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_npm-publish.yml@v0
     with:
       package-directory: ${{ inputs.package-directory }}
-      target-branch: main
+      target-branch: ${{ github.ref_name }}
       registry: ${{ inputs.registry }}
       tag: ${{ inputs.tag }}
+      dry-run: ${{ inputs.dry-run }}
       node-version: "24"
     secrets: inherit
