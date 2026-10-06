@@ -136,8 +136,8 @@ jobs:
       - name: Checkout version-matched reusable workflow actions
         uses: actions/checkout@v7
         with:
-          repository: moyarich/reusable-workflows
-          ref: ${{ github.job_workflow_sha }}
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
           path: .github/reusable-workflows-runtime
           persist-credentials: false
           sparse-checkout: actions/release-draft-sync
