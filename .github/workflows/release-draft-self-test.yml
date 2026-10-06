@@ -1,0 +1,30 @@
+name: Release Drafter Self-Test
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/reusable_release-drafter.yml"
+      - ".github/workflows/release-draft-self-test.yml"
+      - "actions/release-draft-sync/**"
+      - ".github/release-drafter-template.yml"
+      - "CHANGELOG.md"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  release-drafter:
+    name: Reusable release drafter
+    permissions:
+      contents: write
+      pull-requests: read
+    uses: ./.github/workflows/reusable_release-drafter.yml
+    with:
+      target-branch: ${{ github.event.pull_request.base.ref || github.ref_name }}
+      initial-version: "0.1.0"
+      tag-prefix: "self-test-v"
+      release-name: "Release Drafter Self-Test v{{VERSION}}"
+      changelog-path: CHANGELOG.md
+      template-path: .github/release-drafter-template.yml
+      target-key: release-drafter-self-test
+      dry-run: true
