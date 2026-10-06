@@ -133,6 +133,16 @@ jobs:
         with:
           node-version: "24"
 
+      - name: Checkout version-matched reusable workflow actions
+        uses: actions/checkout@v7
+        with:
+          repository: moyarich/reusable-workflows
+          ref: ${{ github.job_workflow_sha }}
+          path: .github/reusable-workflows-runtime
+          persist-credentials: false
+          sparse-checkout: actions/release-draft-sync
+          sparse-checkout-cone-mode: false
+
       - name: Load version-matched draft template
         id: assets
         env:
@@ -403,7 +413,7 @@ jobs:
 
       - name: Reconcile persistent draft body
         id: reconcile
-        uses: moyarich/reusable-workflows/actions/release-draft-sync@v0
+        uses: ./.github/reusable-workflows-runtime/actions/release-draft-sync
         with:
           existing-body-file: ${{ steps.history.outputs.existing-body-file }}
           generated-body-file: ${{ steps.reconcile-inputs.outputs.generated-file }}
