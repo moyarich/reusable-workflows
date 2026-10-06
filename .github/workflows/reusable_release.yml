@@ -250,8 +250,23 @@ jobs:
 
           if [ -n "$EXISTING" ]; then
             RELEASE_ID="$(jq -r '.id' <<< "$EXISTING")"
-            RELEASE_URL="$(jq -r '.html_url' <<< "$EXISTING")"
-            STATUS="reused"
+
+            gh api \
+              --method PATCH \
+              "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" \
+              -f tag_name="$RELEASE_TAG" \
+              -f name="$RELEASE_NAME" \
+              -f body="$(cat "$NOTES_FILE")" \
+              -F draft=${{ inputs.draft }} >/dev/null
+
+            UPDATED="$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID")"
+            RELEASE_URL="$(jq -r '.html_url' <<< "$UPDATED")"
+
+            if [ "$(jq -r '.draft' <<< "$UPDATED")" = "true" ]; then
+              STATUS="draft"
+            else
+              STATUS="published"
+            fi
           else
             ARGS=(
               "$RELEASE_TAG"
@@ -268,7 +283,12 @@ jobs:
             CREATED="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG")"
             RELEASE_ID="$(jq -r '.id' <<< "$CREATED")"
             RELEASE_URL="$(jq -r '.html_url' <<< "$CREATED")"
-            STATUS="created"
+
+            if [ "$(jq -r '.draft' <<< "$CREATED")" = "true" ]; then
+              STATUS="draft"
+            else
+              STATUS="published"
+            fi
           fi
 
           {
