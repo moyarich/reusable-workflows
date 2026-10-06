@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact semantic version to release
+        required: true
+        type: string
+      dry-run:
+        description: Preview without mutating tags or GitHub Releases
+        required: true
+        default: true
+        type: boolean
+      update-major-tag:
+        description: Move the compatible major alias
+        required: true
+        default: true
+        type: boolean
+
+permissions: {}
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      major-tag: ${{ steps.version.outputs.major-tag }}
+    steps:
+      - id: version
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::version must be semantic versioning without a leading v"
+            exit 1
+          fi
+          echo "major-tag=v${VERSION%%.*}" >> "$GITHUB_OUTPUT"
+
+  release:
+    needs: resolve
+    permissions:
+      contents: write
+    uses: ./.github/workflows/reusable_release.yml
+    with:
+      version: ${{ inputs.version }}
+      release-tag: ${{ format('v{0}', inputs.version) }}
+      release-name: ${{ format('Reusable Workflows v{0}', inputs.version) }}
+      changelog-file: CHANGELOG.md
+      target-ref: ${{ github.ref_name }}
+      dry-run: ${{ inputs.dry-run }}
+      create-tag: true
+      major-tag: ${{ needs.resolve.outputs.major-tag }}
+      update-major-tag: ${{ inputs.update-major-tag }}
+      draft: true

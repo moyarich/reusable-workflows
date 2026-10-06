@@ -1,0 +1,44 @@
+name: Issue Dependency Tree
+description: Render native GitHub issue blocking relationships as a cycle-aware dependency tree.
+
+inputs:
+  repo:
+    description: Optional owner/repository override. Defaults to the current repository.
+    required: false
+    default: ""
+
+outputs:
+  tree:
+    value: ${{ steps.render.outputs.tree }}
+  graph-json:
+    value: ${{ steps.render.outputs.graph-json }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v7
+      with:
+        node-version: "24"
+        registry-url: https://npm.pkg.github.com
+        scope: "@moyarich"
+    - name: Install workspace tools
+      shell: bash
+      env:
+        NODE_AUTH_TOKEN: ${{ github.token }}
+      run: npm install --global @moyarich/workspace-tools@0.1.0 --registry=https://npm.pkg.github.com
+    - id: render
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        args=()
+        [ -n "${{ inputs.repo }}" ] && args+=(--repo "${{ inputs.repo }}")
+        tree="$(issue-dependency-tree "${args[@]}")"
+        graph="$(issue-dependency-tree "${args[@]}" --json)"
+        {
+          echo "tree<<__TREE__"
+          printf '%s\n' "$tree"
+          echo "__TREE__"
+          echo "graph-json=$graph"
+        } >> "$GITHUB_OUTPUT"
