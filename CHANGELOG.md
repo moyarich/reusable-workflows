@@ -30,6 +30,7 @@ User-facing changes to the reusable workflows and standalone GitHub Actions are 
 - Seed an initial release draft from changelog content when no prior release exists.
 - Surface release-draft content, changelog sections, release identity, release state, and dry-run results in GitHub Actions summaries.
 - Create or promote matching GitHub Releases from prepared release information.
+- Promote published stable release tags to moving major compatibility aliases such as `v1.2.3` → `v1` through a reusable workflow.
 - Delete release tags and matching GitHub Releases through reusable release cleanup automation.
 
 ### Package publishing
