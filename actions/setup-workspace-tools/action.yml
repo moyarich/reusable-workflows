@@ -1,30 +1,99 @@
 name: Setup Workspace Tools
-description: Install @moyarich/workspace-tools and expose its CLI directory.
+description: Resolve @moyarich/workspace-tools from the published package or the current caller checkout.
 
 inputs:
+  source:
+    description: Tooling source. Use package for normal consumers or caller when developing workspace-tools itself.
+    required: false
+    default: package
   version:
-    description: Version of @moyarich/workspace-tools to install.
+    description: Published @moyarich/workspace-tools version used when source is package.
     required: false
     default: "0.1.0"
+  build-command:
+    description: Build command used when source is caller.
+    required: false
+    default: npm run build
 
 outputs:
   bin-dir:
-    description: Directory containing the installed workspace-tools executables.
+    description: Directory containing workspace-tools executables.
     value: ${{ steps.resolve.outputs.bin-dir }}
+  source:
+    description: Resolved tooling source.
+    value: ${{ steps.resolve.outputs.source }}
 
 runs:
   using: composite
   steps:
-    - uses: actions/setup-node@v7
+    - name: Validate source
+      shell: bash
+      env:
+        SOURCE: ${{ inputs.source }}
+      run: |
+        set -euo pipefail
+        case "$SOURCE" in
+          package|caller) ;;
+          *)
+            echo "::error::source must be 'package' or 'caller'"
+            exit 1
+            ;;
+        esac
+
+    - name: Setup Node.js for published package
+      if: ${{ inputs.source == 'package' }}
+      uses: actions/setup-node@v7
       with:
         node-version: "24"
         registry-url: https://npm.pkg.github.com
         scope: "@moyarich"
-    - name: Install workspace tools
+
+    - name: Install published workspace tools
+      if: ${{ inputs.source == 'package' }}
       shell: bash
       env:
         NODE_AUTH_TOKEN: ${{ github.token }}
-      run: npm install --global "@moyarich/workspace-tools@${{ inputs.version }}" --registry=https://npm.pkg.github.com
-    - id: resolve
+        VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        npm install --global "@moyarich/workspace-tools@$VERSION" --registry=https://npm.pkg.github.com
+
+    - name: Build workspace tools from caller checkout
+      if: ${{ inputs.source == 'caller' }}
       shell: bash
-      run: echo "bin-dir=$(dirname "$(command -v workspace-release)")" >> "$GITHUB_OUTPUT"
+      env:
+        BUILD_COMMAND: ${{ inputs.build-command }}
+      run: |
+        set -euo pipefail
+
+        PACKAGE_NAME="$(node -p "require('./package.json').name")"
+        if [ "$PACKAGE_NAME" != "@moyarich/workspace-tools" ]; then
+          echo "::error::source=caller is only supported when the checked-out caller package is @moyarich/workspace-tools; found $PACKAGE_NAME"
+          exit 1
+        fi
+
+        bash -lc "$BUILD_COMMAND"
+
+        if [ ! -d "$GITHUB_WORKSPACE/dist/bin" ]; then
+          echo "::error::Caller build did not produce dist/bin."
+          exit 1
+        fi
+
+    - id: resolve
+      name: Resolve CLI directory
+      shell: bash
+      env:
+        SOURCE: ${{ inputs.source }}
+      run: |
+        set -euo pipefail
+
+        if [ "$SOURCE" = "caller" ]; then
+          BIN_DIR="$GITHUB_WORKSPACE/dist/bin"
+        else
+          BIN_DIR="$(dirname "$(command -v workspace-release)")"
+        fi
+
+        {
+          echo "bin-dir=$BIN_DIR"
+          echo "source=$SOURCE"
+        } >> "$GITHUB_OUTPUT"
