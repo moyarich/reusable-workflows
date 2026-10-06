@@ -65,3 +65,15 @@ moyarich/reusable-workflows
   ↓
 @moyarich/workspace-tools
 ```
+
+
+## Playground
+
+The GitHub Pages site is built from `apps/playground`. It renders the authoritative repository-level `docs/` and `examples/` content directly, including the real caller YAML and reusable workflow source used by each example.
+
+Run it locally with:
+
+```sh
+npm install
+npm run dev
+```
