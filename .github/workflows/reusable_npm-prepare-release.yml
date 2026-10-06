@@ -78,6 +78,16 @@ on:
         required: false
         default: ""
         type: string
+      workspace-tools-source:
+        description: Workspace Tools source — published package or current caller checkout
+        required: false
+        default: package
+        type: string
+      workspace-tools-version:
+        description: Published @moyarich/workspace-tools version when source is package
+        required: false
+        default: "0.1.0"
+        type: string
       node-version:
         required: false
         default: "24"
