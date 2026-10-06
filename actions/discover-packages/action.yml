@@ -38,7 +38,16 @@ outputs:
 runs:
   using: composite
   steps:
-    - uses: moyarich/reusable-workflows/actions/setup-workspace-tools@v0
+    - uses: actions/setup-node@v7
+      with:
+        node-version: "24"
+        registry-url: https://npm.pkg.github.com
+        scope: "@moyarich"
+    - name: Install workspace tools
+      shell: bash
+      env:
+        NODE_AUTH_TOKEN: ${{ github.token }}
+      run: npm install --global @moyarich/workspace-tools@0.1.0 --registry=https://npm.pkg.github.com
     - id: discover
       shell: bash
       run: |
