@@ -11,6 +11,7 @@ User-facing changes to the reusable workflows and standalone GitHub Actions are 
 - Discover root, workspace, and direct-child packages and expose normalized package and matrix outputs.
 - Check or repair Prettier formatting and root `package-lock.json` drift.
 - Preview and create package releases, publish npm packages, maintain release drafts, and delete release tags.
+- Surface resolved release-draft content, changelog sections, final GitHub Release content, release state, and dry-run results directly in GitHub Actions summaries.
 - Build and deploy static sites to GitHub Pages.
 - Generate README screenshots through reusable repository automation.
 - Publish VS Code extensions and Codemod Registry packages.

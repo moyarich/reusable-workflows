@@ -85,6 +85,9 @@ on:
       draft-action:
         description: previewed, created, or updated
         value: ${{ jobs.draft.outputs.draft-action }}
+      release-body:
+        description: Resolved persistent GitHub Release draft body
+        value: ${{ jobs.draft.outputs.release-body }}
 
 permissions: {}
 
@@ -103,6 +106,7 @@ jobs:
       tag: ${{ steps.identity.outputs.tag }}
       release-url: ${{ steps.write.outputs.url }}
       draft-action: ${{ steps.write.outputs.action }}
+      release-body: ${{ steps.result.outputs.body }}
 
     env:
       GH_TOKEN: ${{ github.token }}
@@ -424,6 +428,26 @@ jobs:
           seed-sha: ${{ steps.reconcile-inputs.outputs.seed-sha }}
           target-path: ${{ inputs.package-directory }}
 
+      - name: Export reconciled draft result
+        id: result
+        env:
+          BODY_FILE: ${{ steps.reconcile.outputs.body-file }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -z "$BODY_FILE" ] || [ ! -f "$BODY_FILE" ]; then
+            echo "::error::Reconciled release draft body was not produced."
+            exit 1
+          fi
+
+          DELIMITER="RELEASE_BODY_$(date +%s%N)"
+          {
+            echo "body<<$DELIMITER"
+            cat "$BODY_FILE"
+            echo "$DELIMITER"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Create or update persistent draft
         id: write
         env:
@@ -463,7 +487,7 @@ jobs:
       - name: Persistent draft summary
         if: always()
         env:
-          BODY_FILE: ${{ steps.reconcile.outputs.file }}
+          BODY_FILE: ${{ steps.reconcile.outputs.body-file }}
           SUMMARY_TARGET: ${{ steps.history.outputs.target-key || 'unresolved' }}
           SUMMARY_VERSION: ${{ steps.identity.outputs.version || 'unresolved' }}
           SUMMARY_TAG: ${{ steps.identity.outputs.tag || 'unresolved' }}
