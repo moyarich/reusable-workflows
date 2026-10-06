@@ -226,6 +226,7 @@ jobs:
         id: plan
         env:
           PACKAGE_SELECTOR: ${{ inputs.package-directory }}
+          NODE_AUTH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           PLAN_ARGS=(
@@ -903,10 +904,10 @@ jobs:
               if [ -n "$CHANGELOG_SECTION" ]; then
                 printf '%s\n' "$CHANGELOG_SECTION"
               else
-                echo "> No matching `CHANGELOG.md` section found for version `$CHANGELOG_VERSION`."
+                printf '> No matching `CHANGELOG.md` section found for version `%s`.\n' "$CHANGELOG_VERSION"
               fi
             else
-              echo "> `CHANGELOG.md` is unavailable or the package version was unresolved."
+              echo '> `CHANGELOG.md` is unavailable or the package version was unresolved.'
             fi
 
             echo
