@@ -505,6 +505,30 @@ jobs:
             echo "| Dry run | **${{ steps.execution.outputs.dry-run }}** |"
             echo
 
+            echo "## Execution plan"
+            echo
+            VERSION_COMMAND="$(jq -r '
+              if .versionCommand == null then
+                "none (package.json version is used as-is)"
+              else
+                ([.versionCommand.command] + .versionCommand.args) | join(" ")
+              end
+            ' <<< "$RELEASE_JSON")"
+            CHANGELOG_SOURCE="$(jq -r '.changelogSource // .changelog.source // "unknown"' <<< "$RELEASE_JSON")"
+            printf '| Version command | `%s` |\n' "$VERSION_COMMAND"
+            printf '| Changelog source | `%s` |\n' "$CHANGELOG_SOURCE"
+            echo
+            echo "Files that would change:"
+            echo
+            jq -r '
+              if ((.files // []) | length) == 0 then
+                "- none"
+              else
+                (.files[] | "- `" + . + "`")
+              end
+            ' <<< "$RELEASE_JSON"
+            echo
+
             MANIFEST_PATH="package.json"
             if [ "$PACKAGE_DIRECTORY" != "." ]; then
               MANIFEST_PATH="$PACKAGE_DIRECTORY/package.json"
