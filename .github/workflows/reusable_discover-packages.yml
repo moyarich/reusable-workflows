@@ -38,6 +38,19 @@ on:
         required: true
         default: false
         type: boolean
+      workspace-tools-source:
+        description: Workspace Tools source — published package or current caller checkout
+        required: true
+        default: package
+        type: choice
+        options:
+          - package
+          - caller
+      workspace-tools-version:
+        description: Published @moyarich/workspace-tools version when source is package
+        required: true
+        default: "0.1.0"
+        type: string
 
   workflow_call:
     inputs:
@@ -69,6 +82,16 @@ on:
         required: false
         default: false
         type: boolean
+      workspace-tools-source:
+        description: Workspace Tools source — published package or current caller checkout
+        required: false
+        default: package
+        type: string
+      workspace-tools-version:
+        description: Published @moyarich/workspace-tools version when source is package
+        required: false
+        default: "0.1.0"
+        type: string
     outputs:
       packages:
         description: Compact JSON array of discovered packages
@@ -102,14 +125,66 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          registry-url: https://npm.pkg.github.com
+          scope: "@moyarich"
+
+      - name: Resolve workspace tools CLI
+        id: workspace-tools
+        shell: bash
+        env:
+          SOURCE: ${{ inputs.workspace-tools-source || 'package' }}
+          VERSION: ${{ inputs.workspace-tools-version || '0.1.0' }}
+          NODE_AUTH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          case "$SOURCE" in
+            caller)
+              PACKAGE_NAME="$(node -p "require('./package.json').name")"
+              if [ "$PACKAGE_NAME" != "@moyarich/workspace-tools" ]; then
+                echo "::error::workspace-tools-source=caller requires @moyarich/workspace-tools; found $PACKAGE_NAME"
+                exit 1
+              fi
+              npm ci --ignore-scripts
+              npm run build
+              BIN_DIR="$GITHUB_WORKSPACE/dist/bin"
+              ;;
+            package)
+              npm install --global "@moyarich/workspace-tools@$VERSION" --registry=https://npm.pkg.github.com
+              BIN_DIR="$(dirname "$(command -v discover-packages)")"
+              ;;
+            *)
+              echo "::error::workspace-tools-source must be 'package' or 'caller'."
+              exit 1
+              ;;
+          esac
+          echo "bin-dir=$BIN_DIR" >> "$GITHUB_OUTPUT"
+
       - id: packages
         name: Discover packages
-        uses: moyarich/reusable-workflows/actions/discover-packages@v0
-        with:
-          packages-directory: ${{ inputs.packages-directory }}
-          use-workspaces: ${{ inputs.use-workspaces }}
-          include-root-package: ${{ inputs.include-root-package }}
-          include-private: ${{ inputs.include-private }}
-          require-publish-config: ${{ inputs.require-publish-config }}
-          require-test-script: ${{ inputs.require-test-script }}
-          require-build-script: ${{ inputs.require-build-script }}
+        shell: bash
+        env:
+          BIN_DIR: ${{ steps.workspace-tools.outputs.bin-dir }}
+        run: |
+          set -euo pipefail
+          args=( "${{ inputs.packages-directory }}" --json )
+          [ "${{ inputs.use-workspaces }}" = "true" ] && args+=(--workspaces)
+          [ "${{ inputs.include-root-package }}" = "true" ] && args+=(--include-root-package)
+          [ "${{ inputs.include-private }}" = "true" ] && args+=(--include-private)
+          [ "${{ inputs.require-publish-config }}" = "true" ] && args+=(--require-publish-config)
+          [ "${{ inputs.require-test-script }}" = "true" ] && args+=(--require-test-script)
+          [ "${{ inputs.require-build-script }}" = "true" ] && args+=(--require-build-script)
+
+          packages="$(node "$BIN_DIR/discover-packages.mjs" "${args[@]}")"
+          matrix="$(jq -cn --argjson packages "$packages" '{include:$packages}')"
+          count="$(jq 'length' <<<"$packages")"
+
+          {
+            echo "packages=$packages"
+            echo "matrix=$matrix"
+            echo "count=$count"
+            if [ "$count" -gt 0 ]; then echo "has-packages=true"; else echo "has-packages=false"; fi
+          } >> "$GITHUB_OUTPUT"
