@@ -1,0 +1,61 @@
+name: Discover Packages
+description: Discover repository packages and emit normalized package and matrix metadata.
+
+inputs:
+  packages-directory:
+    description: Directory containing direct-child packages when workspace discovery is disabled.
+    required: false
+    default: packages
+  use-workspaces:
+    required: false
+    default: "false"
+  include-root-package:
+    required: false
+    default: "false"
+  include-private:
+    required: false
+    default: "false"
+  require-publish-config:
+    required: false
+    default: "false"
+  require-test-script:
+    required: false
+    default: "false"
+  require-build-script:
+    required: false
+    default: "false"
+
+outputs:
+  packages:
+    value: ${{ steps.discover.outputs.packages }}
+  matrix:
+    value: ${{ steps.discover.outputs.matrix }}
+  has-packages:
+    value: ${{ steps.discover.outputs.has-packages }}
+  count:
+    value: ${{ steps.discover.outputs.count }}
+
+runs:
+  using: composite
+  steps:
+    - uses: moyarich/reusable-workflows/actions/setup-workspace-tools@v0
+    - id: discover
+      shell: bash
+      run: |
+        set -euo pipefail
+        args=( "${{ inputs.packages-directory }}" --json )
+        [ "${{ inputs.use-workspaces }}" = "true" ] && args+=(--workspaces)
+        [ "${{ inputs.include-root-package }}" = "true" ] && args+=(--include-root-package)
+        [ "${{ inputs.include-private }}" = "true" ] && args+=(--include-private)
+        [ "${{ inputs.require-publish-config }}" = "true" ] && args+=(--require-publish-config)
+        [ "${{ inputs.require-test-script }}" = "true" ] && args+=(--require-test-script)
+        [ "${{ inputs.require-build-script }}" = "true" ] && args+=(--require-build-script)
+        packages="$(discover-packages "${args[@]}")"
+        matrix="$(jq -cn --argjson packages "$packages" '{include:$packages}')"
+        count="$(jq 'length' <<<"$packages")"
+        {
+          echo "packages=$packages"
+          echo "matrix=$matrix"
+          echo "count=$count"
+          if [ "$count" -gt 0 ]; then echo "has-packages=true"; else echo "has-packages=false"; fi
+        } >> "$GITHUB_OUTPUT"

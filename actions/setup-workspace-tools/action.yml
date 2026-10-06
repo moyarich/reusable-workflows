@@ -1,0 +1,30 @@
+name: Setup Workspace Tools
+description: Install @moyarich/workspace-tools and expose its CLI directory.
+
+inputs:
+  version:
+    description: Version of @moyarich/workspace-tools to install.
+    required: false
+    default: "0.1.0"
+
+outputs:
+  bin-dir:
+    description: Directory containing the installed workspace-tools executables.
+    value: ${{ steps.resolve.outputs.bin-dir }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v7
+      with:
+        node-version: "24"
+        registry-url: https://npm.pkg.github.com
+        scope: "@moyarich"
+    - name: Install workspace tools
+      shell: bash
+      env:
+        NODE_AUTH_TOKEN: ${{ github.token }}
+      run: npm install --global "@moyarich/workspace-tools@${{ inputs.version }}" --registry=https://npm.pkg.github.com
+    - id: resolve
+      shell: bash
+      run: echo "bin-dir=$(dirname "$(command -v workspace-release)")" >> "$GITHUB_OUTPUT"

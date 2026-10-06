@@ -1,0 +1,35 @@
+name: Issue Dependency Tree
+description: Render native GitHub issue blocking relationships as a cycle-aware dependency tree.
+
+inputs:
+  repo:
+    description: Optional owner/repository override. Defaults to the current repository.
+    required: false
+    default: ""
+
+outputs:
+  tree:
+    value: ${{ steps.render.outputs.tree }}
+  graph-json:
+    value: ${{ steps.render.outputs.graph-json }}
+
+runs:
+  using: composite
+  steps:
+    - uses: moyarich/reusable-workflows/actions/setup-workspace-tools@v0
+    - id: render
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        args=()
+        [ -n "${{ inputs.repo }}" ] && args+=(--repo "${{ inputs.repo }}")
+        tree="$(issue-dependency-tree "${args[@]}")"
+        graph="$(issue-dependency-tree "${args[@]}" --json)"
+        {
+          echo "tree<<__TREE__"
+          printf '%s\n' "$tree"
+          echo "__TREE__"
+          echo "graph-json=$graph"
+        } >> "$GITHUB_OUTPUT"
