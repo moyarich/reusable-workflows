@@ -153,6 +153,7 @@ jobs:
     name: "job: Release"
     permissions:
       contents: write
+      packages: read
     runs-on: ubuntu-latest
     outputs:
       package-name: ${{ steps.release.outputs.package-name || steps.preview.outputs.package-name }}
@@ -167,6 +168,7 @@ jobs:
 
     env:
       GH_TOKEN: ${{ github.token }}
+      NODE_AUTH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
       TARGET_BRANCH: ${{ github.event_name == 'workflow_dispatch' && github.ref_name || inputs.target-branch }}
 
