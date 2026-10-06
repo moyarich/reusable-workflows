@@ -473,7 +473,7 @@ jobs:
         shell: bash
         run: |
           {
-            echo "## Persistent release draft"
+            echo "# GitHub Release Draft"
             echo
             echo "| Setting | Value |"
             echo "| --- | --- |"
@@ -482,13 +482,20 @@ jobs:
             printf '| Tag | `%s` |\n' "$SUMMARY_TAG"
             printf '| Seed SHA | `%s` |\n' "$SUMMARY_SEED_SHA"
             printf '| Result | **%s** |\n' "$SUMMARY_RESULT"
+            if [ -n "${{ steps.write.outputs.url }}" ]; then
+              printf '| Draft | [Open draft](%s) |\n' "${{ steps.write.outputs.url }}"
+            elif [ "$SUMMARY_DRY_RUN" = "true" ]; then
+              echo "| Draft | _preview only; no release mutated_ |"
+            else
+              echo "| Draft | unavailable |"
+            fi
             printf '| Dry run | **%s** |\n' "$SUMMARY_DRY_RUN"
             echo
             echo "> Existing draft text is authoritative."
             echo "> Release Drafter supplies newly merged PR entries; only unseen PR markers are appended."
             echo
             if [ -n "$BODY_FILE" ] && [ -f "$BODY_FILE" ]; then
-              echo "### Resulting release body"
+              echo "## Draft content"
               echo
               cat "$BODY_FILE"
             fi

@@ -118,7 +118,7 @@ jobs:
             exit 1
           fi
 
-      - name: Resolve release notes
+      - name: Resolve release content
         id: notes
         env:
           VERSION: ${{ inputs.version }}
@@ -128,29 +128,46 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [ -n "$RELEASE_NOTES" ]; then
-            NOTES="$RELEASE_NOTES"
-          else
-            NOTES="$(
-            awk -v version="$VERSION" '
-              $0 ~ "^## \\[" version "\\]" || $0 ~ "^## " version "([[:space:]]|$)" { in_section=1 }
-              in_section && /^## / &&
-                $0 !~ "^## \\[" version "\\]" &&
-                $0 !~ "^## " version "([[:space:]]|$)" { exit }
-              in_section { print }
-            ' "$CHANGELOG_FILE"
+          CHANGELOG_SECTION=""
+          if [ -f "$CHANGELOG_FILE" ]; then
+            CHANGELOG_SECTION="$(
+              awk -v version="$VERSION" '
+                $0 ~ "^## \\[" version "\\]" || $0 ~ "^## " version "([[:space:]]|$)" { in_section=1 }
+                in_section && /^## / &&
+                  $0 !~ "^## \\[" version "\\]" &&
+                  $0 !~ "^## " version "([[:space:]]|$)" { exit }
+                in_section { print }
+              ' "$CHANGELOG_FILE"
             )"
           fi
 
-          if [ -z "$NOTES" ]; then
-            echo "::error::$CHANGELOG_FILE has no release section for $VERSION."
+          CHANGELOG_SECTION_FILE="$RUNNER_TEMP/changelog-section.md"
+          printf '%s\n' "$CHANGELOG_SECTION" > "$CHANGELOG_SECTION_FILE"
+
+          if [ -n "$RELEASE_NOTES" ]; then
+            RELEASE_CONTENT="$RELEASE_NOTES"
+          else
+            RELEASE_CONTENT="$CHANGELOG_SECTION"
+          fi
+
+          if [ -z "$RELEASE_CONTENT" ]; then
+            echo "::error::$CHANGELOG_FILE has no release section for $VERSION and no release-notes override was supplied."
             exit 1
           fi
 
-          NOTES_FILE="$RUNNER_TEMP/release-notes.md"
-          printf '%s\n' "$NOTES" > "$NOTES_FILE"
-          echo "file=$NOTES_FILE" >> "$GITHUB_OUTPUT"
+          RELEASE_CONTENT_FILE="$RUNNER_TEMP/release-content.md"
+          printf '%s\n' "$RELEASE_CONTENT" > "$RELEASE_CONTENT_FILE"
 
+          {
+            echo "file=$RELEASE_CONTENT_FILE"
+            echo "release-content-file=$RELEASE_CONTENT_FILE"
+            echo "changelog-section-file=$CHANGELOG_SECTION_FILE"
+            if [ -n "$RELEASE_NOTES" ]; then
+              echo "source=override"
+            else
+              echo "source=changelog"
+            fi
+          } >> "$GITHUB_OUTPUT"
       - name: Inspect release state
         id: state
         env:
@@ -185,31 +202,6 @@ jobs:
               echo "release-exists=false"
             fi
           } >> "$GITHUB_OUTPUT"
-
-      - name: Release preview
-        if: ${{ inputs.dry-run }}
-        env:
-          NOTES_FILE: ${{ steps.notes.outputs.file }}
-        shell: bash
-        run: |
-          {
-            echo "# Release preview"
-            echo
-            echo "| Setting | Value |"
-            echo "| --- | --- |"
-            printf '| Version | `%s` |\n' "${{ inputs.version }}"
-            printf '| Immutable tag | `%s` |\n' "${{ inputs.release-tag }}"
-            printf '| Release name | `%s` |\n' "${{ inputs.release-name }}"
-            printf '| Target | `%s` |\n' "${{ steps.state.outputs.target-commit }}"
-            printf '| Create tag | **%s** |\n' "${{ inputs.create-tag }}"
-            printf '| Major alias | `%s` |\n' "${{ inputs.major-tag }}"
-            printf '| Update major alias | **%s** |\n' "${{ inputs.update-major-tag }}"
-            printf '| GitHub Release draft | **%s** |\n' "${{ inputs.draft }}"
-            echo
-            echo "## Release notes"
-            cat "$NOTES_FILE"
-            echo
-          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Create immutable tag
         if: ${{ !inputs.dry-run && inputs.create-tag && steps.state.outputs.tag-exists != 'true' }}
@@ -250,8 +242,23 @@ jobs:
 
           if [ -n "$EXISTING" ]; then
             RELEASE_ID="$(jq -r '.id' <<< "$EXISTING")"
-            RELEASE_URL="$(jq -r '.html_url' <<< "$EXISTING")"
-            STATUS="reused"
+
+            gh api \
+              --method PATCH \
+              "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" \
+              -f tag_name="$RELEASE_TAG" \
+              -f name="$RELEASE_NAME" \
+              -f body="$(cat "$NOTES_FILE")" \
+              -F draft=${{ inputs.draft }} >/dev/null
+
+            UPDATED="$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID")"
+            RELEASE_URL="$(jq -r '.html_url' <<< "$UPDATED")"
+
+            if [ "$(jq -r '.draft' <<< "$UPDATED")" = "true" ]; then
+              STATUS="draft"
+            else
+              STATUS="published"
+            fi
           else
             ARGS=(
               "$RELEASE_TAG"
@@ -268,7 +275,12 @@ jobs:
             CREATED="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG")"
             RELEASE_ID="$(jq -r '.id' <<< "$CREATED")"
             RELEASE_URL="$(jq -r '.html_url' <<< "$CREATED")"
-            STATUS="created"
+
+            if [ "$(jq -r '.draft' <<< "$CREATED")" = "true" ]; then
+              STATUS="draft"
+            else
+              STATUS="published"
+            fi
           fi
 
           {
@@ -277,11 +289,63 @@ jobs:
             echo "status=$STATUS"
           } >> "$GITHUB_OUTPUT"
 
+
+
+      - name: GitHub Release summary
+        if: ${{ always() }}
+        env:
+          CHANGELOG_SECTION_FILE: ${{ steps.notes.outputs.changelog-section-file }}
+          RELEASE_CONTENT_FILE: ${{ steps.notes.outputs.release-content-file }}
+          CONTENT_SOURCE: ${{ steps.notes.outputs.source || 'unresolved' }}
+          RELEASE_URL: ${{ steps.release.outputs.url }}
+          RELEASE_STATUS: ${{ steps.release.outputs.status }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
           {
-            echo "# Release"
+            echo "# GitHub Release"
             echo
-            printf -- '- Tag: `%s`\n' "$RELEASE_TAG"
-            printf -- '- GitHub Release: %s\n' "$RELEASE_URL"
-            printf -- '- Result: **%s**\n' "$STATUS"
+            echo "| Setting | Value |"
+            echo "| --- | --- |"
+            printf '| Version | `%s` |\n' "${{ inputs.version }}"
+            printf '| Immutable tag | `%s` |\n' "${{ inputs.release-tag }}"
+            printf '| Release name | `%s` |\n' "${{ inputs.release-name }}"
+            printf '| Target ref | `%s` |\n' "${{ inputs.target-ref }}"
+            printf '| Dry run | **%s** |\n' "${{ inputs.dry-run }}"
+            printf '| Create immutable tag | **%s** |\n' "${{ inputs.create-tag }}"
+            printf '| Major alias | `%s` |\n' "${{ inputs.major-tag }}"
+            printf '| Update major alias | **%s** |\n' "${{ inputs.update-major-tag }}"
+            printf '| Final release state | **%s** |\n' "${{ inputs.draft && 'draft' || 'published' }}"
+            printf '| Release content source | `%s` |\n' "$CONTENT_SOURCE"
+
+            if [ "${{ inputs.dry-run }}" = "true" ]; then
+              echo "| Result | **preview** |"
+              echo "| GitHub Release | _not mutated_ |"
+            else
+              printf '| Result | **%s** |\n' "${RELEASE_STATUS:-unresolved}"
+              if [ -n "$RELEASE_URL" ]; then
+                printf '| GitHub Release | [Open release](%s) |\n' "$RELEASE_URL"
+              else
+                echo "| GitHub Release | unavailable |"
+              fi
+            fi
+
             echo
+            echo "## CHANGELOG.md content"
+            echo
+            if [ -n "$CHANGELOG_SECTION_FILE" ] && [ -s "$CHANGELOG_SECTION_FILE" ]; then
+              cat "$CHANGELOG_SECTION_FILE"
+            else
+              echo "> No matching `CHANGELOG.md` section was found for `${{ inputs.version }}`."
+            fi
+
+            echo
+            echo "## GitHub Release content"
+            echo
+            if [ -n "$RELEASE_CONTENT_FILE" ] && [ -s "$RELEASE_CONTENT_FILE" ]; then
+              cat "$RELEASE_CONTENT_FILE"
+            else
+              echo "> Release content could not be resolved."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
