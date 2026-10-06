@@ -209,5 +209,21 @@ jobs:
       dry-run: ${{ inputs.dry-run }}
       create-tag: true
       major-tag: ${{ needs.resolve.outputs.major-tag }}
-      update-major-tag: ${{ inputs.update-major-tag }}
+      update-major-tag: false
       draft: false
+
+  publish-action-version:
+    name: Publish major action version
+    needs:
+      - resolve
+      - release
+    if: ${{ !inputs.dry-run && inputs.update-major-tag }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Publish major version
+        uses: actions/publish-action@c8df519c7dab554ada68e7b776a5d57865ecbe39
+        with:
+          source-tag: ${{ format('v{0}', needs.resolve.outputs.version) }}
+          token: ${{ github.token }}
