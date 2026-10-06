@@ -1,0 +1,39 @@
+name: Reusable · Show issue dependency tree
+
+on:
+  workflow_dispatch:
+
+  workflow_call:
+    outputs:
+      tree:
+        description: Rendered Markdown issue dependency tree
+        value: ${{ jobs.dependency-tree.outputs.tree }}
+      graph-json:
+        description: Normalized dependency graph JSON
+        value: ${{ jobs.dependency-tree.outputs.graph-json }}
+
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/show-issue-dependency-tree.yml"
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  dependency-tree:
+    name: Render native issue dependency tree
+    runs-on: ubuntu-latest
+    outputs:
+      tree: ${{ steps.tree.outputs.tree }}
+      graph-json: ${{ steps.tree.outputs.graph-json }}
+
+    steps:
+      - id: tree
+        name: Render dependency tree
+        uses: moyarich/reusable-workflows/actions/issue-dependency-tree@v0
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
