@@ -1,0 +1,196 @@
+:root {
+  font-family:
+    "Inter Variable",
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  color: #172033;
+  background: #f6f7fb;
+}
+
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+a {
+  color: #3157c8;
+}
+code,
+pre {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+.app-shell {
+  min-height: 100vh;
+}
+
+.site-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 2rem clamp(1rem, 4vw, 4rem);
+  border-bottom: 1px solid #dfe3ec;
+  background: #fff;
+}
+
+.site-header h1 {
+  margin: 0.15rem 0 0.35rem;
+  font-size: clamp(1.8rem, 4vw, 2.7rem);
+}
+.site-header p {
+  margin: 0;
+  color: #5e687d;
+}
+
+.eyebrow {
+  margin: 0 0 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #69748b;
+}
+
+.playground-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  min-height: calc(100vh - 132px);
+}
+
+.sidebar {
+  padding: 1.5rem 1rem 3rem;
+  border-right: 1px solid #dfe3ec;
+  background: #fff;
+}
+
+.sidebar-section + .sidebar-section {
+  margin-top: 1.75rem;
+}
+
+.sidebar-section h2 {
+  margin: 0 0 0.55rem;
+  padding: 0 0.65rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #69748b;
+}
+
+.sidebar nav {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.sidebar nav a {
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.45rem;
+  color: #283247;
+  text-decoration: none;
+}
+
+.sidebar nav a:hover {
+  background: #f0f3f9;
+}
+
+.content {
+  min-width: 0;
+  padding: clamp(1.5rem, 4vw, 4rem);
+}
+
+.content-page {
+  width: min(900px, 100%);
+  margin: 0 auto;
+  line-height: 1.7;
+}
+
+.content-page h1,
+.content-page h2,
+.content-page h3 {
+  line-height: 1.25;
+  color: #101828;
+}
+
+.content-page h1 {
+  font-size: clamp(2rem, 4vw, 3rem);
+}
+
+.content-page table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.25rem 0;
+}
+
+.content-page th,
+.content-page td {
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #dfe3ec;
+  text-align: left;
+  vertical-align: top;
+}
+
+.content-page :not(pre) > code {
+  padding: 0.12rem 0.3rem;
+  border-radius: 0.3rem;
+  background: #edf0f6;
+  font-size: 0.9em;
+}
+
+.content-page pre {
+  overflow: auto;
+  padding: 1rem;
+  border-radius: 0.65rem;
+  background: #111827;
+  color: #e5e7eb;
+  line-height: 1.55;
+}
+
+.workflow-example {
+  margin: 1.5rem 0;
+  border: 1px solid #dfe3ec;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: #fff;
+}
+
+.workflow-source + .workflow-source {
+  border-top: 1px solid #dfe3ec;
+}
+
+.workflow-source-missing {
+  margin: 0;
+  padding: 1rem;
+  color: #69748b;
+}
+
+.workflow-example-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid #dfe3ec;
+  background: #f8f9fc;
+}
+
+.workflow-source pre {
+  margin: 0;
+  border-radius: 0;
+}
+
+@media (max-width: 800px) {
+  .site-header {
+    flex-direction: column;
+  }
+  .playground-layout {
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    border-right: 0;
+    border-bottom: 1px solid #dfe3ec;
+  }
+}
