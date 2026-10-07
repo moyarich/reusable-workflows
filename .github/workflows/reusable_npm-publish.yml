@@ -292,13 +292,14 @@ jobs:
             echo "Requested publish version $REQUESTED_VERSION does not match package version $CURRENT_VERSION."
             exit 1
           fi
-      - name: Verify matching GitHub Release draft
-        id: release-draft
+      - name: Verify matching GitHub Release
+        id: release-state
         env:
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ steps.plan.outputs.release-tag }}
           RELEASE_NAME: ${{ steps.plan.outputs.release-name }}
           DRY_RUN: ${{ inputs.dry-run }}
+          REGISTRY_SELECTION: ${{ inputs.registry }}
         shell: bash
         run: |
           set -euo pipefail
@@ -314,10 +315,11 @@ jobs:
 
           VALID=true
           REASON=""
+          RELEASE_STATE="missing"
 
           if [ -z "$RELEASE" ]; then
             VALID=false
-            REASON="No matching GitHub Release draft exists for $RELEASE_TAG."
+            REASON="No matching GitHub Release exists for $RELEASE_TAG."
             RELEASE_ID=""
             RELEASE_URL=""
             RELEASE_DRAFT=false
@@ -327,13 +329,14 @@ jobs:
             RELEASE_URL="$(jq -r '.html_url' <<< "$RELEASE")"
             RELEASE_DRAFT="$(jq -r '.draft' <<< "$RELEASE")"
             ACTUAL_NAME="$(jq -r '.name // ""' <<< "$RELEASE")"
+            RELEASE_STATE="$([ "$RELEASE_DRAFT" = "true" ] && echo draft || echo published)"
 
-            if [ "$RELEASE_DRAFT" != "true" ]; then
+            if [ "$ACTUAL_NAME" != "$RELEASE_NAME" ]; then
               VALID=false
-              REASON="Matching GitHub Release exists but is already published; this workflow requires a draft."
-            elif [ "$ACTUAL_NAME" != "$RELEASE_NAME" ]; then
+              REASON="GitHub Release name does not match the canonical release identity."
+            elif [ "$REGISTRY_SELECTION" != "npm" ] && [ "$RELEASE_DRAFT" != "true" ]; then
               VALID=false
-              REASON="GitHub Release draft name does not match the canonical release identity."
+              REASON="GitHub Packages publication requires the matching GitHub Release to still be a draft."
             fi
           fi
 
@@ -342,17 +345,19 @@ jobs:
             echo "id=$RELEASE_ID"
             echo "url=$RELEASE_URL"
             echo "draft=$RELEASE_DRAFT"
+            echo "state=$RELEASE_STATE"
             echo "reason=$REASON"
           } >> "$GITHUB_OUTPUT"
 
           {
-            echo "## GitHub Release draft"
+            echo "## GitHub Release"
             echo
             echo "| Check | Value |"
             echo "| --- | --- |"
             printf '| Release tag | `%s` |\n' "$RELEASE_TAG"
             printf '| Release name | `%s` |\n' "$RELEASE_NAME"
-            echo "| Draft exists and matches | **$VALID** |"
+            echo "| Release state | **$RELEASE_STATE** |"
+            echo "| Valid for `$REGISTRY_SELECTION` publication | **$VALID** |"
             printf '| Release URL | %s |\n' "${RELEASE_URL:-unavailable}"
             if [ -n "$REASON" ]; then
               printf '| Reason | %s |\n' "$REASON"
@@ -362,8 +367,8 @@ jobs:
 
           if [ "$VALID" != "true" ] && [ "$DRY_RUN" != "true" ]; then
             echo "::error::$REASON"
-            echo "::error::This release-oriented publish workflow requires a matching GitHub Release draft."
-            echo "::error::Use a separate registry-only workflow when publishing without a release draft."
+            echo "::error::This release-oriented publish workflow requires a matching GitHub Release."
+            echo "::error::npmjs.org accepts either a draft or published matching release; GitHub Packages requires a draft."
             exit 1
           fi
       - name: Prepare package artifact directory
@@ -446,7 +451,7 @@ jobs:
             printf '| Artifact | `%s` |\n' "$(basename "$ARTIFACT_PATH")"
             printf '| SHA-1 | `%s` |\n' "$(shasum -a 1 "$ARTIFACT_PATH" | awk '{print $1}')"
             echo
-            echo "> This artifact is attached to the matching GitHub Release draft before the release workflow decides whether that draft stays open or is published."
+            echo "> When the matching GitHub Release is a draft, this artifact is attached to it. npm-only publication may also proceed against an already published matching GitHub Release without mutating that release."
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Validate packaged CLI entry points
         env:
@@ -599,7 +604,7 @@ jobs:
 
       - name: Attach package assets to GitHub Release draft
         id: release-assets
-        if: ${{ !inputs.dry-run && steps.publish.outcome == 'success' }}
+        if: ${{ !inputs.dry-run && steps.publish.outcome == 'success' && steps.release-state.outputs.draft == 'true' }}
         env:
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ steps.plan.outputs.release-tag }}
@@ -642,7 +647,7 @@ jobs:
         if: ${{ !inputs.dry-run && steps.publish.outcome == 'success' && (inputs.registry == 'github' || inputs.registry == 'all') }}
         env:
           GH_REPO: ${{ github.repository }}
-          RELEASE_ID: ${{ steps.release-draft.outputs.id }}
+          RELEASE_ID: ${{ steps.release-state.outputs.id }}
           RELEASE_TAG: ${{ steps.plan.outputs.release-tag }}
           RELEASE_NAME: ${{ steps.plan.outputs.release-name }}
         shell: bash
@@ -663,13 +668,19 @@ jobs:
 
           echo "status=published" >> "$GITHUB_OUTPUT"
 
-      - name: Keep GitHub Release draft open for npmjs.org
+      - name: Preserve GitHub Release state for npmjs.org
         id: npm-release-state
         if: ${{ !inputs.dry-run && steps.publish.outcome == 'success' && inputs.registry == 'npm' }}
+        env:
+          RELEASE_STATE: ${{ steps.release-state.outputs.state }}
         shell: bash
         run: |
-          echo "status=draft" >> "$GITHUB_OUTPUT"
-          echo "npmjs.org publication completed/staged; the GitHub Release remains a draft."
+          echo "status=$RELEASE_STATE" >> "$GITHUB_OUTPUT"
+          if [ "$RELEASE_STATE" = "draft" ]; then
+            echo "npmjs.org publication completed/staged; the GitHub Release remains a draft."
+          else
+            echo "npmjs.org publication completed/staged; the published GitHub Release remains unchanged."
+          fi
       - name: Upload packed npm artifact
         id: packed-artifact
         if: ${{ always() }}
@@ -685,12 +696,12 @@ jobs:
         if: ${{ always() }}
         env:
           CLI_CAN_PUBLISH: ${{ steps.publish.outputs.can-publish }}
-          RELEASE_DRAFT_VALID: ${{ steps.release-draft.outputs.valid }}
+          RELEASE_VALID: ${{ steps.release-state.outputs.valid }}
         shell: bash
         run: |
           set -euo pipefail
           CAN_PUBLISH="${CLI_CAN_PUBLISH:-false}"
-          if [ "${RELEASE_DRAFT_VALID:-false}" != "true" ]; then
+          if [ "${RELEASE_VALID:-false}" != "true" ]; then
             CAN_PUBLISH=false
           fi
           echo "can-publish=$CAN_PUBLISH" >> "$GITHUB_OUTPUT"
@@ -702,9 +713,10 @@ jobs:
           ARTIFACT_ID: ${{ steps.packed-artifact.outputs.artifact-id }}
           ARTIFACT_URL: ${{ steps.packed-artifact.outputs.artifact-url }}
           ARTIFACT_DIGEST: ${{ steps.packed-artifact.outputs.artifact-digest }}
-          RELEASE_DRAFT_VALID: ${{ steps.release-draft.outputs.valid }}
-          RELEASE_URL: ${{ steps.release-draft.outputs.url }}
-          RELEASE_REASON: ${{ steps.release-draft.outputs.reason }}
+          RELEASE_VALID: ${{ steps.release-state.outputs.valid }}
+          RELEASE_STATE: ${{ steps.release-state.outputs.state }}
+          RELEASE_URL: ${{ steps.release-state.outputs.url }}
+          RELEASE_REASON: ${{ steps.release-state.outputs.reason }}
         shell: bash
         run: |
           set -euo pipefail
@@ -772,7 +784,8 @@ jobs:
               echo "| CLI readiness reason | unresolved |"
             fi
 
-            echo "| GitHub Release draft valid | **${RELEASE_DRAFT_VALID:-false}** |"
+            echo "| GitHub Release state | **${RELEASE_STATE:-missing}** |"
+            echo "| GitHub Release valid for selected registry | **${RELEASE_VALID:-false}** |"
             if [ -n "$RELEASE_URL" ]; then
               echo "| GitHub Release | [Open release]($RELEASE_URL) |"
             else
@@ -782,7 +795,11 @@ jobs:
               echo "| GitHub Release reason | $RELEASE_REASON |"
             fi
             if [ "${{ inputs.registry }}" = "npm" ]; then
-              echo "| GitHub Release after workflow | **draft remains open** |"
+              if [ "${RELEASE_STATE:-missing}" = "draft" ]; then
+                echo "| GitHub Release after workflow | **draft remains open** |"
+              else
+                echo "| GitHub Release after workflow | **published, unchanged** |"
+              fi
             elif [ "${{ inputs.registry }}" = "github" ] || [ "${{ inputs.registry }}" = "all" ]; then
               echo "| GitHub Release after workflow | **${{ inputs.dry-run && 'unchanged (dry run)' || 'published' }}** |"
             fi
