@@ -451,7 +451,7 @@ jobs:
             printf '| Artifact | `%s` |\n' "$(basename "$ARTIFACT_PATH")"
             printf '| SHA-1 | `%s` |\n' "$(shasum -a 1 "$ARTIFACT_PATH" | awk '{print $1}')"
             echo
-            echo "> The canonical artifact is attached to the matching GitHub Release whether it is draft or published, as long as the release is mutable. Release state only controls whether a draft is transitioned to published."
+            echo "> Registry publication is authoritative from the canonical Git tag commit. Release assets are updated when the matching GitHub Release is mutable; immutable releases are left unchanged."
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Validate packaged CLI entry points
         env:
@@ -553,9 +553,10 @@ jobs:
           set -euo pipefail
 
           if [ "$RELEASE_IMMUTABLE" = "true" ]; then
-            echo "::error::The matching GitHub Release is immutable and cannot accept or replace package assets."
-            echo "::error::Registry publication was not attempted."
-            exit 1
+            echo "status=skipped-immutable" >> "$GITHUB_OUTPUT"
+            echo "GitHub Release is immutable; package assets cannot be added or replaced."
+            echo "Registry publication will continue from the canonical Git tag commit."
+            exit 0
           fi
 
           TARBALL="$CANONICAL_ARTIFACT_PATH"
@@ -581,6 +582,7 @@ jobs:
           gh release upload "$RELEASE_TAG" "$TARBALL" "$ZIP_PATH" --clobber --repo "$GH_REPO"
 
           {
+            echo "status=attached"
             echo "tarball=$(basename "$TARBALL")"
             echo "zip=$ZIP_NAME"
           } >> "$GITHUB_OUTPUT"
@@ -719,6 +721,7 @@ jobs:
           ARTIFACT_DIGEST: ${{ steps.packed-artifact.outputs.artifact-digest }}
           RELEASE_VALID: ${{ steps.release-state.outputs.valid }}
           RELEASE_STATE: ${{ steps.release-state.outputs.state }}
+          RELEASE_IMMUTABLE: ${{ steps.release-state.outputs.immutable }}
           RELEASE_URL: ${{ steps.release-state.outputs.url }}
           RELEASE_REASON: ${{ steps.release-state.outputs.reason }}
         shell: bash
