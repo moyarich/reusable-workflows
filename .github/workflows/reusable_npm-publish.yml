@@ -421,6 +421,15 @@ jobs:
             exit 1
           fi
 
+          CHECKOUT_COMMIT="$(git rev-parse HEAD)"
+          if [ "$RELEASE_COMMIT" != "$CHECKOUT_COMMIT" ]; then
+            echo "::error::Canonical release tag does not point to the checked-out publish source."
+            echo "::error::Tag commit:      $RELEASE_COMMIT"
+            echo "::error::Checkout commit: $CHECKOUT_COMMIT"
+            echo "::error::Reset or Restore the draft release before publishing."
+            exit 1
+          fi
+
           WORKTREE="$RUNNER_TEMP/npm-release-source"
           rm -rf "$WORKTREE"
           git worktree add --detach "$WORKTREE" "$RELEASE_COMMIT"
