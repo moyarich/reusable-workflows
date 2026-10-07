@@ -22,7 +22,7 @@ on:
         type: choice
         options:
           - bump
-          - package-json
+          - package-version
           - exact
 
       version-bump:
@@ -324,10 +324,10 @@ jobs:
           set -euo pipefail
 
           case "$VERSION_MODE" in
-            bump|package-json|exact)
+            bump|package-version|exact)
               ;;
             *)
-              echo "::error::Version selection must be bump, package-json, or exact."
+              echo "::error::Version selection must be bump, package-version, or exact."
               exit 1
               ;;
           esac
@@ -366,7 +366,7 @@ jobs:
               VERSION_REQUEST="$VERSION_BUMP"
               ;;
 
-            package-json)
+            package-version)
               VERSION_REQUEST=""
               ;;
 
@@ -432,7 +432,7 @@ jobs:
             "--dry-run"
           )
 
-          if [ "$VERSION_MODE" != "package-json" ]; then
+          if [ "$VERSION_MODE" != "package-version" ]; then
             RELEASE_ARGS[0]="${{ inputs.package }}=$VERSION_REQUEST"
             RELEASE_ARGS+=("--version=$VERSION_REQUEST")
           fi
@@ -584,7 +584,7 @@ jobs:
             "--json"
           )
 
-          if [ "$VERSION_MODE" != "package-json" ]; then
+          if [ "$VERSION_MODE" != "package-version" ]; then
             RELEASE_ARGS[0]="${{ inputs.package }}=$VERSION_REQUEST"
             RELEASE_ARGS+=("--version=$VERSION_REQUEST")
           fi
