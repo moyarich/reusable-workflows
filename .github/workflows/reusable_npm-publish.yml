@@ -133,6 +133,8 @@ jobs:
     permissions:
       contents: write
       packages: write
+      attestations: write
+      id-token: write
     runs-on: ubuntu-latest
     outputs:
       package-name: ${{ steps.plan.outputs.name }}
@@ -411,52 +413,47 @@ jobs:
           ARTIFACT_PATH=""
           SOURCE="release-commit"
 
-          if [ -n "$RELEASE_ASSET_ID" ]; then
-            ARTIFACT_PATH="$ARTIFACT_DIRECTORY/$RELEASE_ASSET_NAME"
-            gh api \
-              "repos/$GH_REPO/releases/assets/$RELEASE_ASSET_ID" \
-              -H "Accept: application/octet-stream" > "$ARTIFACT_PATH"
-            SOURCE="github-release"
-          else
-            if [ -z "$RELEASE_COMMIT" ]; then
-              echo "::error::Cannot resolve the release commit for ${{ steps.plan.outputs.release-tag }}."
-              exit 1
-            fi
-
-            WORKTREE="$RUNNER_TEMP/npm-release-source"
-            rm -rf "$WORKTREE"
-            git worktree add --detach "$WORKTREE" "$RELEASE_COMMIT"
-
-            cleanup() {
-              git worktree remove --force "$WORKTREE" >/dev/null 2>&1 || true
-            }
-            trap cleanup EXIT
-
-            (
-              cd "$WORKTREE"
-              npm ci --include=optional
-
-              if [ "$PACKAGE_SELECTOR" = "." ]; then
-                npm run typecheck --if-present
-                npm run test --if-present
-                npm run build --if-present
-                npm pack --json --pack-destination "$ARTIFACT_DIRECTORY" > "$RUNNER_TEMP/release-pack.json"
-              else
-                npm run typecheck --workspace "$PACKAGE_NAME" --if-present
-                npm run test --workspace "$PACKAGE_NAME" --if-present
-                npm run build --workspace "$PACKAGE_NAME" --if-present
-                npm pack \
-                  --workspace "$PACKAGE_NAME" \
-                  --json \
-                  --pack-destination "$ARTIFACT_DIRECTORY" > "$RUNNER_TEMP/release-pack.json"
-              fi
-            )
-
-            PACK_JSON="$(cat "$RUNNER_TEMP/release-pack.json")"
-            ARTIFACT_PATH="$ARTIFACT_DIRECTORY/$(jq -r '.[0].filename' <<< "$PACK_JSON")"
-            cleanup
-            trap - EXIT
+          # Draft release assets are replaceable. Never treat an existing draft
+          # asset as canonical after Reset Release may have moved the tag.
+          # Rebuild the package from the exact commit referenced by the canonical tag.
+          if [ -z "$RELEASE_COMMIT" ]; then
+            echo "::error::Cannot resolve the release commit for ${{ steps.plan.outputs.release-tag }}."
+            exit 1
           fi
+
+          WORKTREE="$RUNNER_TEMP/npm-release-source"
+          rm -rf "$WORKTREE"
+          git worktree add --detach "$WORKTREE" "$RELEASE_COMMIT"
+
+          cleanup() {
+            git worktree remove --force "$WORKTREE" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          (
+            cd "$WORKTREE"
+            npm ci --include=optional
+
+            if [ "$PACKAGE_SELECTOR" = "." ]; then
+              npm run typecheck --if-present
+              npm run test --if-present
+              npm run build --if-present
+              npm pack --json --pack-destination "$ARTIFACT_DIRECTORY" > "$RUNNER_TEMP/release-pack.json"
+            else
+              npm run typecheck --workspace "$PACKAGE_NAME" --if-present
+              npm run test --workspace "$PACKAGE_NAME" --if-present
+              npm run build --workspace "$PACKAGE_NAME" --if-present
+              npm pack \
+                --workspace "$PACKAGE_NAME" \
+                --json \
+                --pack-destination "$ARTIFACT_DIRECTORY" > "$RUNNER_TEMP/release-pack.json"
+            fi
+          )
+
+          PACK_JSON="$(cat "$RUNNER_TEMP/release-pack.json")"
+          ARTIFACT_PATH="$ARTIFACT_DIRECTORY/$(jq -r '.[0].filename' <<< "$PACK_JSON")"
+          cleanup
+          trap - EXIT
 
           if [ ! -f "$ARTIFACT_PATH" ]; then
             echo "::error::Canonical package artifact was not created."
@@ -468,6 +465,7 @@ jobs:
             echo "path=$ARTIFACT_PATH"
             echo "filename=$(basename "$ARTIFACT_PATH")"
             echo "sha1=$(shasum -a 1 "$ARTIFACT_PATH" | awk '{print $1}')"
+            echo "sha256=$(shasum -a 256 "$ARTIFACT_PATH" | awk '{print $1}')"
           } >> "$GITHUB_OUTPUT"
 
           {
@@ -479,6 +477,7 @@ jobs:
             printf '| Release commit | `%s` |\n' "$RELEASE_COMMIT"
             printf '| Artifact | `%s` |\n' "$(basename "$ARTIFACT_PATH")"
             printf '| SHA-1 | `%s` |\n' "$(shasum -a 1 "$ARTIFACT_PATH" | awk '{print $1}')"
+            printf '| SHA-256 | `%s` |\n' "$(shasum -a 256 "$ARTIFACT_PATH" | awk '{print $1}')"
             echo
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -566,6 +565,22 @@ jobs:
             done < <(jq -r '.[] | [.key, .value] | @tsv' <<< "$BIN_ENTRIES")
             echo
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Attest canonical npm package
+        id: attestation
+        if: ${{ !inputs.dry-run }}
+        uses: actions/attest@v4
+        with:
+          subject-path: ${{ steps.canonical-artifact.outputs.path }}
+
+      - name: Verify canonical package attestation
+        if: ${{ !inputs.dry-run }}
+        env:
+          CANONICAL_ARTIFACT_PATH: ${{ steps.canonical-artifact.outputs.path }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh attestation verify "$CANONICAL_ARTIFACT_PATH" --repo "$GH_REPO"
 
       - name: Publish package
         id: publish
@@ -683,9 +698,46 @@ jobs:
             echo
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Verify final GitHub Release asset
+        id: final-asset
+        if: ${{ !inputs.dry-run && steps.publish.outcome == 'success' && steps.release-assets.outcome == 'success' }}
+        env:
+          RELEASE_TAG: ${{ steps.plan.outputs.release-tag }}
+          EXPECTED_SHA256: ${{ steps.canonical-artifact.outputs.sha256 }}
+          ASSET_NAME: ${{ steps.release-assets.outputs.tarball }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VERIFY_DIR="$RUNNER_TEMP/release-asset-verification"
+          rm -rf "$VERIFY_DIR"
+          mkdir -p "$VERIFY_DIR"
+
+          gh release download "$RELEASE_TAG" \
+            --repo "$GH_REPO" \
+            --pattern "$ASSET_NAME" \
+            --dir "$VERIFY_DIR"
+
+          DOWNLOADED="$VERIFY_DIR/$ASSET_NAME"
+          ACTUAL_SHA256="$(shasum -a 256 "$DOWNLOADED" | awk '{print $1}')"
+
+          if [ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]; then
+            echo "::error::GitHub Release asset does not match the attested canonical npm package."
+            echo "::error::Expected SHA-256: $EXPECTED_SHA256"
+            echo "::error::Actual SHA-256:   $ACTUAL_SHA256"
+            exit 1
+          fi
+
+          gh attestation verify "$DOWNLOADED" --repo "$GH_REPO"
+
+          {
+            echo "verified=true"
+            echo "sha256=$ACTUAL_SHA256"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Publish GitHub Release draft
         id: github-release
-        if: ${{ !inputs.dry-run && steps.publish.outcome == 'success' }}
+        if: ${{ !inputs.dry-run && steps.publish.outcome == 'success' && steps.final-asset.outputs.verified == 'true' }}
         env:
           RESULT_JSON: ${{ steps.publish.outputs.result-json }}
           RELEASE_TAG: ${{ steps.plan.outputs.release-tag }}
@@ -857,6 +909,10 @@ jobs:
             fi
 
             echo "| GitHub Release after workflow | \`${{ steps.github-release.outputs.status || (inputs.dry-run && 'unchanged' || 'draft') }}\` |"
+            echo "| Canonical source commit | \`${{ steps.plan.outputs.release-commit || 'unresolved' }}\` |"
+            echo "| Canonical artifact SHA-256 | \`${{ steps.canonical-artifact.outputs.sha256 || 'unresolved' }}\` |"
+            echo "| Build provenance attestation | **${{ steps.attestation.outcome == 'success' && 'created' || (inputs.dry-run && 'preview' || 'unavailable') }}** |"
+            echo "| Final release asset verified | **${{ steps.final-asset.outputs.verified || 'false' }}** |"
             echo
 
             echo "### Packed package"
