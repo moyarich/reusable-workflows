@@ -542,6 +542,7 @@ jobs:
         run: |
           set -euo pipefail
           echo "can-publish=${CLI_CAN_PUBLISH:-false}" >> "$GITHUB_OUTPUT"
+
       - name: Publish summary
         if: ${{ always() }}
         env:
@@ -616,7 +617,10 @@ jobs:
               echo "| CLI readiness reason | unresolved |"
             fi
 
-            echo "| GitHub Release | **not managed by this workflow** |"\n            echo\n\n            echo "### Packed package"
+            echo "| GitHub Release | **not managed by this workflow** |"
+            echo
+
+            echo "### Packed package"
             echo
             echo "| Artifact | Value |"
             echo "| --- | --- |"
