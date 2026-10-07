@@ -67,6 +67,16 @@ on:
         required: false
         default: .github/release-drafter-template.yml
         type: string
+      seed-body-base64:
+        description: Optional base64-encoded release body used to seed a newly recreated draft
+        required: false
+        default: ""
+        type: string
+      seed-updated-at:
+        description: Optional timestamp from the release being recreated, used to preserve its PR baseline
+        required: false
+        default: ""
+        type: string
       dry-run:
         description: Preview the resulting persistent draft without writing it
         required: false
@@ -123,6 +133,8 @@ jobs:
       RELEASE_NAME_INPUT: ${{ inputs.release-name }}
       INPUT_VERSION: ${{ inputs.version }}
       INITIAL_VERSION: ${{ inputs.initial-version }}
+      SEED_BODY_BASE64: ${{ inputs.seed-body-base64 }}
+      SEED_UPDATED_AT: ${{ inputs.seed-updated-at }}
 
     steps:
       - name: Checkout caller repository
@@ -269,6 +281,21 @@ jobs:
               if [ -z "$SEED_SHA" ]; then
                 SEED_SHA="$(git rev-parse HEAD^ 2>/dev/null || git rev-parse HEAD)"
               fi
+            fi
+          elif [ -n "$SEED_BODY_BASE64" ]; then
+            printf '%s' "$SEED_BODY_BASE64" | base64 --decode > "$EXISTING_BODY_FILE"
+
+            SEED_SHA="$(
+              sed -n 's/.*release-draft-sync:seed-sha=\([^ ]*\).*/\1/p' "$EXISTING_BODY_FILE" |
+                head -n 1
+            )"
+
+            if [ -z "$SEED_SHA" ] && [ -n "$SEED_UPDATED_AT" ]; then
+              SEED_SHA="$(git rev-list -1 --before="$SEED_UPDATED_AT" HEAD)"
+            fi
+
+            if [ -z "$SEED_SHA" ]; then
+              SEED_SHA="$(git rev-parse HEAD^ 2>/dev/null || git rev-parse HEAD)"
             fi
           fi
 
