@@ -124,9 +124,9 @@ on:
       package-selector:
         description: Resolved package selector
         value: ${{ jobs.release-package.outputs.package-selector }}
-      package-json:
+      package-version:
         description: Released or previewed version
-        value: ${{ jobs.release-package.outputs.package-json }}
+        value: ${{ jobs.release-package.outputs.package-version }}
       release-status:
         description: Release result status
         value: ${{ jobs.release-package.outputs.release-status }}
