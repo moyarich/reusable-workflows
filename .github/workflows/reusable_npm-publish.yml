@@ -142,7 +142,6 @@ jobs:
       result-json: ${{ steps.publish.outputs.result-json }}
     env:
       GH_TOKEN: ${{ github.token }}
-      GH_REPO: ${{ github.repository }}
       TARGET_BRANCH: ${{ github.event_name == 'workflow_dispatch' && github.ref_name || inputs.target-branch }}
     steps:
       - name: Initialize workflow summary
@@ -226,9 +225,12 @@ jobs:
         id: plan
         env:
           PACKAGE_SELECTOR: ${{ inputs.package-directory }}
+          REQUESTED_VERSION: ${{ inputs.version }}
           NODE_AUTH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
+          set -euo pipefail
+
           PLAN_ARGS=(
             "$PACKAGE_SELECTOR"
             --registry="${{ inputs.registry }}"
@@ -240,9 +242,69 @@ jobs:
             PLAN_ARGS+=(--tag="${{ inputs.tag }}")
           fi
 
+          PLAN_ROOT="$GITHUB_WORKSPACE"
+          PLAN_WORKTREE=""
+
+          if [ -n "$REQUESTED_VERSION" ]; then
+            if [ "$PACKAGE_SELECTOR" = "." ]; then
+              MANIFEST="package.json"
+            elif [ -f "$PACKAGE_SELECTOR/package.json" ]; then
+              MANIFEST="${PACKAGE_SELECTOR%/}/package.json"
+            else
+              MANIFEST="$(
+                find . -name package.json -not -path './node_modules/*' -print0 |
+                  xargs -0 -r jq -r --arg selector "$PACKAGE_SELECTOR" '
+                    select(.name == $selector) | input_filename
+                  ' |
+                  head -n 1
+              )"
+              MANIFEST="${MANIFEST#./}"
+            fi
+
+            if [ -z "${MANIFEST:-}" ] || [ ! -f "$MANIFEST" ]; then
+              echo "::error::Unable to resolve package selector: $PACKAGE_SELECTOR"
+              exit 1
+            fi
+
+            PACKAGE_NAME="$(jq -r '.name // empty' "$MANIFEST")"
+            PACKAGE_DIRECTORY="${MANIFEST%/package.json}"
+
+            if [ "$PACKAGE_DIRECTORY" = "$MANIFEST" ]; then
+              PACKAGE_DIRECTORY="."
+            fi
+
+            if [ "$PACKAGE_DIRECTORY" = "." ]; then
+              REQUESTED_RELEASE_TAG="$PACKAGE_NAME@$REQUESTED_VERSION"
+            else
+              REQUESTED_RELEASE_TAG="$PACKAGE_DIRECTORY@$REQUESTED_VERSION"
+            fi
+
+            RELEASE_COMMIT="$(git rev-list -n 1 "$REQUESTED_RELEASE_TAG" 2>/dev/null || true)"
+            if [ -z "$RELEASE_COMMIT" ]; then
+              echo "::error::Requested release tag does not exist: $REQUESTED_RELEASE_TAG"
+              exit 1
+            fi
+
+            PLAN_WORKTREE="$RUNNER_TEMP/npm-publish-plan-source"
+            rm -rf "$PLAN_WORKTREE"
+            git worktree add --detach "$PLAN_WORKTREE" "$RELEASE_COMMIT"
+            PLAN_ROOT="$PLAN_WORKTREE"
+          fi
+
+          cleanup_plan_worktree() {
+            if [ -n "$PLAN_WORKTREE" ]; then
+              git worktree remove --force "$PLAN_WORKTREE" >/dev/null 2>&1 || true
+            fi
+          }
+          trap cleanup_plan_worktree EXIT
+
           PLAN="$(
+            cd "$PLAN_ROOT"
             node "$WORKSPACE_TOOLS_BIN/workspace-publish.mjs" "${PLAN_ARGS[@]}"
           )"
+
+          cleanup_plan_worktree
+          trap - EXIT
 
           echo "$PLAN" | jq -e '
             type == "object" and
@@ -286,21 +348,21 @@ jobs:
       - name: Validate requested version
         if: ${{ inputs.version != '' }}
         env:
-          CURRENT_VERSION: ${{ steps.plan.outputs.version }}
+          RESOLVED_VERSION: ${{ steps.plan.outputs.version }}
           REQUESTED_VERSION: ${{ inputs.version }}
         run: |
-          if [ "$REQUESTED_VERSION" != "$CURRENT_VERSION" ]; then
-            echo "Requested publish version $REQUESTED_VERSION does not match package version $CURRENT_VERSION."
+          if [ "$REQUESTED_VERSION" != "$RESOLVED_VERSION" ]; then
+            echo "Requested publish version $REQUESTED_VERSION does not match canonical tag package version $RESOLVED_VERSION."
             exit 1
           fi
-      - name: Verify matching GitHub release
-        id: release-draft
+      - name: Verify matching GitHub Release
+        id: release-state
         env:
+          GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ steps.plan.outputs.release-tag }}
           RELEASE_NAME: ${{ steps.plan.outputs.release-name }}
-          PACKAGE_NAME: ${{ steps.plan.outputs.name }}
-          PACKAGE_VERSION: ${{ steps.plan.outputs.version }}
           DRY_RUN: ${{ inputs.dry-run }}
+          REGISTRY_SELECTION: ${{ inputs.registry }}
         shell: bash
         run: |
           set -euo pipefail
@@ -308,87 +370,70 @@ jobs:
           RELEASE="$(
             gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100" |
               jq -c --arg tag "$RELEASE_TAG" '
-                [
-                  .[][] |
-                  select(.tag_name == $tag)
-                ]
-                | first // empty
+                [.[][] | select(.tag_name == $tag)]
+                | sort_by(.updated_at // .created_at)
+                | last // empty
               '
           )"
 
+          VALID=true
+          REASON=""
+          RELEASE_STATE="missing"
+
           if [ -z "$RELEASE" ]; then
-            {
-              echo "exists=false"
-              echo "valid=false"
-              echo "id="
-              echo "url="
-              echo "name="
-              echo "reason=No matching GitHub release exists for $RELEASE_TAG."
-            } >> "$GITHUB_OUTPUT"
+            VALID=false
+            REASON="No matching GitHub Release exists for $RELEASE_TAG."
+            RELEASE_ID=""
+            RELEASE_URL=""
+            RELEASE_DRAFT=false
+            RELEASE_IMMUTABLE=false
+            ACTUAL_NAME=""
+          else
+            RELEASE_ID="$(jq -r '.id' <<< "$RELEASE")"
+            RELEASE_URL="$(jq -r '.html_url' <<< "$RELEASE")"
+            RELEASE_DRAFT="$(jq -r '.draft' <<< "$RELEASE")"
+            RELEASE_IMMUTABLE="$(jq -r '.immutable // false' <<< "$RELEASE")"
+            ACTUAL_NAME="$(jq -r '.name // ""' <<< "$RELEASE")"
+            RELEASE_STATE="$([ "$RELEASE_DRAFT" = "true" ] && echo draft || echo published)"
 
-            if [ "$DRY_RUN" != "true" ]; then
-              echo "::error::No matching GitHub release exists for $RELEASE_TAG."
-              exit 1
+            if [ "$ACTUAL_NAME" != "$RELEASE_NAME" ]; then
+              VALID=false
+              REASON="GitHub Release name does not match the canonical release identity."
             fi
-
-            exit 0
           fi
 
-          ACTUAL_NAME="$(jq -r '.name' <<< "$RELEASE")"
-          RELEASE_ID="$(jq -r '.id' <<< "$RELEASE")"
-          RELEASE_URL="$(jq -r '.html_url' <<< "$RELEASE")"
-          RELEASE_BODY="$(jq -r '.body // ""' <<< "$RELEASE")"
-          RELEASE_IS_DRAFT="$(jq -r '.draft' <<< "$RELEASE")"
-          SAFE_NAME="${PACKAGE_NAME#@}"
-          SAFE_NAME="${SAFE_NAME//\//-}"
-          CANONICAL_ASSET_NAME="${SAFE_NAME}-${PACKAGE_VERSION}.tgz"
-          CANONICAL_ASSET_ID="$(
-            jq -r --arg name "$CANONICAL_ASSET_NAME" '
-              [.assets[]? | select(.name == $name)]
-              | first
-              | .id // empty
-            ' <<< "$RELEASE"
-          )"
-
           {
-            echo "exists=true"
+            echo "valid=$VALID"
             echo "id=$RELEASE_ID"
             echo "url=$RELEASE_URL"
-            echo "name=$ACTUAL_NAME"
-            echo "draft=$RELEASE_IS_DRAFT"
-            echo "asset-name=$CANONICAL_ASSET_NAME"
-            echo "asset-id=$CANONICAL_ASSET_ID"
-            echo "body<<EOF"
-            printf '%s\n' "$RELEASE_BODY"
-            echo "EOF"
+            echo "draft=$RELEASE_DRAFT"
+            echo "immutable=$RELEASE_IMMUTABLE"
+            echo "state=$RELEASE_STATE"
+            echo "reason=$REASON"
           } >> "$GITHUB_OUTPUT"
 
-          if [ "$ACTUAL_NAME" != "$RELEASE_NAME" ]; then
-            {
-              echo "valid=false"
-              echo "reason=GitHub release name does not match the canonical release identity."
-            } >> "$GITHUB_OUTPUT"
-
-            if [ "$DRY_RUN" != "true" ]; then
-              echo "::error::GitHub release name does not match the canonical release identity."
-              echo "::error::Expected: $RELEASE_NAME"
-              echo "::error::Actual:   $ACTUAL_NAME"
-              exit 1
+          {
+            echo "## GitHub Release"
+            echo
+            echo "| Check | Value |"
+            echo "| --- | --- |"
+            printf '| Release tag | `%s` |\n' "$RELEASE_TAG"
+            printf '| Release name | `%s` |\n' "$RELEASE_NAME"
+            echo "| Release state | **$RELEASE_STATE** |"
+            echo "| Immutable | **$RELEASE_IMMUTABLE** |"
+            echo "| Matching release identity | **$VALID** |"
+            printf '| Release URL | %s |\n' "${RELEASE_URL:-unavailable}"
+            if [ -n "$REASON" ]; then
+              printf '| Reason | %s |\n' "$REASON"
             fi
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
 
-            exit 0
+          if [ "$VALID" != "true" ] && [ "$DRY_RUN" != "true" ]; then
+            echo "::error::$REASON"
+            echo "::error::This release-oriented publish workflow requires a matching GitHub Release identity."
+            exit 1
           fi
-
-          {
-            echo "valid=true"
-            echo "reason="
-          } >> "$GITHUB_OUTPUT"
-
-          {
-            echo "GITHUB_RELEASE_ID=$RELEASE_ID"
-            echo "GITHUB_RELEASE_URL=$RELEASE_URL"
-          } >> "$GITHUB_ENV"
-
       - name: Prepare package artifact directory
         shell: bash
         run: |
@@ -398,8 +443,6 @@ jobs:
       - name: Resolve canonical package artifact
         id: canonical-artifact
         env:
-          RELEASE_ASSET_ID: ${{ steps.release-draft.outputs.asset-id }}
-          RELEASE_ASSET_NAME: ${{ steps.release-draft.outputs.asset-name }}
           PACKAGE_NAME: ${{ steps.plan.outputs.name }}
           PACKAGE_SELECTOR: ${{ inputs.package-directory }}
           RELEASE_COMMIT: ${{ steps.plan.outputs.release-commit }}
@@ -408,55 +451,45 @@ jobs:
           set -euo pipefail
 
           ARTIFACT_DIRECTORY="$RUNNER_TEMP/npm-package-artifacts"
-          ARTIFACT_PATH=""
-          SOURCE="release-commit"
 
-          if [ -n "$RELEASE_ASSET_ID" ]; then
-            ARTIFACT_PATH="$ARTIFACT_DIRECTORY/$RELEASE_ASSET_NAME"
-            gh api \
-              "repos/$GH_REPO/releases/assets/$RELEASE_ASSET_ID" \
-              -H "Accept: application/octet-stream" > "$ARTIFACT_PATH"
-            SOURCE="github-release"
-          else
-            if [ -z "$RELEASE_COMMIT" ]; then
-              echo "::error::Cannot resolve the release commit for ${{ steps.plan.outputs.release-tag }}."
-              exit 1
-            fi
-
-            WORKTREE="$RUNNER_TEMP/npm-release-source"
-            rm -rf "$WORKTREE"
-            git worktree add --detach "$WORKTREE" "$RELEASE_COMMIT"
-
-            cleanup() {
-              git worktree remove --force "$WORKTREE" >/dev/null 2>&1 || true
-            }
-            trap cleanup EXIT
-
-            (
-              cd "$WORKTREE"
-              npm ci --include=optional
-
-              if [ "$PACKAGE_SELECTOR" = "." ]; then
-                npm run typecheck --if-present
-                npm run test --if-present
-                npm run build --if-present
-                npm pack --json --pack-destination "$ARTIFACT_DIRECTORY" > "$RUNNER_TEMP/release-pack.json"
-              else
-                npm run typecheck --workspace "$PACKAGE_NAME" --if-present
-                npm run test --workspace "$PACKAGE_NAME" --if-present
-                npm run build --workspace "$PACKAGE_NAME" --if-present
-                npm pack \
-                  --workspace "$PACKAGE_NAME" \
-                  --json \
-                  --pack-destination "$ARTIFACT_DIRECTORY" > "$RUNNER_TEMP/release-pack.json"
-              fi
-            )
-
-            PACK_JSON="$(cat "$RUNNER_TEMP/release-pack.json")"
-            ARTIFACT_PATH="$ARTIFACT_DIRECTORY/$(jq -r '.[0].filename' <<< "$PACK_JSON")"
-            cleanup
-            trap - EXIT
+          if [ -z "$RELEASE_COMMIT" ]; then
+            echo "::error::Cannot resolve the canonical Git tag commit for ${{ steps.plan.outputs.release-tag }}."
+            exit 1
           fi
+
+          WORKTREE="$RUNNER_TEMP/npm-release-source"
+          rm -rf "$WORKTREE"
+          git worktree add --detach "$WORKTREE" "$RELEASE_COMMIT"
+
+          cleanup() {
+            git worktree remove --force "$WORKTREE" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          (
+            cd "$WORKTREE"
+            npm ci --include=optional
+
+            if [ "$PACKAGE_SELECTOR" = "." ]; then
+              npm run typecheck --if-present
+              npm run test --if-present
+              npm run build --if-present
+              npm pack --json --pack-destination "$ARTIFACT_DIRECTORY" > "$RUNNER_TEMP/release-pack.json"
+            else
+              npm run typecheck --workspace "$PACKAGE_NAME" --if-present
+              npm run test --workspace "$PACKAGE_NAME" --if-present
+              npm run build --workspace "$PACKAGE_NAME" --if-present
+              npm pack \
+                --workspace "$PACKAGE_NAME" \
+                --json \
+                --pack-destination "$ARTIFACT_DIRECTORY" > "$RUNNER_TEMP/release-pack.json"
+            fi
+          )
+
+          PACK_JSON="$(cat "$RUNNER_TEMP/release-pack.json")"
+          ARTIFACT_PATH="$ARTIFACT_DIRECTORY/$(jq -r '.[0].filename' <<< "$PACK_JSON")"
+          cleanup
+          trap - EXIT
 
           if [ ! -f "$ARTIFACT_PATH" ]; then
             echo "::error::Canonical package artifact was not created."
@@ -464,24 +497,25 @@ jobs:
           fi
 
           {
-            echo "source=$SOURCE"
+            echo "source=canonical-tag"
             echo "path=$ARTIFACT_PATH"
             echo "filename=$(basename "$ARTIFACT_PATH")"
             echo "sha1=$(shasum -a 1 "$ARTIFACT_PATH" | awk '{print $1}')"
           } >> "$GITHUB_OUTPUT"
 
           {
-            echo "## Canonical package artifact"
+            echo "## Canonical npm package artifact"
             echo
             echo "| Field | Value |"
             echo "| --- | --- |"
-            printf '| Source | `%s` |\n' "$SOURCE"
-            printf '| Release commit | `%s` |\n' "$RELEASE_COMMIT"
+            echo "| Source | **canonical Git tag commit** |"
+            printf '| Release tag | `%s` |\n' "${{ steps.plan.outputs.release-tag }}"
+            printf '| Source commit | `%s` |\n' "$RELEASE_COMMIT"
             printf '| Artifact | `%s` |\n' "$(basename "$ARTIFACT_PATH")"
             printf '| SHA-1 | `%s` |\n' "$(shasum -a 1 "$ARTIFACT_PATH" | awk '{print $1}')"
             echo
+            echo "> Registry publication is authoritative from the canonical Git tag commit. Release assets are updated when the matching GitHub Release is mutable; immutable releases are left unchanged."
           } >> "$GITHUB_STEP_SUMMARY"
-
       - name: Validate packaged CLI entry points
         env:
           CANONICAL_ARTIFACT_PATH: ${{ steps.canonical-artifact.outputs.path }}
@@ -567,6 +601,55 @@ jobs:
             echo
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Attach package assets to GitHub Release
+        id: release-assets
+        if: ${{ !inputs.dry-run && steps.release-state.outputs.valid == 'true' }}
+        env:
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ steps.plan.outputs.release-tag }}
+          PACKAGE_NAME: ${{ steps.plan.outputs.name }}
+          PACKAGE_VERSION: ${{ steps.plan.outputs.version }}
+          CANONICAL_ARTIFACT_PATH: ${{ steps.canonical-artifact.outputs.path }}
+          RELEASE_IMMUTABLE: ${{ steps.release-state.outputs.immutable }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "$RELEASE_IMMUTABLE" = "true" ]; then
+            echo "status=skipped-immutable" >> "$GITHUB_OUTPUT"
+            echo "GitHub Release is immutable; package assets cannot be added or replaced."
+            echo "Registry publication will continue from the canonical Git tag commit."
+            exit 0
+          fi
+
+          TARBALL="$CANONICAL_ARTIFACT_PATH"
+          if [ -z "$TARBALL" ] || [ ! -f "$TARBALL" ]; then
+            echo "::error::Canonical npm artifact is unavailable for GitHub Release assets."
+            exit 1
+          fi
+
+          SAFE_NAME="${PACKAGE_NAME#@}"
+          SAFE_NAME="${SAFE_NAME//\//-}"
+          ZIP_NAME="${SAFE_NAME}-${PACKAGE_VERSION}.zip"
+          ZIP_PATH="$RUNNER_TEMP/npm-package-artifacts/$ZIP_NAME"
+          EXTRACT_DIR="$RUNNER_TEMP/npm-release-package"
+
+          rm -rf "$EXTRACT_DIR"
+          mkdir -p "$EXTRACT_DIR"
+          tar -xzf "$TARBALL" -C "$EXTRACT_DIR"
+          (
+            cd "$EXTRACT_DIR/package"
+            zip -qr "$ZIP_PATH" .
+          )
+
+          gh release upload "$RELEASE_TAG" "$TARBALL" "$ZIP_PATH" --clobber --repo "$GH_REPO"
+
+          {
+            echo "status=attached"
+            echo "tarball=$(basename "$TARBALL")"
+            echo "zip=$ZIP_NAME"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Publish package
         id: publish
         env:
@@ -631,94 +714,20 @@ jobs:
 
           echo "$RESULT" | jq .
 
-      - name: Attach packaged distribution to GitHub Release
-        id: release-assets
-        if: ${{ !inputs.dry-run && steps.publish.outcome == 'success' }}
-        env:
-          RELEASE_TAG: ${{ steps.plan.outputs.release-tag }}
-          PACKAGE_NAME: ${{ steps.plan.outputs.name }}
-          PACKAGE_VERSION: ${{ steps.plan.outputs.version }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          ARTIFACT_DIRECTORY="$RUNNER_TEMP/npm-package-artifacts"
-          TARBALL="$(find "$ARTIFACT_DIRECTORY" -maxdepth 1 -type f -name '*.tgz' -print -quit)"
-
-          if [ -z "$TARBALL" ]; then
-            echo "::error::Packed npm artifact was not found."
-            exit 1
-          fi
-
-          SAFE_NAME="${PACKAGE_NAME#@}"
-          SAFE_NAME="${SAFE_NAME//\//-}"
-          ZIP_NAME="${SAFE_NAME}-${PACKAGE_VERSION}.zip"
-          ZIP_PATH="$ARTIFACT_DIRECTORY/$ZIP_NAME"
-          EXTRACT_DIR="$RUNNER_TEMP/npm-release-package"
-
-          rm -rf "$EXTRACT_DIR"
-          mkdir -p "$EXTRACT_DIR"
-          tar -xzf "$TARBALL" -C "$EXTRACT_DIR"
-
-          (
-            cd "$EXTRACT_DIR/package"
-            zip -qr "$ZIP_PATH" .
-          )
-
-          gh release upload "$RELEASE_TAG"             "$TARBALL"             "$ZIP_PATH"             --clobber             --repo "$GH_REPO"
-
-          {
-            echo "tarball=$(basename "$TARBALL")"
-            echo "zip=$ZIP_NAME"
-          } >> "$GITHUB_OUTPUT"
-
-          {
-            echo "## GitHub Release package assets"
-            echo
-            echo "| Asset | Value |"
-            echo "| --- | --- |"
-            printf '| npm package | `%s` |\n' "$(basename "$TARBALL")"
-            printf '| ZIP package | `%s` |\n' "$ZIP_NAME"
-            echo "| GitHub source archives | **repository snapshot (unchanged)** |"
-            echo
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Publish GitHub Release draft
+      - name: Publish GitHub Release draft for GitHub Packages
         id: github-release
-        if: ${{ !inputs.dry-run && steps.publish.outcome == 'success' }}
+        if: ${{ !inputs.dry-run && steps.publish.outcome == 'success' && (inputs.registry == 'github' || inputs.registry == 'all') && steps.release-state.outputs.draft == 'true' }}
         env:
-          RESULT_JSON: ${{ steps.publish.outputs.result-json }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_ID: ${{ steps.release-state.outputs.id }}
           RELEASE_TAG: ${{ steps.plan.outputs.release-tag }}
           RELEASE_NAME: ${{ steps.plan.outputs.release-name }}
-          RELEASE_IS_DRAFT: ${{ steps.release-draft.outputs.draft }}
         shell: bash
         run: |
           set -euo pipefail
 
-          if [ "$RELEASE_IS_DRAFT" != "true" ]; then
-            echo "status=published-existing" >> "$GITHUB_OUTPUT"
-            echo "GitHub Release is already published and remains unchanged."
-            exit 0
-          fi
-
-          if jq -e '
-            [.results[]? | select(.status == "staged")] | length > 0
-          ' <<< "$RESULT_JSON" >/dev/null; then
-            echo "status=draft" >> "$GITHUB_OUTPUT"
-            echo "GitHub Release remains a draft while staged registry publication awaits completion."
-            exit 0
-          fi
-
-          if ! git rev-parse --verify --quiet "refs/tags/$RELEASE_TAG" >/dev/null; then
-            echo "status=draft" >> "$GITHUB_OUTPUT"
-            echo "GitHub Release remains a draft because the canonical Git tag does not exist."
-            exit 0
-          fi
-
           RELEASE="$(
-            gh api \
-              --method PATCH \
-              "repos/$GH_REPO/releases/$GITHUB_RELEASE_ID" \
+            gh api --method PATCH "repos/$GH_REPO/releases/$RELEASE_ID" \
               -f tag_name="$RELEASE_TAG" \
               -f name="$RELEASE_NAME" \
               -F draft=false
@@ -731,6 +740,16 @@ jobs:
 
           echo "status=published" >> "$GITHUB_OUTPUT"
 
+      - name: Preserve existing GitHub Release state
+        id: preserved-release-state
+        if: ${{ !inputs.dry-run && steps.publish.outcome == 'success' && (inputs.registry == 'npm' || steps.release-state.outputs.draft != 'true') }}
+        env:
+          RELEASE_STATE: ${{ steps.release-state.outputs.state }}
+          RELEASE_IMMUTABLE: ${{ steps.release-state.outputs.immutable }}
+        shell: bash
+        run: |
+          echo "status=$RELEASE_STATE" >> "$GITHUB_OUTPUT"
+          echo "Registry publication completed; GitHub Release state remains $RELEASE_STATE."
       - name: Upload packed npm artifact
         id: packed-artifact
         if: ${{ always() }}
@@ -746,33 +765,28 @@ jobs:
         if: ${{ always() }}
         env:
           CLI_CAN_PUBLISH: ${{ steps.publish.outputs.can-publish }}
-          GITHUB_RELEASE_VALID: ${{ steps.release-draft.outputs.valid }}
+          RELEASE_VALID: ${{ steps.release-state.outputs.valid }}
         shell: bash
         run: |
           set -euo pipefail
-
           CAN_PUBLISH="${CLI_CAN_PUBLISH:-false}"
-
-          if [ "${GITHUB_RELEASE_VALID:-false}" != "true" ]; then
-            CAN_PUBLISH="false"
+          if [ "${RELEASE_VALID:-false}" != "true" ]; then
+            CAN_PUBLISH=false
           fi
-
           echo "can-publish=$CAN_PUBLISH" >> "$GITHUB_OUTPUT"
 
       - name: Publish summary
         if: ${{ always() }}
         env:
           RESULT_JSON: ${{ steps.publish.outputs.result-json }}
-          GITHUB_RELEASE_EXISTS: ${{ steps.release-draft.outputs.exists }}
-          GITHUB_RELEASE_VALID: ${{ steps.release-draft.outputs.valid }}
-          GITHUB_RELEASE_SUMMARY_ID: ${{ steps.release-draft.outputs.id }}
-          GITHUB_RELEASE_SUMMARY_URL: ${{ steps.release-draft.outputs.url }}
-          GITHUB_RELEASE_SUMMARY_NAME: ${{ steps.release-draft.outputs.name }}
-          GITHUB_RELEASE_BODY: ${{ steps.release-draft.outputs.body }}
-          GITHUB_RELEASE_REASON: ${{ steps.release-draft.outputs.reason }}
           ARTIFACT_ID: ${{ steps.packed-artifact.outputs.artifact-id }}
           ARTIFACT_URL: ${{ steps.packed-artifact.outputs.artifact-url }}
           ARTIFACT_DIGEST: ${{ steps.packed-artifact.outputs.artifact-digest }}
+          RELEASE_VALID: ${{ steps.release-state.outputs.valid }}
+          RELEASE_STATE: ${{ steps.release-state.outputs.state }}
+          RELEASE_IMMUTABLE: ${{ steps.release-state.outputs.immutable }}
+          RELEASE_URL: ${{ steps.release-state.outputs.url }}
+          RELEASE_REASON: ${{ steps.release-state.outputs.reason }}
         shell: bash
         run: |
           set -euo pipefail
@@ -840,23 +854,25 @@ jobs:
               echo "| CLI readiness reason | unresolved |"
             fi
 
-            echo "| GitHub release exists | **${GITHUB_RELEASE_EXISTS:-false}** |"
-            echo "| GitHub release identity valid | **${GITHUB_RELEASE_VALID:-false}** |"
-            echo "| GitHub release ID | \`${GITHUB_RELEASE_SUMMARY_ID:-none}\` |"
-            echo "| GitHub release name | \`${GITHUB_RELEASE_SUMMARY_NAME:-none}\` |"
-            echo "| GitHub release state | \`${{ steps.release-draft.outputs.draft == 'true' && 'draft' || 'published' }}\` |"
-
-            if [ -n "$GITHUB_RELEASE_SUMMARY_URL" ]; then
-              echo "| GitHub release | [Open draft](${GITHUB_RELEASE_SUMMARY_URL}) |"
+            echo "| GitHub Release state | **${RELEASE_STATE:-missing}** |"
+            echo "| GitHub Release identity valid | **${RELEASE_VALID:-false}** |"
+            echo "| GitHub Release immutable | **${RELEASE_IMMUTABLE:-false}** |"
+            if [ -n "$RELEASE_URL" ]; then
+              echo "| GitHub Release | [Open release]($RELEASE_URL) |"
             else
-              echo "| GitHub release | unavailable |"
+              echo "| GitHub Release | unavailable |"
             fi
-
-            if [ -n "$GITHUB_RELEASE_REASON" ]; then
-              echo "| Release readiness reason | $GITHUB_RELEASE_REASON |"
+            if [ -n "$RELEASE_REASON" ]; then
+              echo "| GitHub Release reason | $RELEASE_REASON |"
             fi
-
-            echo "| GitHub Release after workflow | \`${{ steps.github-release.outputs.status || (inputs.dry-run && 'unchanged' || 'draft') }}\` |"
+            if [ "${{ inputs.dry-run }}" = "true" ]; then
+              echo "| GitHub Release after workflow | **unchanged (dry run)** |"
+            elif [ "${RELEASE_STATE:-missing}" = "draft" ] &&
+                 { [ "${{ inputs.registry }}" = "github" ] || [ "${{ inputs.registry }}" = "all" ]; }; then
+              echo "| GitHub Release after workflow | **published** |"
+            else
+              echo "| GitHub Release after workflow | **${RELEASE_STATE:-missing}, unchanged** |"
+            fi
             echo
 
             echo "### Packed package"
@@ -911,14 +927,4 @@ jobs:
             fi
 
             echo
-            echo "### GitHub Release content"
-            echo
-
-            if [ -n "$GITHUB_RELEASE_BODY" ]; then
-              printf '%s\n' "$GITHUB_RELEASE_BODY"
-            elif [ "${GITHUB_RELEASE_EXISTS:-false}" = "true" ]; then
-              echo "> The matching GitHub Release draft has an empty body."
-            else
-              echo "> No matching GitHub Release content is available."
-            fi
           } >> "$GITHUB_STEP_SUMMARY"
