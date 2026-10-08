@@ -579,7 +579,7 @@ jobs:
             printf '| Published files | `%s` |\n' "${PACKAGE_FILES:-—}"
             echo
 
-            echo "## 1. Generated release-plan notes (workspace-release)"
+            echo "## 1. Release notes generated from workspace-release"
             echo
             echo "These notes come from the release plan (source: \`$CHANGELOG_SOURCE\`). This source setting is separate from the repository's curated \`CHANGELOG.md\`."
             echo
