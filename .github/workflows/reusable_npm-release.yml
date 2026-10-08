@@ -3,83 +3,41 @@ name: "Reusable · Release npm package"
 on:
   workflow_dispatch:
     inputs:
-      show-input-summary:
-        description: Show effective workflow inputs in the job summary
-        required: false
-        default: true
-        type: boolean
+      package:
+        description: Package directory or name to release
+        required: true
+        default: "."
+        type: string
+      version:
+        description: "Version selection: bump:patch, bump:minor, exact:1.2.3, or package-json"
+        required: true
+        default: bump:patch
+        type: string
+      workspace-tools:
+        description: "CLI source: registry:0.1.0, repository:main, or workspace"
+        required: true
+        default: registry:0.1.0
+        type: string
       target-branch:
-        description: Optional target branch; defaults to the selected workflow run ref
+        description: Optional target branch
         required: false
         default: ""
         type: string
       dry-run:
-        description: Dry-run — preview without making changes
+        description: Preview without making changes
         required: true
         default: true
         type: boolean
-
-      package:
-        description: Package — package to release
-        required: true
-        default: "."
-        type: string
-
-      version-mode:
-        description: Version — bump, use package.json, or enter an exact version
-        required: true
-        default: bump
-        type: choice
-        options:
-          - bump
-          - package-json
-          - exact
-
-      version-bump:
-        description: Version — bump amount (used with "bump")
-        required: true
-        default: patch
-        type: choice
-        options:
-          - patch
-          - minor
-          - major
-          - prepatch
-          - preminor
-          - premajor
-          - prerelease
-
-      exact-version:
-        description: Version — exact version (used with "exact", e.g. 1.2.3)
-        required: false
-        default: ""
-        type: string
-
-      workspace-tools-source:
-        description: Workspace Tools source — npm registry, current workspace, or Git repository
-        required: true
-        default: registry
-        type: choice
-        options:
-          - registry
-          - workspace
-          - repository
-      workspace-tools-ref:
-        description: moyarich/workspace-tools Git ref when source is repository
-        required: false
-        default: main
-        type: string
-      workspace-tools-version:
-        description: Published @moyarich/workspace-tools version when source is registry
-        required: true
-        default: "0.1.0"
-        type: string
       node-version:
-        description: Advanced — Node.js version
+        description: Node.js version
         required: true
         default: "24"
         type: string
-
+      show-input-summary:
+        description: Show effective workflow inputs
+        required: false
+        default: true
+        type: boolean
   workflow_call:
     inputs:
       show-input-summary:
@@ -305,13 +263,21 @@ jobs:
           NODE_AUTH_TOKEN: ${{ github.token }}
         run: npm ci --include=optional
 
+      - name: Parse typed dispatch inputs
+        id: typed
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        uses: moyarich/reusable-workflows/actions/parse-typed-inputs@main
+        with:
+          version: ${{ inputs.version }}
+          workspace-tools: ${{ inputs.workspace-tools }}
+
       - name: Resolve workspace tools CLI
         id: workspace-tools
         uses: moyarich/reusable-workflows/actions/setup-workspace-tools@main
         with:
-          source: ${{ inputs.workspace-tools-source || 'registry' }}
-          version: ${{ inputs.workspace-tools-version || '0.1.0' }}
-          ref: ${{ inputs.workspace-tools-ref || 'main' }}
+          source: ${{ steps.typed.outputs.workspace-tools-source || inputs.workspace-tools-source || 'registry' }}
+          version: ${{ steps.typed.outputs.workspace-tools-version || inputs.workspace-tools-version || '0.1.0' }}
+          ref: ${{ steps.typed.outputs.workspace-tools-ref || inputs.workspace-tools-ref || 'main' }}
 
       - name: Export workspace tools CLI path
         shell: bash
@@ -322,9 +288,9 @@ jobs:
 
       - name: Validate release inputs
         env:
-          VERSION_MODE: ${{ inputs.version-mode }}
-          VERSION_BUMP: ${{ inputs.version-bump }}
-          EXACT_VERSION: ${{ inputs.exact-version }}
+          VERSION_MODE: ${{ steps.typed.outputs.version-mode || inputs.version-mode }}
+          VERSION_BUMP: ${{ steps.typed.outputs.version-bump || inputs.version-bump }}
+          EXACT_VERSION: ${{ steps.typed.outputs.exact-version || inputs.exact-version }}
         shell: bash
         run: |
           set -euo pipefail
