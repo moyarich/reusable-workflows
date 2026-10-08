@@ -65,6 +65,11 @@ on:
         type: string
   workflow_call:
     inputs:
+      show-input-summary:
+        description: Opt in to a separate summary of the effective reusable workflow inputs; caller inputs and result summaries stay unchanged
+        required: false
+        default: false
+        type: boolean
       target-branch:
         description: Branch containing the package version to publish
         required: false
@@ -141,6 +146,17 @@ on:
 permissions: {}
 
 jobs:
+  workflow-call-input-summary:
+    name: "job: Reusable workflow parameters"
+    if: ${{ inputs.show-input-summary }}
+    permissions:
+      contents: read
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_dispatch-input-summary.yml@main
+    with:
+      parameters-json: ${{ toJSON(inputs) }}
+      exclude-inputs: '["show-input-summary"]'
+      heading: "npm publish · Reusable workflow inputs"
+
   publish-package:
     name: "job: Publish"
     permissions:
