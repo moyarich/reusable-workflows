@@ -305,7 +305,7 @@ jobs:
           set -euo pipefail
 
           case "$SOURCE" in
-            caller)
+            local)
               PACKAGE_NAME="$(node -p "require('./package.json').name")"
               if [ "$PACKAGE_NAME" != "@moyarich/workspace-tools" ]; then
                 echo "::error::workspace-tools-source=local requires the checked-out local package to be @moyarich/workspace-tools; found $PACKAGE_NAME"
@@ -314,7 +314,7 @@ jobs:
               npm run build
               BIN_DIR="$GITHUB_WORKSPACE/dist/bin"
               [ -d "$BIN_DIR" ] || {
-                echo "::error::Caller build did not produce dist/bin."
+                echo "::error::Local build did not produce dist/bin."
                 exit 1
               }
               ;;
