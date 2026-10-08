@@ -8,7 +8,7 @@ on:
     inputs:
       package:
         description: Package selector
-        required: true
+        required: false
         default: "."
         type: string
       draft-template-path:
@@ -18,12 +18,12 @@ on:
         type: string
       target-branch:
         description: Release target branch
-        required: true
+        required: false
         default: main
         type: string
       match-mode:
         description: Find release by package version or exact tag
-        required: true
+        required: false
         default: package-json
         type: string
       exact-tag:
@@ -33,7 +33,7 @@ on:
         type: string
       dry-run:
         description: Preview the reset without mutating the release or tag
-        required: true
+        required: false
         default: true
         type: boolean
 
@@ -357,7 +357,7 @@ jobs:
             echo "| Rebuild release draft | **${{ needs.create-draft.result }}** |"
             echo
             if [ "${{ inputs.dry-run }}" = "true" ]; then
-              echo "> Preview only. Re-run with `dry-run=false` to move the tag to the current target branch and rebuild the draft."
+              echo '> Preview only. Re-run with `dry-run=false` to move the tag to the current target branch and rebuild the draft.'
             else
               echo "> Reset completed. The canonical tag now points at the current target branch source and the draft was rebuilt."
             fi

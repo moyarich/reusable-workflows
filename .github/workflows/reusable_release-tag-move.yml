@@ -66,9 +66,17 @@ jobs:
             echo "::error::Target branch moved since resolution; refusing to move $RELEASE_TAG."
             exit 1
           fi
-          RELEASE="$(gh api "repos/$GH_REPO/releases/tags/$RELEASE_TAG" 2>/dev/null || true)"
-          if [ -n "$RELEASE" ] && [ "$(jq -r '.draft' <<< "$RELEASE")" != "true" ]; then
-            echo "::error::Refusing to move a tag associated with a finalized release: $RELEASE_TAG"
+          # A missing release is not a finalized release. gh api can emit a
+          # non-empty error body on 404, so the request exit status matters.
+          RELEASE_ERROR="$RUNNER_TEMP/release-tag-query-error.txt"
+          if RELEASE="$(gh api "repos/$GH_REPO/releases/tags/$RELEASE_TAG" 2>"$RELEASE_ERROR")"; then
+            if [ "$(jq -r '.draft' <<< "$RELEASE")" != "true" ]; then
+              echo "::error::Refusing to move a tag associated with a finalized release: $RELEASE_TAG"
+              exit 1
+            fi
+          elif ! grep -Eqi '(^|[^0-9])404([^0-9]|$)|not found' "$RELEASE_ERROR"; then
+            cat "$RELEASE_ERROR" >&2
+            echo "::error::Unable to verify whether a finalized release owns $RELEASE_TAG."
             exit 1
           fi
           PREVIOUS="$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}" 2>/dev/null || true)"

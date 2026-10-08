@@ -8,7 +8,7 @@ on:
     inputs:
       package:
         description: Package selector
-        required: true
+        required: false
         default: "."
         type: string
       draft-template-path:
@@ -18,7 +18,7 @@ on:
         type: string
       target-branch:
         description: Branch used to resolve the package path and changelog
-        required: true
+        required: false
         default: main
         type: string
       restore-source:
@@ -27,7 +27,7 @@ on:
         type: string
       match-mode:
         description: Find release by package version or exact tag
-        required: true
+        required: false
         default: package-json
         type: string
       workspace-tools-version:
@@ -42,7 +42,7 @@ on:
         type: string
       dry-run:
         description: Preview recovery without mutating the release or tag
-        required: true
+        required: false
         default: true
         type: boolean
 
