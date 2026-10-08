@@ -6,6 +6,11 @@ on:
       packages-json:
         required: true
         type: string
+      ignored-paths-json:
+        description: JSON array of changed file paths to ignore for root-package selection
+        required: false
+        default: '[]'
+        type: string
       package:
         required: false
         default: all
@@ -82,6 +87,7 @@ jobs:
           BEFORE_SHA: ${{ inputs.before-sha }}
           AFTER_SHA: ${{ inputs.after-sha }}
           PACKAGES_JSON: ${{ inputs.packages-json }}
+          IGNORED_PATHS_JSON: ${{ inputs.ignored-paths-json }}
           VERSION_MODE: ${{ inputs.event-name == 'workflow_dispatch' && inputs.version-mode || '' }}
           VERSION_BUMP: ${{ inputs.event-name == 'workflow_dispatch' && inputs.version-bump || '' }}
           EXACT_VERSION: ${{ inputs.event-name == 'workflow_dispatch' && inputs.exact-version || '' }}
@@ -119,6 +125,7 @@ jobs:
             .map((file) => file.trim())
             .filter(Boolean);
 
+          const ignored = new Set(JSON.parse(process.env.IGNORED_PATHS_JSON || "[]"));
           const selected = packages.filter((pkg) => {
             if (pkg.directory === ".") {
               return files.some(
