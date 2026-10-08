@@ -382,7 +382,7 @@ jobs:
               version = e.EXPLICIT || e.INITIAL;
             } else {
               const v = parse(previous);
-              if (kind === 'major' || kind === 'premajor') { if (v.minor || v.patch || v.pre || kind === 'premajor') v.major++; else v.major++; v.minor=0; v.patch=0; v.pre=''; }
+              if (kind === 'major' || kind === 'premajor') { v.major++; v.minor=0; v.patch=0; v.pre=''; }
               else if (kind === 'minor' || kind === 'preminor') { v.minor++; v.patch=0; v.pre=''; }
               else if (kind === 'patch' || kind === 'prepatch' || (kind === 'prerelease' && !v.pre)) { v.patch++; v.pre=''; }
               if (kind.startsWith('pre')) v.pre='0';
