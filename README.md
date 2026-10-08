@@ -194,6 +194,7 @@ jobs:
       contents: write
     uses: moyarich/reusable-workflows/.github/workflows/reusable_prettier.yml@main
     with:
+      mode: check
       configuration-source: shared
       commit: false
       node-version: "24"
@@ -202,3 +203,9 @@ jobs:
 The `shared` option explicitly overrides the caller's formatting rules;
 the `caller` option never pulls a remote configuration. Both modes use the
 same ignore merging and safe commit behavior.
+
+Use `mode: check` for a read-only CI formatting gate and `mode: fix` to run
+`prettier --write`. Only `mode: fix` can commit changes, and only when
+`commit: true`. The workflow installs dependencies with `npm ci --ignore-scripts`
+and invokes the consumer's lockfile-resolved `node_modules/.bin/prettier`.
+It does not invoke autofix.ci or fetch an unpinned Prettier version.
