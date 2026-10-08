@@ -394,10 +394,22 @@ jobs:
             const kind = e.BUMP || 'patch';
             if (!['major','minor','patch','premajor','preminor','prepatch','prerelease'].includes(kind)) throw Error('Invalid version bump: ' + kind);
             const previous = e.PREVIOUS_TAG && e.PREVIOUS_TAG.startsWith(e.PREFIX) ? e.PREVIOUS_TAG.slice(e.PREFIX.length) : '';
-            if (!previous) {
+            // The npm release CLI bumps package.json, not the last GitHub tag.
+            // Use that same baseline so draft and published versions agree,
+            // including 0.x minor releases. Non-package targets retain the
+            // existing tag/initial-version fallback.
+            const manifestPath = join(e.DIRECTORY || '.', 'package.json');
+            let current = '';
+            try {
+              current = JSON.parse(readFileSync(manifestPath, 'utf8')).version;
+            } catch (error) {
+              if (error.code !== 'ENOENT') throw error;
+            }
+            if (current) parse(current);
+            if (!current && !previous) {
               version = e.EXPLICIT || e.INITIAL;
             } else {
-              const v = parse(previous);
+              const v = parse(current || previous);
               if (kind === 'major' || kind === 'premajor') { v.major++; v.minor=0; v.patch=0; v.pre=''; }
               else if (kind === 'minor' || kind === 'preminor') { v.minor++; v.patch=0; v.pre=''; }
               else if (kind === 'patch' || kind === 'prepatch' || (kind === 'prerelease' && !v.pre)) { v.patch++; v.pre=''; }
