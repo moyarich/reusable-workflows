@@ -4,8 +4,15 @@ User-facing changes to the reusable workflows and standalone GitHub Actions are 
 
 ## Unreleased
 
+### Breaking changes
+
+- Rename Workspace Tools source options to `registry`, `workspace`, and `repository`, replacing `package`, `local`, and `upstream`. Rename `workspace-tools-upstream-ref` to `workspace-tools-ref` and the setup action's `upstream-ref` to `ref`. Update action and workflow callers to use the new names.
+
 ### Improvements
 
+- Select a published Workspace Tools version, build from the current workspace, or fetch and build from a chosen Git repository ref. Repository-source builds are isolated from the consuming checkout.
+- Run additional reusable workflows manually from GitHub Actions, including GitHub Release, Release Drafter, action version publication, and dispatch input summaries.
+- Configure browser-based Node.js CI tests through both manual and reusable workflow inputs.
 - Improve workspace CI configuration and remove repository-specific browser-test assumptions.
 
 ## [0.1.0] - Initial Release
