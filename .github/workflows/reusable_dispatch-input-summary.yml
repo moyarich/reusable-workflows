@@ -54,7 +54,7 @@ jobs:
           if (!Array.isArray(exclusions) || !exclusions.every(v => typeof v === 'string'))
             throw Error('exclude-inputs must be a JSON string array');
           const denied = new Set(exclusions.map(v => v.toLowerCase()));
-          const sensitive = /(?:^|[-_])(token|password|passwd|secret|credential|api[-_]?key|private[-_]?key|auth|authorization)(?:$|[-_])/i;
+          const sensitive = /token|passw(?:or)?d|secret|credential|api[-_]?key|private[-_]?key|auth(?:entication|orization)?/i;
           const lines = [
             '# ' + escape(process.env.SUMMARY_HEADING),
             '',
