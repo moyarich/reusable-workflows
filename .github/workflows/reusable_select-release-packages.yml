@@ -118,7 +118,7 @@ jobs:
             fi
 
             SELECTED="$(
-              PACKAGES_JSON="$PACKAGES_JSON" CHANGED_FILES="$CHANGED_FILES" node --input-type=module <<'NODE'
+              PACKAGES_JSON="$PACKAGES_JSON" CHANGED_FILES="$CHANGED_FILES" IGNORED_PATHS_JSON="$IGNORED_PATHS_JSON" node --input-type=module <<'NODE'
           const packages = JSON.parse(process.env.PACKAGES_JSON || "[]");
           const files = (process.env.CHANGED_FILES || "")
             .split("\n")
@@ -135,7 +135,8 @@ jobs:
                       candidate.directory !== "." &&
                       (file === candidate.directory ||
                         file.startsWith(`${candidate.directory}/`)),
-                  ),
+                  ) &&
+                  !ignored.has(file),
               );
             }
 
