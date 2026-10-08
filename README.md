@@ -174,3 +174,31 @@ rather than constructing a token-bearing Git command. Grant the calling job
 ## Portable npm release defaults
 
 Manually dispatched npm release, publish and prepare workflows default to the root package (`.`). Release and Publish support an optional target branch; when absent, the selected dispatch ref is used. Explicit `workflow_call` inputs retain precedence.
+
+## Prettier self-heal configuration
+
+The `reusable_prettier.yml` workflow reads the consuming repository's
+`devDependencies.prettier` version and respects its `.prettierignore`.
+Protected `.github/workflows/` and generated `dist/` paths are always excluded,
+including from auto-commits.
+
+Use `configuration-source: caller` (the default) to let Prettier discover the
+consumer's existing configuration. Choose `configuration-source: shared` to
+apply `reusable-configurations/.prettierrc.json` from this repository while
+still honoring the consumer's ignore patterns:
+
+```yaml
+jobs:
+  formatting:
+    permissions:
+      contents: write
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_prettier.yml@main
+    with:
+      configuration-source: shared
+      commit: false
+      node-version: "24"
+```
+
+The `shared` option explicitly overrides the caller's formatting rules;
+the `caller` option never pulls a remote configuration. Both modes use the
+same ignore merging and safe commit behavior.
