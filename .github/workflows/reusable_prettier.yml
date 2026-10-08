@@ -3,6 +3,11 @@ name: "Reusable · Prettier self-heal"
 on:
   workflow_dispatch:
     inputs:
+      mode:
+        description: Check formatting without changes, or fix it in the runner
+        required: false
+        default: check
+        type: string
       configuration-source:
         description: Choose local Prettier rules or the shared reference rules
         required: true
@@ -24,6 +29,11 @@ on:
 
   workflow_call:
     inputs:
+      mode:
+        description: Check formatting without changes, or fix it in the runner
+        required: false
+        default: check
+        type: string
       configuration-source:
         description: Choose local Prettier rules or the shared reference rules
         required: false
@@ -62,25 +72,16 @@ jobs:
         with:
           node-version: ${{ inputs.node-version }}
 
-      - name: Resolve Prettier version
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Resolve installed Prettier
         id: prettier
         shell: bash
         run: |
           set -euo pipefail
-
-          PRETTIER_VERSION="$(
-            node -e '
-              const pkg = require("./package.json");
-              const version = pkg.devDependencies?.prettier;
-              if (!version) {
-                console.error("package.json must declare devDependencies.prettier");
-                process.exit(1);
-              }
-              process.stdout.write(version);
-            '
-          )"
-
-          echo "version=$PRETTIER_VERSION" >> "$GITHUB_OUTPUT"
+          test -x node_modules/.bin/prettier || { echo "::error::Prettier must be installed by npm ci"; exit 1; }
+          echo "version=$(node_modules/.bin/prettier --version)" >> "$GITHUB_OUTPUT"
 
       - name: Resolve Prettier configuration and ignores
         id: config
@@ -113,46 +114,33 @@ jobs:
               ;;
           esac
 
-      - name: Prettier self-heal
+      - name: Run Prettier
         id: format
+        env:
+          MODE: ${{ inputs.mode }}
         shell: bash
         run: |
           set -euo pipefail
-
           CONFIG_FILE="${{ steps.config.outputs.config-file }}"
           CONFIG_ARGS=()
           if [ -n "$CONFIG_FILE" ]; then CONFIG_ARGS+=(--config "$CONFIG_FILE"); fi
-
-          npx --yes "prettier@${{ steps.prettier.outputs.version }}" . \
-            --write \
+          case "$MODE" in
+            check) ACTION=--check ;;
+            fix) ACTION=--write ;;
+            *) echo "::error::mode must be check or fix"; exit 1 ;;
+          esac
+          node_modules/.bin/prettier . "$ACTION" \
             --ignore-path "${{ steps.config.outputs.ignore-file }}" \
             "${CONFIG_ARGS[@]}"
-
           git status --short -- . ':!.github/workflows/**' ':!dist/**' ':!.prettier-self-heal.ignore' > /tmp/format-status.txt
-
           if [ -s /tmp/format-status.txt ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Verify Prettier formatting
-        id: verify
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          CONFIG_FILE="${{ steps.config.outputs.config-file }}"
-          CONFIG_ARGS=()
-          if [ -n "$CONFIG_FILE" ]; then CONFIG_ARGS+=(--config "$CONFIG_FILE"); fi
-          npx --yes "prettier@${{ steps.prettier.outputs.version }}" . \
-            --check \
-            --ignore-path "${{ steps.config.outputs.ignore-file }}" \
-            "${CONFIG_ARGS[@]}"
-
       - name: Commit Prettier changes
-        if: ${{ inputs.commit && steps.format.outputs.changed == 'true' }}
+        if: ${{ inputs.mode == 'fix' && inputs.commit && steps.format.outputs.changed == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -170,13 +158,6 @@ jobs:
           TARGET_REF="${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}"
           git push origin "HEAD:$TARGET_REF"
 
-      - name: Fail if Prettier formatting verification failed
-        if: ${{ always() && steps.verify.outcome == 'failure' }}
-        shell: bash
-        run: |
-          echo "Prettier --check still fails after Prettier --write." >&2
-          exit 1
-
       - name: Format summary
         if: ${{ always() }}
         shell: bash
@@ -187,12 +168,13 @@ jobs:
             echo "| Setting | Value |"
             echo "| --- | --- |"
             printf '| Node.js | `%s` |\n' "${{ inputs.node-version || '24' }}"
+            printf '| Mode | %s |\\n' "${{ inputs.mode }}"
             printf '| Configuration source | %s |\n' "${{ inputs.configuration-source }}"
             printf '| Prettier | `%s` |\n' "${{ steps.prettier.outputs.version || 'unknown' }}"
             printf '| Commit requested | **%s** |\n' "${{ inputs.commit }}"
             printf '| Branch | `%s` |\n' "${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}"
             echo "| Changes detected | **${{ steps.format.outputs.changed || 'unknown' }}** |"
-            echo "| Verification | **${{ steps.verify.outcome || 'unknown' }}** |"
+
             echo "| Result | **${{ job.status }}** |"
 
             if [ -s /tmp/format-status.txt ]; then
