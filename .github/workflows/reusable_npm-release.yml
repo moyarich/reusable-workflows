@@ -542,7 +542,7 @@ jobs:
             ' <<< "$RELEASE_JSON")"
             CHANGELOG_SOURCE="$(jq -r '.changelogSource // .changelog.source // "unknown"' <<< "$RELEASE_JSON")"
             printf '| Version command | `%s` |\n' "$VERSION_COMMAND"
-            printf '| Changelog source | `%s` |\n' "$CHANGELOG_SOURCE"
+            printf '| Release notes source | `%s` |\n' "$CHANGELOG_SOURCE"
             echo
             echo "Files that would change:"
             echo
@@ -579,14 +579,67 @@ jobs:
             printf '| Published files | `%s` |\n' "${PACKAGE_FILES:-—}"
             echo
 
-            echo "## Changelog"
+            echo "## 1. Release notes generated from commit history"
+            echo
+            echo "These notes come from the release plan (source: \`$CHANGELOG_SOURCE\`). This source setting is separate from the repository's curated \`CHANGELOG.md\`."
             echo
             CHANGELOG_CONTENT="$(jq -r '.changelog // ""' <<< "$RELEASE_JSON")"
             if [ -n "$CHANGELOG_CONTENT" ]; then
               echo "$CHANGELOG_CONTENT"
             else
-              echo "_No changelog content was generated for this release._"
+              echo "_No release notes were returned by workspace-release._"
             fi
+            echo
+
+            echo "## 2. Repository changelog (CHANGELOG.md)"
+            echo
+            CHANGELOG_PATH="CHANGELOG.md"
+            if [ "$PACKAGE_DIRECTORY" != "." ]; then
+              CHANGELOG_PATH="$PACKAGE_DIRECTORY/CHANGELOG.md"
+            fi
+            echo "Repository-maintained release history; displayed independently of the generated release notes above."
+            echo
+            echo "File: \`$CHANGELOG_PATH\` · Version: \`$PACKAGE_VERSION\`"
+            echo
+            if [ -f "$CHANGELOG_PATH" ]; then
+              CURATED_SECTION="$(awk -v version="$PACKAGE_VERSION" '
+                /^## / {
+                  if (found) exit
+                  heading=$0
+                  sub(/^##[[:space:]]+/, "", heading)
+                  if (heading == version || heading == "[" version "]" || index(heading, "[" version "] ") == 1) found=1
+                }
+                found { print }
+              ' "$CHANGELOG_PATH")"
+              if [ -n "$CURATED_SECTION" ]; then
+                echo "$CURATED_SECTION"
+              else
+                echo "_No curated section for this version in the repository changelog._"
+              fi
+            else
+              echo "_No curated changelog file exists at this path._"
+            fi
+            echo
+            echo "## 3. GitHub Release draft"
+            echo
+            echo "The GitHub-hosted draft is a separate, editable release record. This section shows its **existing saved body**, not the generated release-plan notes or the repository changelog."
+            echo
+            DRAFT_JSON="$(gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100" | jq -c --arg tag "$RELEASE_TAG" '[.[][] | select(.tag_name == $tag and .draft == true)] | first // empty')"
+            if [ -n "$DRAFT_JSON" ]; then
+              DRAFT_URL="$(jq -r '.html_url // ""' <<< "$DRAFT_JSON")"
+              DRAFT_BODY="$(jq -r '.body // ""' <<< "$DRAFT_JSON")"
+              printf 'Existing draft: [View GitHub Release draft](%s)\n' "$DRAFT_URL"
+              echo
+              if [ -n "$DRAFT_BODY" ]; then
+                echo "$DRAFT_BODY"
+              else
+                echo "_The existing GitHub Release draft has no body._"
+              fi
+            else
+              echo "_No existing GitHub Release draft matches this package release tag._"
+            fi
+            echo
+            echo "_This is a snapshot taken during package resolution. The subsequent GitHub Release job may create or update the draft._"
             echo
           } >> "$GITHUB_STEP_SUMMARY"
 
