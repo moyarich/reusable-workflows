@@ -397,7 +397,7 @@ jobs:
             }
           } else if (e.MODE) throw Error('Invalid version mode: ' + e.MODE);
           if (version) parse(version);
-          appendFileSync(e.GITHUB_OUTPUT, 'version=' + (version || '') + '\\n');
+          appendFileSync(e.GITHUB_OUTPUT, 'version=' + (version || '') + '\n');
           NODE
 
       - name: Generate Release Drafter config
