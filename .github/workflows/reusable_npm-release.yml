@@ -3,6 +3,11 @@ name: "Reusable · Release npm package"
 on:
   workflow_dispatch:
     inputs:
+      target-branch:
+        description: Optional target branch; defaults to the selected workflow run ref
+        required: false
+        default: ""
+        type: string
       dry-run:
         description: Dry-run — preview without making changes
         required: true
@@ -12,7 +17,7 @@ on:
       package:
         description: Package — package to release
         required: true
-        default: packages/workspace-tools
+        default: "."
         type: string
 
       version-mode:
@@ -186,7 +191,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       NODE_AUTH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
-      TARGET_BRANCH: ${{ github.event_name == 'workflow_dispatch' && github.ref_name || inputs.target-branch }}
+      TARGET_BRANCH: ${{ inputs.target-branch || github.ref_name }}
 
     steps:
       - name: Initialize workflow summary
@@ -712,7 +717,7 @@ jobs:
       release-name: ${{ needs.release-package.outputs.release-name }}
       changelog-file: CHANGELOG.md
       release-notes: ${{ needs.release-package.outputs.release-notes }}
-      target-ref: ${{ github.event_name == 'workflow_dispatch' && github.ref_name || inputs.target-branch }}
+      target-ref: ${{ inputs.target-branch || github.ref_name }}
       dry-run: ${{ inputs.dry-run }}
       create-tag: false
       draft: true
