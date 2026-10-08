@@ -3,15 +3,19 @@ description: Discover repository packages and emit normalized package and matrix
 
 inputs:
   workspace-tools-source:
-    description: Use the published package or the checked-out workspace-tools source.
+    description: Use published package, local checkout, or upstream Git repository.
     required: false
     default: package
   workspace-tools-version:
     description: Published workspace-tools version when source is package.
     required: false
     default: "0.1.0"
+  workspace-tools-upstream-ref:
+    description: Upstream workspace-tools Git ref when source is upstream.
+    required: false
+    default: main
   workspace-tools-build-command:
-    description: Build command when source is local.
+    description: Build command when source is local or upstream.
     required: false
     default: npm run build
   packages-directory:
@@ -56,6 +60,7 @@ runs:
       with:
         source: ${{ inputs.workspace-tools-source }}
         version: ${{ inputs.workspace-tools-version }}
+        upstream-ref: ${{ inputs.workspace-tools-upstream-ref }}
         build-command: ${{ inputs.workspace-tools-build-command }}
     - id: discover
       shell: bash
