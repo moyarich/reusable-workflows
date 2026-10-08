@@ -12,9 +12,9 @@ on:
         default: "."
         type: string
       draft-template-path:
-        description: Optional release-drafter template path in the consuming repository
+        description: Template path; falls back to the reusable workflow's template when absent in the caller
         required: false
-        default: ""
+        default: .github/release-drafter-template.yml
         type: string
       target-branch:
         description: Release target branch
