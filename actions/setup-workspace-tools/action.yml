@@ -3,7 +3,7 @@ description: Resolve @moyarich/workspace-tools from the published package or the
 
 inputs:
   source:
-    description: Tooling source. Use package for normal consumers or caller when developing workspace-tools itself.
+    description: Tooling source. Use package for normal consumers or local when developing workspace-tools itself.
     required: false
     default: package
   version:
