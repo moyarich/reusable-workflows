@@ -607,9 +607,6 @@ jobs:
           SUMMARY_SEED_SHA: ${{ steps.reconcile-inputs.outputs.seed-sha || 'unresolved' }}
           SUMMARY_RESULT: ${{ steps.write.outputs.action || 'not written' }}
           SUMMARY_DRY_RUN: ${{ inputs.dry-run }}
-          SUMMARY_VERSION_MODE: ${{ inputs.version-mode }}
-          SUMMARY_VERSION_BUMP: ${{ inputs.version-bump }}
-          SUMMARY_EXACT_VERSION: ${{ inputs.exact-version }}
         shell: bash
         run: |
           {
@@ -618,14 +615,6 @@ jobs:
             echo "| Setting | Value |"
             echo "| --- | --- |"
             printf '| Target | `%s` |\n' "$SUMMARY_TARGET"
-            if [ -n "$SUMMARY_VERSION_MODE" ]; then
-              printf '| Version mode | `%s` |\n' "$SUMMARY_VERSION_MODE"
-              if [ "$SUMMARY_VERSION_MODE" = "bump" ]; then
-                printf '| Version bump | `%s` |\n' "$SUMMARY_VERSION_BUMP"
-              elif [ "$SUMMARY_VERSION_MODE" = "exact" ]; then
-                printf '| Exact version | `%s` |\n' "$SUMMARY_EXACT_VERSION"
-              fi
-            fi
             printf '| Expected tag | `%s` |\n' "$SUMMARY_EXPECTED_TAG"
             printf '| Version | `%s` |\n' "$SUMMARY_VERSION"
             printf '| Tag | `%s` |\n' "$SUMMARY_TAG"
@@ -638,7 +627,6 @@ jobs:
             else
               echo "| Draft | unavailable |"
             fi
-            printf '| Dry run | **%s** |\n' "$SUMMARY_DRY_RUN"
             echo
             echo "> Existing draft text is authoritative."
             echo "> Release Drafter supplies newly merged PR entries; only unseen PR markers are appended."
