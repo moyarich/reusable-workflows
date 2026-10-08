@@ -56,7 +56,7 @@ on:
         type: string
 
       workspace-tools-source:
-        description: Workspace Tools source — published package or current caller checkout
+        description: Workspace Tools source — published package or current local checkout
         required: true
         default: package
         type: choice
@@ -117,7 +117,7 @@ on:
         type: string
 
       workspace-tools-source:
-        description: Workspace Tools source — published package or current caller checkout
+        description: Workspace Tools source — published package or current local checkout
         required: false
         default: package
         type: string
@@ -308,7 +308,7 @@ jobs:
             caller)
               PACKAGE_NAME="$(node -p "require('./package.json').name")"
               if [ "$PACKAGE_NAME" != "@moyarich/workspace-tools" ]; then
-                echo "::error::workspace-tools-source=caller requires the checked-out caller package to be @moyarich/workspace-tools; found $PACKAGE_NAME"
+                echo "::error::workspace-tools-source=local requires the checked-out local package to be @moyarich/workspace-tools; found $PACKAGE_NAME"
                 exit 1
               fi
               npm run build
@@ -323,7 +323,7 @@ jobs:
               BIN_DIR="$(dirname "$(command -v workspace-release)")"
               ;;
             *)
-              echo "::error::workspace-tools-source must be 'package' or 'caller'."
+              echo "::error::workspace-tools-source must be 'package' or 'local'."
               exit 1
               ;;
           esac
