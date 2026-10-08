@@ -1,8 +1,5 @@
 name: "Reusable · Reset Release"
 
-run-name: >-
-  Reset release · ${{ inputs.package }} · dry-run=${{ inputs.dry-run }}
-
 on:
   workflow_call:
     inputs:
@@ -38,10 +35,6 @@ on:
         type: boolean
 
 permissions: {}
-
-concurrency:
-  group: reset-release-${{ github.repository }}-${{ inputs.package }}
-  cancel-in-progress: false
 
 jobs:
   probe:
