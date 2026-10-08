@@ -408,7 +408,7 @@ jobs:
 
           GENERATED=".github/release-drafter-generated.yml"
 
-          SOURCE_TEMPLATE="$SOURCE_TEMPLATE"           RELEASE_NAME_INPUT="$RELEASE_NAME_INPUT"           RELEASE_TAG_INPUT="$RELEASE_TAG_INPUT"           TAG_PREFIX="$TAG_PREFIX"           PACKAGE_NAME="$PACKAGE_NAME"           PACKAGE_DIRECTORY="$TARGET_PATH"           INCLUDE_PATHS="$INCLUDE_PATHS"           INPUT_VERSION="$INPUT_VERSION"           node --input-type=module <<'NODE'
+          SOURCE_TEMPLATE="$SOURCE_TEMPLATE"           RELEASE_NAME_INPUT="$RELEASE_NAME_INPUT"           RELEASE_TAG_INPUT="$RELEASE_TAG_INPUT"           TAG_PREFIX="$TAG_PREFIX"           PACKAGE_NAME="$PACKAGE_NAME"           PACKAGE_DIRECTORY="$TARGET_PATH"           INCLUDE_PATHS="$INCLUDE_PATHS"           INPUT_VERSION="${{ steps.resolve-version.outputs.version || inputs.version }}"           node --input-type=module <<'NODE'
           import { readFileSync, writeFileSync } from "node:fs";
 
           const versionToken = process.env.INPUT_VERSION || "$RESOLVED_VERSION";
