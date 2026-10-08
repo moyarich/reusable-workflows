@@ -62,7 +62,7 @@ on:
         type: choice
         options:
           - package
-          - caller
+          - local
       workspace-tools-version:
         description: Published @moyarich/workspace-tools version when source is package
         required: true
