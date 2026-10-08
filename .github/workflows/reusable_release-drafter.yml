@@ -8,99 +8,32 @@ name: "Reusable · Release Drafter"
 on:
   workflow_dispatch:
     inputs:
-      show-input-summary:
-        description: Report effective reusable workflow inputs; set false when the caller already reports them
-        required: false
-        default: true
-        type: boolean
+      target:
+        description: "repository, package:<name>, or directory:<path>"
+        default: repository
+        type: string
       target-branch:
-        description: Branch whose merged PRs feed the draft
-        required: false
+        description: Branch to inspect
         default: main
         type: string
-      version:
-        description: Optional explicit semantic version
-        required: false
-        default: ""
+      version-selection:
+        description: "auto, bump:minor, exact:1.2.3, or package-json"
+        default: auto
         type: string
-      version-mode:
-        description: Version resolution mode (bump, package-json, exact); empty retains automatic or explicit version
-        required: false
-        default: ""
-        type: string
-      version-bump:
-        description: Semantic version increment when version-mode is bump
-        required: false
-        default: ""
-        type: string
-      exact-version:
-        description: Exact semantic version when version-mode is exact
-        required: false
-        default: ""
-        type: string
-      initial-version:
-        description: Version used when the target has no published releases
-        required: false
-        default: "0.1.0"
-        type: string
-      release-tag:
-        description: Optional explicit release tag
-        required: false
-        default: ""
-        type: string
-      tag-prefix:
-        description: Prefix used to identify releases for this target
-        required: false
-        default: "v"
-        type: string
-      package-name:
-        description: Optional package name
-        required: false
-        default: ""
-        type: string
-      package-directory:
-        description: Optional package or application path used for PR and commit scoping
-        required: false
-        default: ""
-        type: string
-      include-paths:
-        description: Optional JSON array of repository path globs included in this draft
-        required: false
-        default: "[]"
-        type: string
-      target-key:
-        description: Stable draft target identifier; derived when omitted
-        required: false
-        default: ""
-        type: string
-      release-name:
-        description: Release name or template containing {{VERSION}}
-        required: true
-        default: "Release {{VERSION}}"
+      release:
+        description: "auto, tag:<tag>, or name:<name>"
+        default: auto
         type: string
       changelog-path:
-        description: Changelog used only to seed a missing draft
-        required: false
+        description: Changelog path
         default: CHANGELOG.md
         type: string
       template-path:
-        description: Caller-local Release Drafter template path, with version-matched actions fallback
-        required: false
+        description: Release Drafter template path
         default: .github/release-drafter-template.yml
         type: string
-      seed-body-base64:
-        description: Optional base64-encoded release body used to seed a newly recreated draft
-        required: false
-        default: ""
-        type: string
-      seed-updated-at:
-        description: Optional timestamp from the release being recreated, used to preserve its PR baseline
-        required: false
-        default: ""
-        type: string
       dry-run:
-        description: Preview the resulting persistent draft without writing it
-        required: false
+        description: Preview without writing
         default: true
         type: boolean
   workflow_call:
@@ -250,21 +183,30 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
       TARGET_BRANCH: ${{ inputs.target-branch }}
-      TARGET_PATH: ${{ inputs.package-directory }}
+      TARGET_PATH: ${{ steps.typed.outputs.package-directory || inputs.package-directory }}
       INCLUDE_PATHS: ${{ inputs.include-paths }}
       TARGET_KEY_INPUT: ${{ inputs.target-key }}
-      PACKAGE_NAME: ${{ inputs.package-name }}
+      PACKAGE_NAME: ${{ steps.typed.outputs.package-name || inputs.package-name }}
       CHANGELOG_PATH: ${{ inputs.changelog-path }}
       TEMPLATE_PATH: ${{ inputs.template-path }}
       TAG_PREFIX: ${{ inputs.tag-prefix }}
-      RELEASE_TAG_INPUT: ${{ inputs.release-tag }}
-      RELEASE_NAME_INPUT: ${{ inputs.release-name }}
+      RELEASE_TAG_INPUT: ${{ steps.typed.outputs.release-tag || inputs.release-tag }}
+      RELEASE_NAME_INPUT: ${{ steps.typed.outputs.release-name || inputs.release-name || 'Release {{VERSION}}' }}
       INPUT_VERSION: ${{ inputs.version }}
       INITIAL_VERSION: ${{ inputs.initial-version }}
       SEED_BODY_BASE64: ${{ inputs.seed-body-base64 }}
       SEED_UPDATED_AT: ${{ inputs.seed-updated-at }}
 
     steps:
+      - name: Parse typed dispatch inputs
+        id: typed
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        uses: moyarich/reusable-workflows/actions/parse-typed-inputs@main
+        with:
+          version: ${{ inputs.version-selection }}
+          target: ${{ inputs.target }}
+          release: ${{ inputs.release }}
+
       - name: Checkout caller repository
         uses: actions/checkout@v7
         with:
