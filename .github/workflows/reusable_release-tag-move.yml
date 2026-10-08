@@ -16,6 +16,11 @@ on:
         type: string
         required: false
         default: main
+      require-branch-head:
+        description: Reject tag movement if target branch HEAD no longer equals the resolved commit
+        type: boolean
+        required: false
+        default: false
       dry-run:
         description: Preview without modifying the tag
         type: boolean
@@ -36,6 +41,7 @@ jobs:
       RELEASE_TAG: ${{ inputs.tag }}
       RELEASE_COMMIT: ${{ inputs.commit }}
       DRY_RUN: ${{ inputs.dry-run }}
+      REQUIRE_BRANCH_HEAD: ${{ inputs.require-branch-head }}
     steps:
       - name: Checkout caller repository
         uses: actions/checkout@v7
@@ -54,6 +60,10 @@ jobs:
           fi
           if ! git cat-file -e "${RELEASE_COMMIT}^{commit}" 2>/dev/null; then
             echo "::error::Commit not found: $RELEASE_COMMIT"
+            exit 1
+          fi
+          if [ "$REQUIRE_BRANCH_HEAD" = "true" ] && [ "$(git rev-parse HEAD)" != "$RELEASE_COMMIT" ]; then
+            echo "::error::Target branch moved since resolution; refusing to move $RELEASE_TAG."
             exit 1
           fi
           RELEASE="$(gh api "repos/$GH_REPO/releases/tags/$RELEASE_TAG" 2>/dev/null || true)"
