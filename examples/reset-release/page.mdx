@@ -1,0 +1,16 @@
+---
+title: Reset release
+description: Copyable reset release reusable workflow caller.
+---
+
+import workflow from "./workflow.yml?raw";
+import reusableWorkflow from "../../.github/workflows/reusable_reset-release.yml?raw";
+
+# Reset release
+
+<Playground
+  files={[
+    { name: "workflow.yml", source: workflow, language: "yaml" },
+    { name: "reusable_reset-release.yml", source: reusableWorkflow, language: "yaml" },
+  ]}
+/>
