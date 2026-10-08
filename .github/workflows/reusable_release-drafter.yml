@@ -406,7 +406,9 @@ jobs:
               if (error.code !== 'ENOENT') throw error;
             }
             if (current) parse(current);
-            if (!current && !previous) {
+            if (!previous) {
+              // An initial draft remains pinned to the configured first
+              // release, rather than skipping directly to its next bump.
               version = e.EXPLICIT || e.INITIAL;
             } else {
               const v = parse(current || previous);
