@@ -1,0 +1,16 @@
+---
+title: Select release packages
+description: Copyable select release packages reusable workflow caller.
+---
+
+import workflow from "./workflow.yml?raw";
+import reusableWorkflow from "../../.github/workflows/reusable_select-release-packages.yml?raw";
+
+# Select release packages
+
+<Playground
+  files={[
+    { name: "workflow.yml", source: workflow, language: "yaml" },
+    { name: "reusable_select-release-packages.yml", source: reusableWorkflow, language: "yaml" },
+  ]}
+/>
