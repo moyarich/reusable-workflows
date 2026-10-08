@@ -11,7 +11,7 @@ inputs:
     required: false
     default: "0.1.0"
   workspace-tools-build-command:
-    description: Build command when source is caller.
+    description: Build command when source is local.
     required: false
     default: npm run build
   packages-directory:
