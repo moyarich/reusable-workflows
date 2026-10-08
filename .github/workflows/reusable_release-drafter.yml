@@ -9,9 +9,9 @@ on:
   workflow_call:
     inputs:
       show-input-summary:
-        description: Opt in to a separate summary of the effective reusable workflow inputs; caller inputs and result summaries stay unchanged
+        description: Report effective reusable workflow inputs; set false when the caller already reports them
         required: false
-        default: false
+        default: true
         type: boolean
       target-branch:
         description: Branch whose merged PRs feed the draft
