@@ -1,5 +1,5 @@
 name: Setup Workspace Tools
-description: Resolve @moyarich/workspace-tools from the published package or the current caller checkout.
+description: Resolve @moyarich/workspace-tools from the published package or the current local checkout.
 
 inputs:
   source:
@@ -11,7 +11,7 @@ inputs:
     required: false
     default: "0.1.0"
   build-command:
-    description: Build command used when source is caller.
+    description: Build command used when source is local.
     required: false
     default: npm run build
 
@@ -33,9 +33,9 @@ runs:
       run: |
         set -euo pipefail
         case "$SOURCE" in
-          package|caller) ;;
+          package|local) ;;
           *)
-            echo "::error::source must be 'package' or 'caller'"
+            echo "::error::source must be 'package' or 'local'"
             exit 1
             ;;
         esac
@@ -58,8 +58,8 @@ runs:
         set -euo pipefail
         npm install --global "@moyarich/workspace-tools@$VERSION" --registry=https://npm.pkg.github.com
 
-    - name: Build workspace tools from caller checkout
-      if: ${{ inputs.source == 'caller' }}
+    - name: Build workspace tools from local checkout
+      if: ${{ inputs.source == 'local' }}
       shell: bash
       env:
         BUILD_COMMAND: ${{ inputs.build-command }}
@@ -68,7 +68,7 @@ runs:
 
         PACKAGE_NAME="$(node -p "require('./package.json').name")"
         if [ "$PACKAGE_NAME" != "@moyarich/workspace-tools" ]; then
-          echo "::error::source=caller is only supported when the checked-out caller package is @moyarich/workspace-tools; found $PACKAGE_NAME"
+          echo "::error::source=local is only supported when the checked-out local package is @moyarich/workspace-tools; found $PACKAGE_NAME"
           exit 1
         fi
 
@@ -87,7 +87,7 @@ runs:
       run: |
         set -euo pipefail
 
-        if [ "$SOURCE" = "caller" ]; then
+        if [ "$SOURCE" = "local" ]; then
           BIN_DIR="$GITHUB_WORKSPACE/dist/bin"
         else
           BIN_DIR="$(dirname "$(command -v workspace-release)")"
