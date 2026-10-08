@@ -28,6 +28,8 @@ Standalone actions use the same release line:
 - uses: moyarich/reusable-workflows/actions/discover-packages@v0
 ```
 
+See [Release Drafter manual dispatch and version selection](docs/release-drafter-dispatch.md) for the version-mode reference table and planned compact dispatch inputs.
+
 ## Versioning
 
 - `v0.1.0` is immutable.
