@@ -6,7 +6,6 @@ User-facing changes to the reusable workflows and standalone GitHub Actions are 
 
 ### Improvements
 
-- Document stable workflow references for reusable workflow consumers.
 - Improve workspace CI configuration and remove repository-specific browser-test assumptions.
 
 ## [0.1.0] - Initial Release
