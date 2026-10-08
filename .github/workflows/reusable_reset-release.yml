@@ -357,7 +357,7 @@ jobs:
             echo "| Rebuild release draft | **${{ needs.create-draft.result }}** |"
             echo
             if [ "${{ inputs.dry-run }}" = "true" ]; then
-              echo "> Preview only. Re-run with `dry-run=false` to move the tag to the current target branch and rebuild the draft."
+              echo '> Preview only. Re-run with `dry-run=false` to move the tag to the current target branch and rebuild the draft.'
             else
               echo "> Reset completed. The canonical tag now points at the current target branch source and the draft was rebuilt."
             fi
