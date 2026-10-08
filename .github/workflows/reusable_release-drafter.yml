@@ -19,17 +19,17 @@ on:
         default: ""
         type: string
       version-mode:
-        description: Optional caller version selection mode for the draft summary
+        description: Version resolution mode (bump, package-json, exact); empty retains automatic or explicit version
         required: false
         default: ""
         type: string
       version-bump:
-        description: Optional caller version increment for the draft summary
+        description: Semantic version increment when version-mode is bump
         required: false
         default: ""
         type: string
       exact-version:
-        description: Optional caller exact version for the draft summary
+        description: Exact semantic version when version-mode is exact
         required: false
         default: ""
         type: string
@@ -345,6 +345,61 @@ jobs:
             echo "seed-sha=$SEED_SHA"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Resolve requested release version
+        id: resolve-version
+        env:
+          MODE: ${{ inputs.version-mode }}
+          BUMP: ${{ inputs.version-bump }}
+          EXACT: ${{ inputs.exact-version }}
+          EXPLICIT: ${{ inputs.version }}
+          PREVIOUS_TAG: ${{ steps.history.outputs.previous-tag }}
+          PREFIX: ${{ inputs.tag-prefix }}
+          DIRECTORY: ${{ inputs.package-directory }}
+          INITIAL: ${{ inputs.initial-version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { readFileSync, appendFileSync } from 'node:fs';
+          import { join } from 'node:path';
+          const e = process.env;
+          const parse = (v) => {
+            const m = /^(\\d+)\\.(\\d+)\\.(\\d+)(?:-([\\da-zA-Z.-]+))?(?:\\+[\\da-zA-Z.-]+)?$/.exec(v);
+            if (!m) throw Error('Invalid semantic version: ' + v);
+            return { major:+m[1], minor:+m[2], patch:+m[3], pre:m[4] || '' };
+          };
+          let version = e.EXPLICIT;
+          if (e.MODE === 'exact') {
+            if (!e.EXACT) throw Error('exact-version is required for exact mode');
+            version = e.EXACT;
+          } else if (e.MODE === 'package-json') {
+            version = JSON.parse(readFileSync(join(e.DIRECTORY || '.', 'package.json'), 'utf8')).version;
+          } else if (e.MODE === 'bump') {
+            const kind = e.BUMP || 'patch';
+            if (!['major','minor','patch','premajor','preminor','prepatch','prerelease'].includes(kind)) throw Error('Invalid version bump: ' + kind);
+            const previous = e.PREVIOUS_TAG && e.PREVIOUS_TAG.startsWith(e.PREFIX) ? e.PREVIOUS_TAG.slice(e.PREFIX.length) : '';
+            if (!previous) {
+              version = e.EXPLICIT || e.INITIAL;
+            } else {
+              const v = parse(previous);
+              if (kind === 'major' || kind === 'premajor') { if (v.minor || v.patch || v.pre || kind === 'premajor') v.major++; else v.major++; v.minor=0; v.patch=0; v.pre=''; }
+              else if (kind === 'minor' || kind === 'preminor') { v.minor++; v.patch=0; v.pre=''; }
+              else if (kind === 'patch' || kind === 'prepatch' || (kind === 'prerelease' && !v.pre)) { v.patch++; v.pre=''; }
+              if (kind.startsWith('pre')) v.pre='0';
+              else if (kind === 'prerelease') {
+                const parts=v.pre.split('.');
+                const last=parts.length-1;
+                if (/^\\d+$/.test(parts[last])) parts[last]=String(Number(parts[last])+1);
+                else parts.push('0');
+                v.pre=parts.join('.');
+              }
+              version = `${v.major}.${v.minor}.${v.patch}${v.pre ? '-' + v.pre : ''}`;
+            }
+          } else if (e.MODE) throw Error('Invalid version mode: ' + e.MODE);
+          if (version) parse(version);
+          appendFileSync(e.GITHUB_OUTPUT, 'version=' + (version || '') + '\\n');
+          NODE
+
       - name: Generate Release Drafter config
         id: config
         shell: bash
@@ -403,7 +458,7 @@ jobs:
           config-name: file:release-drafter-generated.yml
           commitish: ${{ inputs.target-branch }}
           dry-run: true
-          version: ${{ steps.history.outputs.effective-version }}
+          version: ${{ steps.resolve-version.outputs.version || steps.history.outputs.effective-version }}
           from: ${{ steps.history.outputs.seed-sha }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
