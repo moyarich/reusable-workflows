@@ -1,6 +1,44 @@
 name: "Reusable · Release"
 
 on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release semantic version (without v)
+        required: true
+        default: "0.1.0"
+        type: string
+      release-tag:
+        description: Immutable release tag
+        required: true
+        default: "v0.1.0"
+        type: string
+      release-name:
+        description: GitHub Release name
+        required: true
+        default: "v0.1.0"
+        type: string
+      changelog-file:
+        description: Changelog containing the version section
+        required: true
+        default: CHANGELOG.md
+        type: string
+      target-ref:
+        description: Release target ref
+        default: main
+        type: string
+      dry-run:
+        description: Preview without changing tags or releases
+        default: true
+        type: boolean
+      create-tag:
+        description: Create immutable tag
+        default: false
+        type: boolean
+      draft:
+        description: Keep release as draft
+        default: true
+        type: boolean
   workflow_call:
     inputs:
       show-input-summary:

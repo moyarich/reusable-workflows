@@ -1,17 +1,21 @@
 name: Setup Workspace Tools
-description: Resolve @moyarich/workspace-tools from the published package or the current caller checkout.
+description: Resolve @moyarich/workspace-tools from the npm registry, current workspace, or Git repository.
 
 inputs:
   source:
-    description: Tooling source. Use package for normal consumers or caller when developing workspace-tools itself.
+    description: Tooling source. Use registry for published versions, workspace for the current checkout, or repository for a Git ref.
     required: false
-    default: package
+    default: registry
   version:
-    description: Published @moyarich/workspace-tools version used when source is package.
+    description: Published @moyarich/workspace-tools version used when source is registry.
     required: false
     default: "0.1.0"
+  ref:
+    description: Git ref of moyarich/workspace-tools when source is repository.
+    required: false
+    default: main
   build-command:
-    description: Build command used when source is caller.
+    description: Build command used when source is workspace or repository.
     required: false
     default: npm run build
 
@@ -33,15 +37,15 @@ runs:
       run: |
         set -euo pipefail
         case "$SOURCE" in
-          package|caller) ;;
+          registry|workspace|repository) ;;
           *)
-            echo "::error::source must be 'package' or 'caller'"
+            echo "::error::source must be 'registry', 'workspace', or 'repository'"
             exit 1
             ;;
         esac
 
     - name: Setup Node.js for published package
-      if: ${{ inputs.source == 'package' }}
+      if: ${{ inputs.source == 'registry' }}
       uses: actions/setup-node@v7
       with:
         node-version: "24"
@@ -49,7 +53,7 @@ runs:
         scope: "@moyarich"
 
     - name: Install published workspace tools
-      if: ${{ inputs.source == 'package' }}
+      if: ${{ inputs.source == 'registry' }}
       shell: bash
       env:
         NODE_AUTH_TOKEN: ${{ github.token }}
@@ -58,8 +62,45 @@ runs:
         set -euo pipefail
         npm install --global "@moyarich/workspace-tools@$VERSION" --registry=https://npm.pkg.github.com
 
-    - name: Build workspace tools from caller checkout
-      if: ${{ inputs.source == 'caller' }}
+    - name: Setup Node.js for repository source
+      if: ${{ inputs.source == 'repository' }}
+      uses: actions/setup-node@v7
+      with:
+        node-version: "24"
+        registry-url: https://npm.pkg.github.com
+        scope: "@moyarich"
+
+    - name: Checkout workspace tools repository
+      if: ${{ inputs.source == 'repository' }}
+      shell: bash
+      env:
+        UPSTREAM_REF: ${{ inputs.ref }}
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        TOOL_DIR="$RUNNER_TEMP/workspace-tools-upstream"
+        rm -rf "$TOOL_DIR"
+        mkdir -p "$TOOL_DIR"
+        git -C "$TOOL_DIR" init -q
+        git -C "$TOOL_DIR" remote add origin https://github.com/moyarich/workspace-tools.git
+        git -C "$TOOL_DIR" -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)" fetch --depth=1 origin "$UPSTREAM_REF"
+        git -C "$TOOL_DIR" checkout -q --detach FETCH_HEAD
+
+    - name: Build workspace tools repository
+      if: ${{ inputs.source == 'repository' }}
+      shell: bash
+      env:
+        BUILD_COMMAND: ${{ inputs.build-command }}
+        NODE_AUTH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        cd "$RUNNER_TEMP/workspace-tools-upstream"
+        npm ci --include=optional
+        bash -lc "$BUILD_COMMAND"
+        test -f dist/bin/discover-packages || { echo "::error::Upstream build missing discover-packages CLI"; exit 1; }
+
+    - name: Build workspace tools from current workspace
+      if: ${{ inputs.source == 'workspace' }}
       shell: bash
       env:
         BUILD_COMMAND: ${{ inputs.build-command }}
@@ -68,14 +109,14 @@ runs:
 
         PACKAGE_NAME="$(node -p "require('./package.json').name")"
         if [ "$PACKAGE_NAME" != "@moyarich/workspace-tools" ]; then
-          echo "::error::source=caller is only supported when the checked-out caller package is @moyarich/workspace-tools; found $PACKAGE_NAME"
+          echo "::error::source=workspace is only supported when the checked-out local package is @moyarich/workspace-tools; found $PACKAGE_NAME"
           exit 1
         fi
 
         bash -lc "$BUILD_COMMAND"
 
         if [ ! -d "$GITHUB_WORKSPACE/dist/bin" ]; then
-          echo "::error::Caller build did not produce dist/bin."
+          echo "::error::Local build did not produce dist/bin."
           exit 1
         fi
 
@@ -87,8 +128,10 @@ runs:
       run: |
         set -euo pipefail
 
-        if [ "$SOURCE" = "caller" ]; then
+        if [ "$SOURCE" = "workspace" ]; then
           BIN_DIR="$GITHUB_WORKSPACE/dist/bin"
+        elif [ "$SOURCE" = "repository" ]; then
+          BIN_DIR="$RUNNER_TEMP/workspace-tools-upstream/dist/bin"
         else
           BIN_DIR="$(dirname "$(command -v workspace-release)")"
         fi

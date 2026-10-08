@@ -1,6 +1,12 @@
 name: "Reusable · Publish action version"
 
 on:
+  workflow_dispatch:
+    inputs:
+      source-tag:
+        description: Published stable semantic-version tag, such as v1.2.3.
+        required: true
+        type: string
   workflow_call:
     inputs:
       source-tag:

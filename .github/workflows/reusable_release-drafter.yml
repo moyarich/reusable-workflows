@@ -6,6 +6,36 @@
 name: "Reusable · Release Drafter"
 
 on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "repository, package:<name>, or directory:<path>"
+        default: repository
+        type: string
+      target-branch:
+        description: Branch to inspect
+        default: main
+        type: string
+      version-selection:
+        description: "auto, bump:minor, exact:1.2.3, or package-json"
+        default: auto
+        type: string
+      release:
+        description: "auto, tag:<tag>, or name:<name>"
+        default: auto
+        type: string
+      changelog-path:
+        description: Changelog path
+        default: CHANGELOG.md
+        type: string
+      template-path:
+        description: Release Drafter template path
+        default: .github/release-drafter-template.yml
+        type: string
+      dry-run:
+        description: Preview without writing
+        default: true
+        type: boolean
   workflow_call:
     inputs:
       show-input-summary:
@@ -168,6 +198,51 @@ jobs:
       SEED_UPDATED_AT: ${{ inputs.seed-updated-at }}
 
     steps:
+      - name: Setup Node.js for typed inputs
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Resolve typed input CLI
+        id: typed-cli
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        uses: moyarich/reusable-workflows/actions/setup-workspace-tools@main
+        with:
+          source: repository
+          ref: main
+
+      - name: Parse typed dispatch inputs with workspace-tools
+        id: typed
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        shell: bash
+        env:
+          VERSION_SELECTION: ${{ inputs.version-selection }}
+          TARGET_SELECTION: ${{ inputs.target }}
+          RELEASE_SELECTION: ${{ inputs.release }}
+        run: |
+          "${{ steps.typed-cli.outputs.bin-dir }}/typed-input-resolver.mjs" \
+            --version "$VERSION_SELECTION" \
+            --target "$TARGET_SELECTION" \
+            --release "$RELEASE_SELECTION" \
+            --github-output --json
+
+      - name: Export typed dispatch identity
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        shell: bash
+        env:
+          TARGET_DIRECTORY: ${{ steps.typed.outputs.package-directory }}
+          TARGET_PACKAGE: ${{ steps.typed.outputs.package-name }}
+          RELEASE_TAG: ${{ steps.typed.outputs.release-tag }}
+          RELEASE_NAME: ${{ steps.typed.outputs.release-name }}
+        run: |
+          {
+            echo "TARGET_PATH=$TARGET_DIRECTORY"
+            echo "PACKAGE_NAME=$TARGET_PACKAGE"
+            echo "RELEASE_TAG_INPUT=$RELEASE_TAG"
+            echo "RELEASE_NAME_INPUT=${RELEASE_NAME:-Release {{VERSION}}}"
+          } >> "$GITHUB_ENV"
+
       - name: Checkout caller repository
         uses: actions/checkout@v7
         with:
@@ -364,9 +439,9 @@ jobs:
       - name: Resolve requested release version
         id: resolve-version
         env:
-          MODE: ${{ inputs.version-mode }}
-          BUMP: ${{ inputs.version-bump }}
-          EXACT: ${{ inputs.exact-version }}
+          MODE: ${{ steps.typed.outputs.version-mode || inputs.version-mode }}
+          BUMP: ${{ steps.typed.outputs.version-bump || inputs.version-bump }}
+          EXACT: ${{ steps.typed.outputs.exact-version || inputs.exact-version }}
           EXPLICIT: ${{ inputs.version }}
           PREVIOUS_TAG: ${{ steps.history.outputs.previous-tag }}
           PREFIX: ${{ inputs.tag-prefix }}

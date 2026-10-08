@@ -2,6 +2,22 @@ name: Discover Packages
 description: Discover repository packages and emit normalized package and matrix metadata.
 
 inputs:
+  workspace-tools-source:
+    description: Use npm registry, current workspace, or Git repository.
+    required: false
+    default: registry
+  workspace-tools-version:
+    description: Published workspace-tools version when source is registry.
+    required: false
+    default: "0.1.0"
+  workspace-tools-ref:
+    description: Workspace-tools repository Git ref when source is repository.
+    required: false
+    default: main
+  workspace-tools-build-command:
+    description: Build command when source is workspace or repository.
+    required: false
+    default: npm run build
   packages-directory:
     description: Directory containing direct-child packages when workspace discovery is disabled.
     required: false
@@ -38,18 +54,18 @@ outputs:
 runs:
   using: composite
   steps:
-    - uses: actions/setup-node@v7
+    - name: Resolve workspace tools
+      id: workspace-tools
+      uses: moyarich/reusable-workflows/actions/setup-workspace-tools@main
       with:
-        node-version: "24"
-        registry-url: https://npm.pkg.github.com
-        scope: "@moyarich"
-    - name: Install workspace tools
-      shell: bash
-      env:
-        NODE_AUTH_TOKEN: ${{ github.token }}
-      run: npm install --global @moyarich/workspace-tools@0.1.0 --registry=https://npm.pkg.github.com
+        source: ${{ inputs.workspace-tools-source }}
+        version: ${{ inputs.workspace-tools-version }}
+        ref: ${{ inputs.workspace-tools-ref }}
+        build-command: ${{ inputs.workspace-tools-build-command }}
     - id: discover
       shell: bash
+      env:
+        WORKSPACE_TOOLS_BIN: ${{ steps.workspace-tools.outputs.bin-dir }}
       run: |
         set -euo pipefail
         args=( "${{ inputs.packages-directory }}" --json )
@@ -59,7 +75,7 @@ runs:
         [ "${{ inputs.require-publish-config }}" = "true" ] && args+=(--require-publish-config)
         [ "${{ inputs.require-test-script }}" = "true" ] && args+=(--require-test-script)
         [ "${{ inputs.require-build-script }}" = "true" ] && args+=(--require-build-script)
-        packages="$(discover-packages "${args[@]}")"
+        packages="$("$WORKSPACE_TOOLS_BIN/discover-packages" "${args[@]}")"
         matrix="$(jq -cn --argjson packages "$packages" '{include:$packages}')"
         count="$(jq 'length' <<<"$packages")"
         {
