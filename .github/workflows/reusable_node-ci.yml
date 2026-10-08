@@ -8,6 +8,11 @@ on:
         required: true
         default: "."
         type: string
+      browser-tests:
+        description: Install Chromium dependencies for browser-based tests
+        required: false
+        default: false
+        type: boolean
       node-version:
         description: Node.js version used by CI
         required: true
@@ -143,7 +148,7 @@ jobs:
           done <<< "$BUILD_ORDER"
 
       - name: Install Chromium for Storybook tests
-        if: ${{ inputs.package-directory == 'packages/web-components' || inputs.package-directory == '@moyarich/web-components' }}
+        if: ${{ inputs.browser-tests }}
         run: npx playwright install --with-deps chromium
 
       - name: Test
