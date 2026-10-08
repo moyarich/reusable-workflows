@@ -32,7 +32,7 @@ on:
         type: choice
         options:
           - bump
-          - package-json
+          - registry-json
           - exact
 
       version-bump:
@@ -56,21 +56,21 @@ on:
         type: string
 
       workspace-tools-source:
-        description: Workspace Tools source — published package, local checkout, or upstream Git ref
+        description: Workspace Tools source — npm registry, current workspace, or Git repository
         required: true
-        default: package
+        default: registry
         type: choice
         options:
-          - package
-          - local
-          - upstream
-      workspace-tools-upstream-ref:
-        description: Upstream moyarich/workspace-tools Git ref when source is upstream
+          - registry
+          - workspace
+          - repository
+      workspace-tools-ref:
+        description: Upstream moyarich/workspace-tools Git ref when source is repository
         required: false
         default: main
         type: string
       workspace-tools-version:
-        description: Published @moyarich/workspace-tools version when source is package
+        description: Published @moyarich/workspace-tools version when source is registry
         required: true
         default: "0.1.0"
         type: string
@@ -123,17 +123,17 @@ on:
         type: string
 
       workspace-tools-source:
-        description: Workspace Tools source — published package, local checkout, or upstream Git ref
+        description: Workspace Tools source — npm registry, current workspace, or Git repository
         required: false
-        default: package
+        default: registry
         type: string
-      workspace-tools-upstream-ref:
-        description: Upstream moyarich/workspace-tools Git ref when source is upstream
+      workspace-tools-ref:
+        description: Upstream moyarich/workspace-tools Git ref when source is repository
         required: false
         default: main
         type: string
       workspace-tools-version:
-        description: Published @moyarich/workspace-tools version when source is package
+        description: Published @moyarich/workspace-tools version when source is registry
         required: false
         default: "0.1.0"
         type: string
@@ -309,9 +309,9 @@ jobs:
         id: workspace-tools
         uses: moyarich/reusable-workflows/actions/setup-workspace-tools@main
         with:
-          source: ${{ inputs.workspace-tools-source || 'package' }}
+          source: ${{ inputs.workspace-tools-source || 'registry' }}
           version: ${{ inputs.workspace-tools-version || '0.1.0' }}
-          upstream-ref: ${{ inputs.workspace-tools-upstream-ref || 'main' }}
+          ref: ${{ inputs.workspace-tools-ref || 'main' }}
 
       - name: Export workspace tools CLI path
         shell: bash
