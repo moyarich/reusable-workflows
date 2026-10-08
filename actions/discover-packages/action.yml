@@ -52,7 +52,7 @@ runs:
   steps:
     - name: Resolve workspace tools
       id: workspace-tools
-      uses: ./actions/setup-workspace-tools
+      uses: moyarich/reusable-workflows/actions/setup-workspace-tools@main
       with:
         source: ${{ inputs.workspace-tools-source }}
         version: ${{ inputs.workspace-tools-version }}
