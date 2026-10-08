@@ -15,7 +15,7 @@ inputs:
     required: false
     default: main
   build-command:
-    description: Build command used when source is workspace or upstream.
+    description: Build command used when source is workspace or repository.
     required: false
     default: npm run build
 
