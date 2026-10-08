@@ -148,7 +148,7 @@ permissions: {}
 jobs:
   workflow-call-input-summary:
     name: "job: Reusable workflow parameters"
-    if: ${{ inputs.show-input-summary }}
+    if: ${{ github.event_name == 'workflow_dispatch' || inputs.show-input-summary }}
     permissions:
       contents: read
     uses: moyarich/reusable-workflows/.github/workflows/reusable_dispatch-input-summary.yml@main
