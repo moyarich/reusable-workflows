@@ -1,0 +1,97 @@
+name: Parse typed workflow inputs
+description: Validate and normalize compact type:value workflow inputs
+inputs:
+  version:
+    description: auto, package-json, bump:<increment>, or exact:<semver>
+    default: auto
+  target:
+    description: repository, package:<name>, or directory:<path>
+    default: repository
+  workspace-tools:
+    description: workspace, registry:<version>, or repository:<ref>
+    default: registry:0.1.0
+  release:
+    description: auto, tag:<tag>, or name:<name>
+    default: auto
+outputs:
+  version-mode:
+    value: ${{ steps.parse.outputs.version-mode }}
+  version-bump:
+    value: ${{ steps.parse.outputs.version-bump }}
+  exact-version:
+    value: ${{ steps.parse.outputs.exact-version }}
+  package-name:
+    value: ${{ steps.parse.outputs.package-name }}
+  package-directory:
+    value: ${{ steps.parse.outputs.package-directory }}
+  workspace-tools-source:
+    value: ${{ steps.parse.outputs.workspace-tools-source }}
+  workspace-tools-version:
+    value: ${{ steps.parse.outputs.workspace-tools-version }}
+  workspace-tools-ref:
+    value: ${{ steps.parse.outputs.workspace-tools-ref }}
+  release-tag:
+    value: ${{ steps.parse.outputs.release-tag }}
+  release-name:
+    value: ${{ steps.parse.outputs.release-name }}
+runs:
+  using: composite
+  steps:
+    - name: Parse and validate typed values
+      id: parse
+      shell: bash
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
+        INPUT_TARGET: ${{ inputs.target }}
+        INPUT_WORKSPACE_TOOLS: ${{ inputs.workspace-tools }}
+        INPUT_RELEASE: ${{ inputs.release }}
+      run: |
+        python3 - <<'PY'
+        import os
+        import re
+
+        def parse(raw, name, allowed, bare=()):
+            kind, sep, value = raw.partition(':')
+            if kind not in allowed or (sep and not value) or (not sep and kind not in bare):
+                raise ValueError(f"{name}: unsupported value {raw!r}; expected {', '.join(allowed)}")
+            if kind in bare and sep:
+                raise ValueError(f"{name}: {kind} does not accept a value")
+            if kind not in bare and not sep:
+                raise ValueError(f"{name}: {kind} requires a value")
+            if value and ('\n' in value or '\r' in value):
+                raise ValueError(f"{name}: newline is not allowed")
+            return kind, value
+
+        try:
+            mode, value = parse(os.environ['INPUT_VERSION'], 'version',
+                                ('auto', 'package-json', 'bump', 'exact'),
+                                ('auto', 'package-json'))
+            if mode == 'bump' and value not in ('patch', 'minor', 'major', 'prepatch', 'preminor', 'premajor', 'prerelease'):
+                raise ValueError('version: unsupported bump increment')
+            if mode == 'exact' and not re.fullmatch(r'(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?', value):
+                raise ValueError('version: exact requires a valid semantic version')
+            target, target_value = parse(os.environ['INPUT_TARGET'], 'target',
+                                         ('repository', 'package', 'directory'), ('repository',))
+            source, source_value = parse(os.environ['INPUT_WORKSPACE_TOOLS'], 'workspace-tools',
+                                         ('workspace', 'registry', 'repository'), ('workspace',))
+            release, release_value = parse(os.environ['INPUT_RELEASE'], 'release',
+                                           ('auto', 'tag', 'name'), ('auto',))
+            output = {
+                'version-mode': '' if mode == 'auto' else mode,
+                'version-bump': value if mode == 'bump' else '',
+                'exact-version': value if mode == 'exact' else '',
+                'package-name': target_value if target == 'package' else '',
+                'package-directory': target_value if target == 'directory' else '',
+                'workspace-tools-source': source,
+                'workspace-tools-version': source_value if source == 'registry' else '',
+                'workspace-tools-ref': source_value if source == 'repository' else '',
+                'release-tag': release_value if release == 'tag' else '',
+                'release-name': release_value if release == 'name' else '',
+            }
+            with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as out:
+                for key, val in output.items():
+                    print(f'{key}={val}', file=out)
+        except ValueError as error:
+            print(f'::error::{error}')
+            raise SystemExit(1)
+        PY
