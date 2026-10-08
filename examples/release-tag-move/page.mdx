@@ -1,0 +1,16 @@
+---
+title: Move release tag
+description: Copyable move release tag reusable workflow caller.
+---
+
+import workflow from "./workflow.yml?raw";
+import reusableWorkflow from "../../.github/workflows/reusable_release-tag-move.yml?raw";
+
+# Move release tag
+
+<Playground
+  files={[
+    { name: "workflow.yml", source: workflow, language: "yaml" },
+    { name: "reusable_release-tag-move.yml", source: reusableWorkflow, language: "yaml" },
+  ]}
+/>
