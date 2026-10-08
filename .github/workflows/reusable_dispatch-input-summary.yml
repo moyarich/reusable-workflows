@@ -1,0 +1,62 @@
+name: "Reusable · Dispatch Inputs Summary"
+
+on:
+  workflow_call:
+    inputs:
+      parameters-json:
+        description: JSON object containing only explicitly approved non-sensitive workflow inputs
+        required: true
+        type: string
+      heading:
+        description: Summary heading
+        required: false
+        default: Workflow dispatch parameters
+        type: string
+
+permissions: {}
+
+jobs:
+  summary:
+    name: "job: Workflow parameters"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Record manual workflow parameters
+        env:
+          PARAMETERS_JSON: ${{ inputs.parameters-json }}
+          SUMMARY_HEADING: ${{ inputs.heading }}
+          WORKFLOW_NAME: ${{ github.workflow }}
+          EVENT_NAME: ${{ github.event_name }}
+          WORKFLOW_REF: ${{ github.ref }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { appendFileSync } from 'node:fs';
+          const escape = (value) => String(value ?? '')
+            .replaceAll('|', '&#124;')
+            .replaceAll('\\r', ' ')
+            .replaceAll('\\n', ' ')
+            .replaceAll('`', '&#96;')
+            .replaceAll('<', '&lt;');
+          const params = JSON.parse(process.env.PARAMETERS_JSON);
+          if (!params || typeof params !== 'object' || Array.isArray(params))
+            throw Error('parameters-json must be a JSON object');
+          const lines = [
+            '# ' + escape(process.env.SUMMARY_HEADING),
+            '',
+            '| Setting | Value |',
+            '| --- | --- |',
+            '| Workflow | ' + escape(process.env.WORKFLOW_NAME) + ' |',
+            '| Trigger | ' + escape(process.env.EVENT_NAME) + ' |',
+            '| Ref | ' + escape(process.env.WORKFLOW_REF) + ' |',
+            '| Commit | ' + escape(process.env.WORKFLOW_SHA) + ' |',
+          ];
+          for (const [key, value] of Object.entries(params)) {
+            if (value !== null && typeof value === 'object') throw Error('Parameter values must be scalar');
+            lines.push('| ' + escape(key) + ' | ' + escape(value) + ' |');
+          }
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\\n') + '\\n');
+          NODE
