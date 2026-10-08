@@ -170,3 +170,7 @@ with:
 The shared tag-move workflow uses the calling repository's checkout credentials,
 rather than constructing a token-bearing Git command. Grant the calling job
 `contents: write` when moving tags.
+
+## Portable npm release defaults
+
+Manually dispatched npm release, publish and prepare workflows default to the root package (`.`). Release and Publish support an optional target branch; when absent, the selected dispatch ref is used. Explicit `workflow_call` inputs retain precedence.
