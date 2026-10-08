@@ -56,13 +56,19 @@ on:
         type: string
 
       workspace-tools-source:
-        description: Workspace Tools source — published package or current local checkout
+        description: Workspace Tools source — published package, local checkout, or upstream Git ref
         required: true
         default: package
         type: choice
         options:
           - package
           - local
+          - upstream
+      workspace-tools-upstream-ref:
+        description: Upstream moyarich/workspace-tools Git ref when source is upstream
+        required: false
+        default: main
+        type: string
       workspace-tools-version:
         description: Published @moyarich/workspace-tools version when source is package
         required: true
@@ -117,9 +123,14 @@ on:
         type: string
 
       workspace-tools-source:
-        description: Workspace Tools source — published package or current local checkout
+        description: Workspace Tools source — published package, local checkout, or upstream Git ref
         required: false
         default: package
+        type: string
+      workspace-tools-upstream-ref:
+        description: Upstream moyarich/workspace-tools Git ref when source is upstream
+        required: false
+        default: main
         type: string
       workspace-tools-version:
         description: Published @moyarich/workspace-tools version when source is package
@@ -296,42 +307,11 @@ jobs:
 
       - name: Resolve workspace tools CLI
         id: workspace-tools
-        shell: bash
-        env:
-          SOURCE: ${{ inputs.workspace-tools-source || 'package' }}
-          VERSION: ${{ inputs.workspace-tools-version || '0.1.0' }}
-          NODE_AUTH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-
-          case "$SOURCE" in
-            local)
-              PACKAGE_NAME="$(node -p "require('./package.json').name")"
-              if [ "$PACKAGE_NAME" != "@moyarich/workspace-tools" ]; then
-                echo "::error::workspace-tools-source=local requires the checked-out local package to be @moyarich/workspace-tools; found $PACKAGE_NAME"
-                exit 1
-              fi
-              npm run build
-              BIN_DIR="$GITHUB_WORKSPACE/dist/bin"
-              [ -d "$BIN_DIR" ] || {
-                echo "::error::Local build did not produce dist/bin."
-                exit 1
-              }
-              ;;
-            package)
-              npm install --global "@moyarich/workspace-tools@$VERSION" --registry=https://npm.pkg.github.com
-              BIN_DIR="$(dirname "$(command -v workspace-release)")"
-              ;;
-            *)
-              echo "::error::workspace-tools-source must be 'package' or 'local'."
-              exit 1
-              ;;
-          esac
-
-          {
-            echo "bin-dir=$BIN_DIR"
-            echo "source=$SOURCE"
-          } >> "$GITHUB_OUTPUT"
+        uses: moyarich/reusable-workflows/actions/setup-workspace-tools@main
+        with:
+          source: ${{ inputs.workspace-tools-source || 'package' }}
+          version: ${{ inputs.workspace-tools-version || '0.1.0' }}
+          upstream-ref: ${{ inputs.workspace-tools-upstream-ref || 'main' }}
 
       - name: Export workspace tools CLI path
         shell: bash
