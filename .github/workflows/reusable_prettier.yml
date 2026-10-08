@@ -73,6 +73,8 @@ jobs:
           node-version: ${{ inputs.node-version }}
 
       - name: Install locked dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
         run: npm ci --ignore-scripts
 
       - name: Resolve installed Prettier
@@ -87,12 +89,13 @@ jobs:
         id: config
         env:
           SOURCE: ${{ inputs.prettier-config }}
+          WORKFLOW_REF: ${{ job.workflow_ref }}
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
           IGNORE_FILE="$GITHUB_WORKSPACE/.prettier-self-heal.ignore"
-          touch "$IGNORE_FILE"
+          : > "$IGNORE_FILE"
           if [ -f .prettierignore ]; then
             cat .prettierignore > "$IGNORE_FILE"
             printf '\n' >> "$IGNORE_FILE"
@@ -105,7 +108,9 @@ jobs:
               ;;
             reusable-workflows)
               CONFIG_FILE="$RUNNER_TEMP/shared-prettier.json"
-              gh api "repos/moyarich/reusable-workflows/contents/reusable-configurations/.prettierrc.json?ref=main" --jq '.content' | base64 --decode > "$CONFIG_FILE"
+              SHARED_REF="${WORKFLOW_REF##*@}"
+              [ -n "$SHARED_REF" ] || { echo "::error::Reusable workflow ref is missing"; exit 1; }
+              gh api "repos/moyarich/reusable-workflows/contents/reusable-configurations/.prettierrc.json?ref=$SHARED_REF" --jq '.content' | base64 --decode > "$CONFIG_FILE"
               echo "config-file=$CONFIG_FILE" >> "$GITHUB_OUTPUT"
               ;;
             *)
@@ -168,7 +173,7 @@ jobs:
             echo "| Setting | Value |"
             echo "| --- | --- |"
             printf '| Node.js | `%s` |\n' "${{ inputs.node-version || '24' }}"
-            printf '| Mode | %s |\\n' "${{ inputs.mode }}"
+            printf '| Mode | %s |\n' "${{ inputs.mode }}"
             printf '| Configuration source | %s |\n' "${{ inputs.prettier-config }}"
             printf '| Prettier | `%s` |\n' "${{ steps.prettier.outputs.version || 'unknown' }}"
             printf '| Commit requested | **%s** |\n' "${{ inputs.commit }}"
