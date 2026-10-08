@@ -1,17 +1,21 @@
 name: Setup Workspace Tools
-description: Resolve @moyarich/workspace-tools from the published package or the current local checkout.
+description: Resolve @moyarich/workspace-tools from the published package, local checkout, or upstream repository.
 
 inputs:
   source:
-    description: Tooling source. Use package for normal consumers or local when developing workspace-tools itself.
+    description: Tooling source. Use package for published versions, local for the current checkout, or upstream for a Git ref.
     required: false
     default: package
   version:
     description: Published @moyarich/workspace-tools version used when source is package.
     required: false
     default: "0.1.0"
+  upstream-ref:
+    description: Git ref of moyarich/workspace-tools when source is upstream.
+    required: false
+    default: main
   build-command:
-    description: Build command used when source is local.
+    description: Build command used when source is local or upstream.
     required: false
     default: npm run build
 
@@ -33,9 +37,9 @@ runs:
       run: |
         set -euo pipefail
         case "$SOURCE" in
-          package|local) ;;
+          package|local|upstream) ;;
           *)
-            echo "::error::source must be 'package' or 'local'"
+            echo "::error::source must be 'package', 'local', or 'upstream'"
             exit 1
             ;;
         esac
@@ -58,6 +62,36 @@ runs:
         set -euo pipefail
         npm install --global "@moyarich/workspace-tools@$VERSION" --registry=https://npm.pkg.github.com
 
+    - name: Setup Node.js for upstream source
+      if: ${{ inputs.source == 'upstream' }}
+      uses: actions/setup-node@v7
+      with:
+        node-version: "24"
+        registry-url: https://npm.pkg.github.com
+        scope: "@moyarich"
+
+    - name: Checkout upstream workspace tools
+      if: ${{ inputs.source == 'upstream' }}
+      uses: actions/checkout@v7
+      with:
+        repository: moyarich/workspace-tools
+        ref: ${{ inputs.upstream-ref }}
+        path: .workspace-tools-upstream
+        persist-credentials: false
+
+    - name: Build upstream workspace tools
+      if: ${{ inputs.source == 'upstream' }}
+      shell: bash
+      env:
+        BUILD_COMMAND: ${{ inputs.build-command }}
+        NODE_AUTH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        cd "$GITHUB_WORKSPACE/.workspace-tools-upstream"
+        npm ci --include=optional
+        bash -lc "$BUILD_COMMAND"
+        test -f dist/bin/discover-packages || { echo "::error::Upstream build missing discover-packages CLI"; exit 1; }
+
     - name: Build workspace tools from local checkout
       if: ${{ inputs.source == 'local' }}
       shell: bash
@@ -75,7 +109,7 @@ runs:
         bash -lc "$BUILD_COMMAND"
 
         if [ ! -d "$GITHUB_WORKSPACE/dist/bin" ]; then
-          echo "::error::Caller build did not produce dist/bin."
+          echo "::error::Local build did not produce dist/bin."
           exit 1
         fi
 
@@ -89,6 +123,8 @@ runs:
 
         if [ "$SOURCE" = "local" ]; then
           BIN_DIR="$GITHUB_WORKSPACE/dist/bin"
+        elif [ "$SOURCE" = "upstream" ]; then
+          BIN_DIR="$GITHUB_WORKSPACE/.workspace-tools-upstream/dist/bin"
         else
           BIN_DIR="$(dirname "$(command -v workspace-release)")"
         fi
