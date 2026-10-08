@@ -4,8 +4,13 @@ on:
   workflow_call:
     inputs:
       parameters-json:
-        description: JSON object containing only explicitly approved non-sensitive workflow inputs
+        description: JSON object of non-secret dispatch inputs; sensitive names and exclusions are filtered
         required: true
+        type: string
+      exclude-inputs:
+        description: JSON array of additional input names to exclude from display
+        required: false
+        default: '[]'
         type: string
       heading:
         description: Summary heading
@@ -25,6 +30,7 @@ jobs:
       - name: Record manual workflow parameters
         env:
           PARAMETERS_JSON: ${{ inputs.parameters-json }}
+          EXCLUDE_INPUTS: ${{ inputs.exclude-inputs }}
           SUMMARY_HEADING: ${{ inputs.heading }}
           WORKFLOW_NAME: ${{ github.workflow }}
           EVENT_NAME: ${{ github.event_name }}
@@ -44,6 +50,11 @@ jobs:
           const params = JSON.parse(process.env.PARAMETERS_JSON);
           if (!params || typeof params !== 'object' || Array.isArray(params))
             throw Error('parameters-json must be a JSON object');
+          const exclusions = JSON.parse(process.env.EXCLUDE_INPUTS);
+          if (!Array.isArray(exclusions) || !exclusions.every(v => typeof v === 'string'))
+            throw Error('exclude-inputs must be a JSON string array');
+          const denied = new Set(exclusions.map(v => v.toLowerCase()));
+          const sensitive = /(?:^|[-_])(token|password|passwd|secret|credential|api[-_]?key|private[-_]?key|auth|authorization)(?:$|[-_])/i;
           const lines = [
             '# ' + escape(process.env.SUMMARY_HEADING),
             '',
@@ -55,6 +66,7 @@ jobs:
             '| Commit | ' + escape(process.env.WORKFLOW_SHA) + ' |',
           ];
           for (const [key, value] of Object.entries(params)) {
+            if (denied.has(key.toLowerCase()) || sensitive.test(key)) continue;
             if (value !== null && typeof value === 'object') throw Error('Parameter values must be scalar');
             lines.push('| ' + escape(key) + ' | ' + escape(value) + ' |');
           }
