@@ -2,6 +2,13 @@
 
 User-facing changes to the reusable workflows and standalone GitHub Actions are documented here. This changelog covers the reusable workflows and standalone GitHub Actions published by this repository.
 
+## Unreleased (planned)
+
+### Breaking changes — release draft workflow
+
+- **Release-draft orchestration:** The upcoming refactor will centralize package selection and version resolution in shared reusable components. Callers that currently implement their own package matrix, version-selection logic, or release-draft summary handling will need to adopt the shared interfaces when the refactor is released.
+- **Migration guidance:** Keep repository-specific triggers, package discovery settings, changelog paths, and draft templates in the caller. Continue invoking `reusable_release-drafter.yml` for individual release targets; use the new shared selection and version-resolution interfaces once they are available. Existing integrations are not changed by this changelog entry alone.
+
 ## [0.1.0] - Initial Release
 
 ### CI and package quality
