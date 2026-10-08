@@ -59,6 +59,11 @@ on:
         type: string
   workflow_call:
     inputs:
+      show-input-summary:
+        description: Report effective reusable workflow inputs; set false when the caller already reports them
+        required: false
+        default: true
+        type: boolean
       package:
         required: true
         type: string
@@ -105,6 +110,17 @@ on:
 permissions: {}
 
 jobs:
+  workflow-call-input-summary:
+    name: "job: Reusable workflow parameters"
+    if: ${{ github.event_name == 'workflow_dispatch' || inputs.show-input-summary }}
+    permissions:
+      contents: read
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_dispatch-input-summary.yml@main
+    with:
+      parameters-json: ${{ toJSON(inputs) }}
+      exclude-inputs: '["show-input-summary"]'
+      heading: "npm prepare release · Reusable workflow inputs"
+
   prepare:
     name: "job: Prepare"
     runs-on: ubuntu-latest

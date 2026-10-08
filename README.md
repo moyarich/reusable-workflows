@@ -77,3 +77,33 @@ Run it locally with:
 npm install
 npm run dev
 ```
+
+## Release workflow parameter summaries
+
+The reusable npm release, npm publish, npm prepare-release, GitHub Release, and
+release-drafter workflows display their effective workflow inputs in a separate
+GitHub Actions job summary **by default**, including when invoked by another
+repository via `workflow_call`. Consumers do not need to copy a summary job.
+Inputs are read as passed; the summary does not change release configuration
+or replace operational results.
+
+Sensitive-looking input **names** are automatically excluded by the shared
+summary renderer. GitHub Actions secrets must still be passed as secrets,
+not as ordinary workflow inputs.
+
+If a caller already reports the same parameters once (for example, when one
+manual workflow orchestrates multiple reusable workflows), disable only the
+additional reusable summary:
+
+```yaml
+jobs:
+  release:
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_npm-release.yml@v0
+    with:
+      package: .
+      show-input-summary: false
+```
+
+Each workflow continues to write its existing release status, tag, version,
+artifact, or draft content in its operational job summary. No caller inputs
+or GitHub Actions step summaries are overwritten.
