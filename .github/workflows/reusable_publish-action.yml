@@ -6,7 +6,6 @@ on:
       source-tag:
         description: Published stable semantic-version tag, such as v1.2.3.
         required: true
-        default: "v0.1.0"
         type: string
   workflow_call:
     inputs:
