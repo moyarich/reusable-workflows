@@ -35,4 +35,4 @@ The shared typed-value parser should split at the **first colon only** and valid
 
 ## Compatibility and current status
 
-The existing `workflow_call` inputs should remain available to callers. The compact dispatch inputs require a parser and workflow wiring before they can be used. Do not copy the proposed compact values into the current manual Actions form until that implementation lands.
+The compact typed-value interface replaces the old related input groups for both `workflow_call` and `workflow_dispatch`; legacy aliases are not required. The parser and workflow wiring are not yet implemented. Do not copy the proposed compact values into the current Actions form until that implementation lands.
