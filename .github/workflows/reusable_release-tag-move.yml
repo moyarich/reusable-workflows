@@ -1,0 +1,92 @@
+name: "Reusable · Move Release Tag"
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Exact release tag to create or move
+        type: string
+        required: true
+      commit:
+        description: Full commit SHA the tag must point to
+        type: string
+        required: true
+      target-branch:
+        description: Branch to check out for tag verification
+        type: string
+        required: false
+        default: main
+      require-branch-head:
+        description: Reject tag movement if target branch HEAD no longer equals the resolved commit
+        type: boolean
+        required: false
+        default: false
+      dry-run:
+        description: Preview without modifying the tag
+        type: boolean
+        required: false
+        default: true
+
+permissions: {}
+
+jobs:
+  move-tag:
+    name: "job: Move release tag"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ inputs.tag }}
+      RELEASE_COMMIT: ${{ inputs.commit }}
+      DRY_RUN: ${{ inputs.dry-run }}
+      REQUIRE_BRANCH_HEAD: ${{ inputs.require-branch-head }}
+    steps:
+      - name: Checkout caller repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.target-branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate and move tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$RELEASE_TAG" ] || ! [[ "$RELEASE_COMMIT" =~ ^[[:xdigit:]]{40}$ ]]; then
+            echo "::error::An exact tag and full 40-character commit SHA are required."
+            exit 1
+          fi
+          if ! git cat-file -e "${RELEASE_COMMIT}^{commit}" 2>/dev/null; then
+            echo "::error::Commit not found: $RELEASE_COMMIT"
+            exit 1
+          fi
+          if [ "$REQUIRE_BRANCH_HEAD" = "true" ] && [ "$(git rev-parse HEAD)" != "$RELEASE_COMMIT" ]; then
+            echo "::error::Target branch moved since resolution; refusing to move $RELEASE_TAG."
+            exit 1
+          fi
+          RELEASE="$(gh api "repos/$GH_REPO/releases/tags/$RELEASE_TAG" 2>/dev/null || true)"
+          if [ -n "$RELEASE" ] && [ "$(jq -r '.draft' <<< "$RELEASE")" != "true" ]; then
+            echo "::error::Refusing to move a tag associated with a finalized release: $RELEASE_TAG"
+            exit 1
+          fi
+          PREVIOUS="$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}" 2>/dev/null || true)"
+          {
+            echo "## Release tag"
+            echo
+            echo "| Setting | Value |"
+            echo "| --- | --- |"
+            printf '| Tag | `%s` |\n' "$RELEASE_TAG"
+            printf '| Previous commit | `%s` |\n' "${PREVIOUS:-missing}"
+            printf '| Requested commit | `%s` |\n' "$RELEASE_COMMIT"
+            printf '| Dry run | **%s** |\n' "$DRY_RUN"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "Preview only. No tag changes were made."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)" \
+            push --force "https://github.com/$GH_REPO.git" "${RELEASE_COMMIT}:refs/tags/${RELEASE_TAG}"
