@@ -2,6 +2,18 @@ name: Discover Packages
 description: Discover repository packages and emit normalized package and matrix metadata.
 
 inputs:
+  workspace-tools-source:
+    description: Use the published package or the checked-out workspace-tools source.
+    required: false
+    default: package
+  workspace-tools-version:
+    description: Published workspace-tools version when source is package.
+    required: false
+    default: "0.1.0"
+  workspace-tools-build-command:
+    description: Build command when source is caller.
+    required: false
+    default: npm run build
   packages-directory:
     description: Directory containing direct-child packages when workspace discovery is disabled.
     required: false
@@ -38,18 +50,17 @@ outputs:
 runs:
   using: composite
   steps:
-    - uses: actions/setup-node@v7
+    - name: Resolve workspace tools
+      id: workspace-tools
+      uses: ./actions/setup-workspace-tools
       with:
-        node-version: "24"
-        registry-url: https://npm.pkg.github.com
-        scope: "@moyarich"
-    - name: Install workspace tools
-      shell: bash
-      env:
-        NODE_AUTH_TOKEN: ${{ github.token }}
-      run: npm install --global @moyarich/workspace-tools@0.1.0 --registry=https://npm.pkg.github.com
+        source: ${{ inputs.workspace-tools-source }}
+        version: ${{ inputs.workspace-tools-version }}
+        build-command: ${{ inputs.workspace-tools-build-command }}
     - id: discover
       shell: bash
+      env:
+        WORKSPACE_TOOLS_BIN: ${{ steps.workspace-tools.outputs.bin-dir }}
       run: |
         set -euo pipefail
         args=( "${{ inputs.packages-directory }}" --json )
@@ -59,7 +70,7 @@ runs:
         [ "${{ inputs.require-publish-config }}" = "true" ] && args+=(--require-publish-config)
         [ "${{ inputs.require-test-script }}" = "true" ] && args+=(--require-test-script)
         [ "${{ inputs.require-build-script }}" = "true" ] && args+=(--require-build-script)
-        packages="$(discover-packages "${args[@]}")"
+        packages="$("$WORKSPACE_TOOLS_BIN/discover-packages" "${args[@]}")"
         matrix="$(jq -cn --argjson packages "$packages" '{include:$packages}')"
         count="$(jq 'length' <<<"$packages")"
         {
