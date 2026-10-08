@@ -302,10 +302,10 @@ jobs:
             echo
             echo "| Setting | Value |"
             echo "| --- | --- |"
-            echo "| Package | `${{ inputs.package }}` |"
-            echo "| Target branch | `${{ inputs.target-branch }}` |"
-            echo "| Preparation branch | `${{ steps.release.outputs.branch || 'not created' }}` |"
-            echo "| Version | `${{ steps.release.outputs.version || 'unresolved' }}` |"
+            echo '| Package | `${{ inputs.package }}` |'
+            echo '| Target branch | `${{ inputs.target-branch }}` |'
+            echo '| Preparation branch | `${{ steps.release.outputs.branch || 'not created' }}` |'
+            echo '| Version | `${{ steps.release.outputs.version || 'unresolved' }}` |'
             echo "| Pull request | ${{ steps.pr.outputs.url || 'not created' }} |"
             echo "| Result | **${{ job.status }}** |"
           } >> "$GITHUB_STEP_SUMMARY"
