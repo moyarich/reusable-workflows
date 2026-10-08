@@ -32,7 +32,7 @@ on:
         type: choice
         options:
           - bump
-          - registry-json
+          - package-json
           - exact
 
       version-bump:
@@ -65,7 +65,7 @@ on:
           - workspace
           - repository
       workspace-tools-ref:
-        description: Upstream moyarich/workspace-tools Git ref when source is repository
+        description: moyarich/workspace-tools Git ref when source is repository
         required: false
         default: main
         type: string
@@ -128,7 +128,7 @@ on:
         default: registry
         type: string
       workspace-tools-ref:
-        description: Upstream moyarich/workspace-tools Git ref when source is repository
+        description: moyarich/workspace-tools Git ref when source is repository
         required: false
         default: main
         type: string
