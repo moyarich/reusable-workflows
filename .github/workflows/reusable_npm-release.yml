@@ -326,9 +326,9 @@ jobs:
 
       - name: Resolve release version
         env:
-          VERSION_MODE: ${{ inputs.version-mode }}
-          VERSION_BUMP: ${{ inputs.version-bump }}
-          EXACT_VERSION: ${{ inputs.exact-version }}
+          VERSION_MODE: ${{ steps.typed.outputs.version-mode || inputs.version-mode }}
+          VERSION_BUMP: ${{ steps.typed.outputs.version-bump || inputs.version-bump }}
+          EXACT_VERSION: ${{ steps.typed.outputs.exact-version || inputs.exact-version }}
         shell: bash
         run: |
           set -euo pipefail
@@ -391,7 +391,7 @@ jobs:
       - name: Resolve target release
         id: preview
         env:
-          VERSION_MODE: ${{ inputs.version-mode }}
+          VERSION_MODE: ${{ steps.typed.outputs.version-mode || inputs.version-mode }}
           GIT_REF: ${{ env.TARGET_BRANCH }}
         shell: bash
         run: |
@@ -598,7 +598,7 @@ jobs:
         id: release
         if: ${{ steps.execution.outputs.dry-run == 'false' }}
         env:
-          VERSION_MODE: ${{ inputs.version-mode }}
+          VERSION_MODE: ${{ steps.typed.outputs.version-mode || inputs.version-mode }}
         shell: bash
         run: |
           set -euo pipefail
