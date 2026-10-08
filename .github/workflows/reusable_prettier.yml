@@ -8,14 +8,14 @@ on:
         required: false
         default: check
         type: string
-      configuration-source:
-        description: Choose local Prettier rules or the shared reference rules
+      prettier-config:
+        description: Use this repository's Prettier rules or the reusable-workflows reference rules
         required: true
-        default: caller
+        default: this-repository
         type: choice
         options:
-          - caller
-          - shared
+          - this-repository
+          - reusable-workflows
       commit:
         description: Commit Prettier changes
         required: true
@@ -34,10 +34,10 @@ on:
         required: false
         default: check
         type: string
-      configuration-source:
-        description: Choose local Prettier rules or the shared reference rules
+      prettier-config:
+        description: Use this repository's Prettier rules or the reusable-workflows reference rules
         required: false
-        default: caller
+        default: this-repository
         type: string
       commit:
         description: Commit Prettier changes
@@ -86,7 +86,7 @@ jobs:
       - name: Resolve Prettier configuration and ignores
         id: config
         env:
-          SOURCE: ${{ inputs.configuration-source }}
+          SOURCE: ${{ inputs.prettier-config }}
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
@@ -100,16 +100,16 @@ jobs:
           printf '%s\n' '.github/workflows/' 'dist/' '.prettier-self-heal.ignore' >> "$IGNORE_FILE"
           echo "ignore-file=$IGNORE_FILE" >> "$GITHUB_OUTPUT"
           case "$SOURCE" in
-            caller)
+            this-repository)
               echo "config-file=" >> "$GITHUB_OUTPUT"
               ;;
-            shared)
+            reusable-workflows)
               CONFIG_FILE="$RUNNER_TEMP/shared-prettier.json"
               gh api "repos/moyarich/reusable-workflows/contents/reusable-configurations/.prettierrc.json?ref=main" --jq '.content' | base64 --decode > "$CONFIG_FILE"
               echo "config-file=$CONFIG_FILE" >> "$GITHUB_OUTPUT"
               ;;
             *)
-              echo "::error::configuration-source must be caller or shared"
+              echo "::error::prettier-config must be this-repository or reusable-workflows"
               exit 1
               ;;
           esac
@@ -169,7 +169,7 @@ jobs:
             echo "| --- | --- |"
             printf '| Node.js | `%s` |\n' "${{ inputs.node-version || '24' }}"
             printf '| Mode | %s |\\n' "${{ inputs.mode }}"
-            printf '| Configuration source | %s |\n' "${{ inputs.configuration-source }}"
+            printf '| Configuration source | %s |\n' "${{ inputs.prettier-config }}"
             printf '| Prettier | `%s` |\n' "${{ steps.prettier.outputs.version || 'unknown' }}"
             printf '| Commit requested | **%s** |\n' "${{ inputs.commit }}"
             printf '| Branch | `%s` |\n' "${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}"
