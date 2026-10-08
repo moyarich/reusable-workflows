@@ -90,13 +90,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          IGNORE_FILE="$RUNNER_TEMP/prettier-self-heal-ignore"
+          IGNORE_FILE="$GITHUB_WORKSPACE/.prettier-self-heal.ignore"
           touch "$IGNORE_FILE"
           if [ -f .prettierignore ]; then
             cat .prettierignore > "$IGNORE_FILE"
             printf '\n' >> "$IGNORE_FILE"
           fi
-          printf '%s\n' '.github/workflows/' 'dist/' >> "$IGNORE_FILE"
+          printf '%s\n' '.github/workflows/' 'dist/' '.prettier-self-heal.ignore' >> "$IGNORE_FILE"
           echo "ignore-file=$IGNORE_FILE" >> "$GITHUB_OUTPUT"
           case "$SOURCE" in
             caller)
@@ -128,7 +128,7 @@ jobs:
             --ignore-path "${{ steps.config.outputs.ignore-file }}" \
             "${CONFIG_ARGS[@]}"
 
-          git status --short -- . ':!.github/workflows/**' ':!dist/**' > /tmp/format-status.txt
+          git status --short -- . ':!.github/workflows/**' ':!dist/**' ':!.prettier-self-heal.ignore' > /tmp/format-status.txt
 
           if [ -s /tmp/format-status.txt ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -161,7 +161,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           # The GitHub token cannot update workflow files. Protect these paths.
-          git add --all -- . ':!.github/workflows/**' ':!dist/**'
+          git add --all -- . ':!.github/workflows/**' ':!dist/**' ':!.prettier-self-heal.ignore'
           if git diff --cached --quiet; then
             echo "No permitted formatting changes to commit."
             exit 0
