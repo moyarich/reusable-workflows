@@ -542,7 +542,7 @@ jobs:
             ' <<< "$RELEASE_JSON")"
             CHANGELOG_SOURCE="$(jq -r '.changelogSource // .changelog.source // "unknown"' <<< "$RELEASE_JSON")"
             printf '| Version command | `%s` |\n' "$VERSION_COMMAND"
-            printf '| Changelog source | `%s` |\n' "$CHANGELOG_SOURCE"
+            printf '| Release notes source | `%s` |\n' "$CHANGELOG_SOURCE"
             echo
             echo "Files that would change:"
             echo
@@ -579,13 +579,45 @@ jobs:
             printf '| Published files | `%s` |\n' "${PACKAGE_FILES:-—}"
             echo
 
-            echo "## Changelog"
+            echo "## Release notes from workspace-release"
+            echo
+            echo "These notes come from the release plan (source: \`$CHANGELOG_SOURCE\`). This source setting is separate from the repository's curated \`CHANGELOG.md\`."
             echo
             CHANGELOG_CONTENT="$(jq -r '.changelog // ""' <<< "$RELEASE_JSON")"
             if [ -n "$CHANGELOG_CONTENT" ]; then
               echo "$CHANGELOG_CONTENT"
             else
-              echo "_No changelog content was generated for this release._"
+              echo "_No release notes were returned by workspace-release._"
+            fi
+            echo
+
+            echo "## Curated CHANGELOG.md"
+            echo
+            CHANGELOG_PATH="CHANGELOG.md"
+            if [ "$PACKAGE_DIRECTORY" != "." ]; then
+              CHANGELOG_PATH="$PACKAGE_DIRECTORY/CHANGELOG.md"
+            fi
+            echo "Repository-maintained release history; displayed independently of the generated release notes above."
+            echo
+            echo "File: \`$CHANGELOG_PATH\` · Version: \`$PACKAGE_VERSION\`"
+            echo
+            if [ -f "$CHANGELOG_PATH" ]; then
+              CURATED_SECTION="$(awk -v version="$PACKAGE_VERSION" '
+                /^## / {
+                  if (found) exit
+                  heading=$0
+                  sub(/^##[[:space:]]+/, "", heading)
+                  if (heading == version || heading == "[" version "]" || index(heading, "[" version "] ") == 1) found=1
+                }
+                found { print }
+              ' "$CHANGELOG_PATH")"
+              if [ -n "$CURATED_SECTION" ]; then
+                echo "$CURATED_SECTION"
+              else
+                echo "_No curated section for this version in the repository changelog._"
+              fi
+            else
+              echo "_No curated changelog file exists at this path._"
             fi
             echo
           } >> "$GITHUB_STEP_SUMMARY"
