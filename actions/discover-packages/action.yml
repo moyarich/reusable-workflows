@@ -11,17 +11,17 @@ inputs:
     required: false
     default: "0.1.0"
   workspace-tools-ref:
-    description: Upstream workspace-tools Git ref when source is repository.
+    description: Workspace-tools repository Git ref when source is repository.
     required: false
     default: main
   workspace-tools-build-command:
-    description: Build command when source is workspace or upstream.
+    description: Build command when source is workspace or repository.
     required: false
     default: npm run build
   packages-directory:
     description: Directory containing direct-child packages when workspace discovery is disabled.
     required: false
-    default: registrys
+    default: packages
   use-workspaces:
     required: false
     default: "false"
