@@ -182,8 +182,8 @@ The `reusable_prettier.yml` workflow reads the consuming repository's
 Protected `.github/workflows/` and generated `dist/` paths are always excluded,
 including from auto-commits.
 
-Use `configuration-source: caller` (the default) to let Prettier discover the
-consumer's existing configuration. Choose `configuration-source: shared` to
+Use `prettier-config: this-repository` (the default) to let Prettier discover the
+consumer's existing configuration. Choose `prettier-config: reusable-workflows` to
 apply `reusable-configurations/.prettierrc.json` from this repository while
 still honoring the consumer's ignore patterns:
 
@@ -195,13 +195,13 @@ jobs:
     uses: moyarich/reusable-workflows/.github/workflows/reusable_prettier.yml@main
     with:
       mode: check
-      configuration-source: shared
+      prettier-config: reusable-workflows
       commit: false
       node-version: "24"
 ```
 
-The `shared` option explicitly overrides the caller's formatting rules;
-the `caller` option never pulls a remote configuration. Both modes use the
+The `reusable-workflows` option explicitly overrides the caller's formatting rules;
+the `this-repository` option never pulls a remote configuration. Both modes use the
 same ignore merging and safe commit behavior.
 
 Use `mode: check` for a read-only CI formatting gate and `mode: fix` to run
