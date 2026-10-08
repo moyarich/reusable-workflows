@@ -712,6 +712,7 @@ jobs:
       contents: write
     uses: ./.github/workflows/reusable_release.yml
     with:
+      show-input-summary: false
       version: ${{ needs.release-package.outputs.package-version }}
       release-tag: ${{ needs.release-package.outputs.release-tag }}
       release-name: ${{ needs.release-package.outputs.release-name }}
