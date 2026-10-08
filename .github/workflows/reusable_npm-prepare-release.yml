@@ -296,16 +296,21 @@ jobs:
       - name: Prepare release summary
         if: ${{ always() }}
         shell: bash
+        env:
+          SUMMARY_PACKAGE: ${{ inputs.package }}
+          SUMMARY_TARGET_BRANCH: ${{ inputs.target-branch }}
+          SUMMARY_PREPARE_BRANCH: ${{ steps.release.outputs.branch || 'not created' }}
+          SUMMARY_VERSION: ${{ steps.release.outputs.version || 'unresolved' }}
         run: |
           {
             echo "## Prepare release"
             echo
             echo "| Setting | Value |"
             echo "| --- | --- |"
-            echo '| Package | `${{ inputs.package }}` |'
-            echo '| Target branch | `${{ inputs.target-branch }}` |'
-            echo '| Preparation branch | `${{ steps.release.outputs.branch || 'not created' }}` |'
-            echo '| Version | `${{ steps.release.outputs.version || 'unresolved' }}` |'
+            printf '| Package | `%s` |\n' "$SUMMARY_PACKAGE"
+            printf '| Target branch | `%s` |\n' "$SUMMARY_TARGET_BRANCH"
+            printf '| Preparation branch | `%s` |\n' "$SUMMARY_PREPARE_BRANCH"
+            printf '| Version | `%s` |\n' "$SUMMARY_VERSION"
             echo "| Pull request | ${{ steps.pr.outputs.url || 'not created' }} |"
             echo "| Result | **${{ job.status }}** |"
           } >> "$GITHUB_STEP_SUMMARY"
