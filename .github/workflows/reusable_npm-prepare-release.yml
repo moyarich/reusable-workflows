@@ -6,7 +6,7 @@ on:
       package:
         description: Package — package to prepare
         required: true
-        default: packages/workspace-tools
+        default: "."
         type: string
       target-branch:
         description: Release target branch
