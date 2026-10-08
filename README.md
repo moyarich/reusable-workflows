@@ -107,3 +107,49 @@ jobs:
 Each workflow continues to write its existing release status, tag, version,
 artifact, or draft content in its operational job summary. No caller inputs
 or GitHub Actions step summaries are overwritten.
+
+## Reset and restore releases from any repository
+
+Call these workflows directly from a repository that contains an npm `package.json`
+and changelog. The implementation and GitHub Actions summaries live here,
+not in the consuming repository. Both workflows default to dry-run.
+
+```yaml
+jobs:
+  reset:
+    permissions:
+      contents: write
+      packages: read
+      pull-requests: read
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_reset-release.yml@main
+    with:
+      package: .
+      target-branch: main
+      match-mode: package-json
+      dry-run: true
+```
+
+```yaml
+jobs:
+  restore:
+    permissions:
+      actions: read
+      contents: write
+      packages: read
+      pull-requests: read
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_restore-release.yml@main
+    with:
+      package: .
+      target-branch: main
+      restore-source: commit:0123456789abcdef0123456789abcdef01234567
+      match-mode: package-json
+      dry-run: true
+```
+
+For exact matching, set `match-mode: exact` and supply `exact-tag`. The tag
+must match the package's canonical identity. Restore supports commit, tag,
+workflow run, artifact, and supported GitHub URL sources using the published
+`@moyarich/workspace-tools` identity CLI. Repository callers do not need to
+build that CLI locally. Authenticate to GitHub Packages using the standard
+`GITHUB_TOKEN` permissions. Do not enable destructive mode until the dry-run
+reports the expected tag, commit and registry state.
