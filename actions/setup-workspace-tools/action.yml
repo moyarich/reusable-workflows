@@ -72,12 +72,19 @@ runs:
 
     - name: Checkout upstream workspace tools
       if: ${{ inputs.source == 'upstream' }}
-      uses: actions/checkout@v7
-      with:
-        repository: moyarich/workspace-tools
-        ref: ${{ inputs.upstream-ref }}
-        path: .workspace-tools-upstream
-        persist-credentials: false
+      shell: bash
+      env:
+        UPSTREAM_REF: ${{ inputs.upstream-ref }}
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        TOOL_DIR="$RUNNER_TEMP/workspace-tools-upstream"
+        rm -rf "$TOOL_DIR"
+        mkdir -p "$TOOL_DIR"
+        git -C "$TOOL_DIR" init -q
+        git -C "$TOOL_DIR" remote add origin https://github.com/moyarich/workspace-tools.git
+        git -C "$TOOL_DIR" -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)" fetch --depth=1 origin "$UPSTREAM_REF"
+        git -C "$TOOL_DIR" checkout -q --detach FETCH_HEAD
 
     - name: Build upstream workspace tools
       if: ${{ inputs.source == 'upstream' }}
@@ -87,7 +94,7 @@ runs:
         NODE_AUTH_TOKEN: ${{ github.token }}
       run: |
         set -euo pipefail
-        cd "$GITHUB_WORKSPACE/.workspace-tools-upstream"
+        cd "$RUNNER_TEMP/workspace-tools-upstream"
         npm ci --include=optional
         bash -lc "$BUILD_COMMAND"
         test -f dist/bin/discover-packages || { echo "::error::Upstream build missing discover-packages CLI"; exit 1; }
@@ -124,7 +131,7 @@ runs:
         if [ "$SOURCE" = "local" ]; then
           BIN_DIR="$GITHUB_WORKSPACE/dist/bin"
         elif [ "$SOURCE" = "upstream" ]; then
-          BIN_DIR="$GITHUB_WORKSPACE/.workspace-tools-upstream/dist/bin"
+          BIN_DIR="$RUNNER_TEMP/workspace-tools-upstream/dist/bin"
         else
           BIN_DIR="$(dirname "$(command -v workspace-release)")"
         fi
