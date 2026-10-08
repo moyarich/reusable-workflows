@@ -608,7 +608,7 @@ jobs:
             {
               echo "## Packaged CLI validation"
               echo
-              echo "_Skipped: the packed package does not declare any `package.json#bin` entries._"
+              echo '_Skipped: the packed package does not declare any `package.json#bin` entries._'
               echo
             } >> "$GITHUB_STEP_SUMMARY"
 
@@ -652,7 +652,7 @@ jobs:
           {
             echo "## Packaged CLI validation"
             echo
-            echo "Installed the canonical `.tgz` into an isolated consumer project and verified every declared `bin` target and npm-created executable shim."
+            echo 'Installed the canonical `.tgz` into an isolated consumer project and verified every declared `bin` target and npm-created executable shim.'
             echo
             while IFS=$'\t' read -r BIN_NAME BIN_TARGET; do
               printf -- '- `%s` → `%s`\n' "$BIN_NAME" "$BIN_TARGET"
