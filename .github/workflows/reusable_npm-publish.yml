@@ -13,8 +13,16 @@ on:
         required: true
         default: packages/workspace-tools
         type: string
-      version:
-        description: Exact version to publish; empty uses package.json
+      version-mode:
+        description: Version mode
+        required: true
+        default: package-json
+        type: choice
+        options:
+          - package-json
+          - exact
+      exact-version:
+        description: Exact version when version-mode is exact
         required: false
         default: ""
         type: string
@@ -71,8 +79,13 @@ on:
         description: Workspace path, directory name, or package name
         required: true
         type: string
-      version:
-        description: Exact version to publish; empty uses the current package.json version
+      version-mode:
+        description: package-json or exact
+        required: false
+        default: package-json
+        type: string
+      exact-version:
+        description: Exact version when version-mode is exact
         required: false
         default: ""
         type: string
@@ -225,11 +238,31 @@ jobs:
         id: plan
         env:
           PACKAGE_SELECTOR: ${{ inputs.package-directory }}
-          REQUESTED_VERSION: ${{ inputs.version }}
+          VERSION_MODE: ${{ inputs.version-mode }}
+          EXACT_VERSION: ${{ inputs.exact-version }}
           NODE_AUTH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
+
+          case "$VERSION_MODE" in
+            package-json|exact)
+              ;;
+            *)
+              echo "::error::Version mode must be package-json or exact."
+              exit 1
+              ;;
+          esac
+
+          if [ "$VERSION_MODE" = "exact" ] && [ -z "$EXACT_VERSION" ]; then
+            echo "::error::Exact version is required when version-mode is exact."
+            exit 1
+          fi
+
+          REQUESTED_VERSION=""
+          if [ "$VERSION_MODE" = "exact" ]; then
+            REQUESTED_VERSION="$EXACT_VERSION"
+          fi
 
           PLAN_ARGS=(
             "$PACKAGE_SELECTOR"
@@ -346,13 +379,13 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Validate requested version
-        if: ${{ inputs.version != '' }}
+        if: ${{ inputs.version-mode == 'exact' }}
         env:
           RESOLVED_VERSION: ${{ steps.plan.outputs.version }}
-          REQUESTED_VERSION: ${{ inputs.version }}
+          REQUESTED_VERSION: ${{ inputs.exact-version }}
         run: |
           if [ "$REQUESTED_VERSION" != "$RESOLVED_VERSION" ]; then
-            echo "Requested publish version $REQUESTED_VERSION does not match canonical tag package version $RESOLVED_VERSION."
+            echo "Exact publish version $REQUESTED_VERSION does not match canonical tag package version $RESOLVED_VERSION."
             exit 1
           fi
       - name: Verify matching GitHub Release
