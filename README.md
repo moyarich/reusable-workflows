@@ -1,6 +1,6 @@
 # Reusable Workflows
 
-Reusable GitHub Actions workflows and standalone actions for Moya repositories.
+Reusable GitHub Actions workflows and standalone actions for Node.js projects and repositories.
 
 This repository uses the published `@moyarich/workspace-tools` package for workspace discovery, releases, publishing, dependency checks, and related repository automation.
 
@@ -121,7 +121,7 @@ jobs:
       contents: write
       packages: read
       pull-requests: read
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_reset-release.yml@main
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_reset-release.yml@v0
     with:
       package: .
       target-branch: main
@@ -137,7 +137,7 @@ jobs:
       contents: write
       packages: read
       pull-requests: read
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_restore-release.yml@main
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_restore-release.yml@v0
     with:
       package: .
       target-branch: main
@@ -192,7 +192,7 @@ jobs:
   formatting:
     permissions:
       contents: write
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_prettier.yml@main
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_prettier.yml@v0
     with:
       mode: check
       prettier-config: reusable-workflows
