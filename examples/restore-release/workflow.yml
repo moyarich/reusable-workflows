@@ -1,0 +1,13 @@
+name: Example · Restore release
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  example:
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_restore-release.yml@v0
+    with:
+      package: '.'
+      restore-source: 'tag:v0.1.0'
+      dry-run: true

@@ -1,0 +1,16 @@
+---
+title: Restore release
+description: Copyable restore release reusable workflow caller.
+---
+
+import workflow from "./workflow.yml?raw";
+import reusableWorkflow from "../../.github/workflows/reusable_restore-release.yml?raw";
+
+# Restore release
+
+<Playground
+  files={[
+    { name: "workflow.yml", source: workflow, language: "yaml" },
+    { name: "reusable_restore-release.yml", source: reusableWorkflow, language: "yaml" },
+  ]}
+/>

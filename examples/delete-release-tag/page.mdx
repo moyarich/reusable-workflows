@@ -1,0 +1,16 @@
+---
+title: Delete release and tag
+description: Copyable delete release and tag reusable workflow caller.
+---
+
+import workflow from "./workflow.yml?raw";
+import reusableWorkflow from "../../.github/workflows/reusable_delete-release-tag.yml?raw";
+
+# Delete release and tag
+
+<Playground
+  files={[
+    { name: "workflow.yml", source: workflow, language: "yaml" },
+    { name: "reusable_delete-release-tag.yml", source: reusableWorkflow, language: "yaml" },
+  ]}
+/>
