@@ -128,8 +128,7 @@ jobs:
                       candidate.directory !== "." &&
                       (file === candidate.directory ||
                         file.startsWith(`${candidate.directory}/`)),
-                  ) &&
-                  true,
+                  ),
               );
             }
 
