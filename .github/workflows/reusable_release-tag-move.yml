@@ -48,7 +48,7 @@ jobs:
         with:
           ref: ${{ inputs.target-branch }}
           fetch-depth: 0
-          persist-credentials: false
+          persist-credentials: true
 
       - name: Validate and move tag
         shell: bash
@@ -88,5 +88,4 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)" \
-            push --force "https://github.com/$GH_REPO.git" "${RELEASE_COMMIT}:refs/tags/${RELEASE_TAG}"
+          git push --force origin "${RELEASE_COMMIT}:refs/tags/${RELEASE_TAG}"

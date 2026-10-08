@@ -11,6 +11,11 @@ on:
         required: true
         default: "."
         type: string
+      draft-template-path:
+        description: Template path; falls back to the reusable workflow's template when absent in the caller
+        required: false
+        default: .github/release-drafter-template.yml
+        type: string
       target-branch:
         description: Release target branch
         required: true
@@ -321,7 +326,7 @@ jobs:
       package-directory: ${{ needs.resolve.outputs.package-directory }}
       release-name: ${{ needs.resolve.outputs.release-name }}
       changelog-path: ${{ needs.resolve.outputs.changelog-path }}
-      template-path: .github/release-drafter-package-template.yml
+      template-path: ${{ inputs.draft-template-path }}
       seed-body-base64: ${{ needs.resolve.outputs.backup-body-base64 }}
       seed-updated-at: ${{ needs.resolve.outputs.backup-updated-at }}
       dry-run: ${{ inputs.dry-run }}
