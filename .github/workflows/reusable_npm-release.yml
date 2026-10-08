@@ -579,7 +579,7 @@ jobs:
             printf '| Published files | `%s` |\n' "${PACKAGE_FILES:-—}"
             echo
 
-            echo "## 1. Release notes generated from pull request commits"
+            echo "## 1. Release notes generated from commit history"
             echo
             echo "These notes come from the release plan (source: \`$CHANGELOG_SOURCE\`). This source setting is separate from the repository's curated \`CHANGELOG.md\`."
             echo
@@ -620,7 +620,7 @@ jobs:
               echo "_No curated changelog file exists at this path._"
             fi
             echo
-            echo "## 3. Existing GitHub Release draft"
+            echo "## 3. GitHub Release draft"
             echo
             echo "The GitHub-hosted draft is a separate, editable release record. This section shows its **existing saved body**, not the generated release-plan notes or the repository changelog."
             echo
