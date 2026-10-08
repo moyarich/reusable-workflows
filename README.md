@@ -153,3 +153,21 @@ workflow run, artifact, and supported GitHub URL sources using the published
 build that CLI locally. Authenticate to GitHub Packages using the standard
 `GITHUB_TOKEN` permissions. Do not enable destructive mode until the dry-run
 reports the expected tag, commit and registry state.
+
+### Consumer-specific draft templates
+
+Reset and Restore accept optional `draft-template-path`. By default it is empty,
+so consuming repositories do not need a workspace-tools-specific template file.
+If your repository uses a custom Release Drafter template, pass its path explicitly:
+
+```yaml
+with:
+  package: .
+  target-branch: main
+  draft-template-path: .github/release-drafter-package-template.yml
+  dry-run: true
+```
+
+The shared tag-move workflow uses the calling repository's checkout credentials,
+rather than constructing a token-bearing Git command. Grant the calling job
+`contents: write` when moving tags.
