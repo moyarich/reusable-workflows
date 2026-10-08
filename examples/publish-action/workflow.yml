@@ -6,6 +6,6 @@ permissions:
   pull-requests: write
 jobs:
   example:
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_publish-action.yml@main
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_publish-action.yml@v0
     with:
       source-tag: v1.2.3
