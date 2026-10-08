@@ -1,22 +1,50 @@
-name: Reusable recovery contract probe
+name: "Reusable · Reset Release"
+
+run-name: >-
+  Reset release · ${{ inputs.package }} · dry-run=${{ inputs.dry-run }}
+
 on:
   workflow_call:
     inputs:
       package:
-        required: false
+        description: Package selector
+        required: true
         default: "."
         type: string
-      target-branch:
+      draft-template-path:
+        description: Template path; falls back to the reusable workflow's template when absent in the caller
         required: false
+        default: .github/release-drafter-template.yml
+        type: string
+      target-branch:
+        description: Release target branch
+        required: true
         default: main
         type: string
-      dry-run:
+      match-mode:
+        description: Find release by package version or exact tag
+        required: true
+        default: package-json
+        type: string
+      exact-tag:
+        description: Existing canonical release tag when match-mode is exact
         required: false
+        default: ""
+        type: string
+      dry-run:
+        description: Preview the reset without mutating the release or tag
+        required: true
         default: true
         type: boolean
+
+permissions: {}
+
+concurrency:
+  group: reset-release-${{ github.repository }}-${{ inputs.package }}
+  cancel-in-progress: false
+
 jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Verify external call
-        run: echo "Recovery probe valid"
+      - run: echo "Original recovery header valid"
