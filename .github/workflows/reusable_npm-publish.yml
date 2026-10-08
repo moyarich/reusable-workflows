@@ -66,7 +66,7 @@ on:
   workflow_call:
     inputs:
       show-input-summary:
-        description: Include a parameter summary when the caller does not already provide one
+        description: Opt in to a separate summary of the effective reusable workflow inputs; caller inputs and result summaries stay unchanged
         required: false
         default: false
         type: boolean
@@ -155,7 +155,7 @@ jobs:
     with:
       parameters-json: ${{ toJSON(inputs) }}
       exclude-inputs: '["show-input-summary"]'
-      heading: "Reusable reusable_npm-publish · Input parameters"
+      heading: "npm publish · Reusable workflow inputs"
 
   publish-package:
     name: "job: Publish"
