@@ -225,9 +225,12 @@ jobs:
         id: plan
         env:
           PACKAGE_SELECTOR: ${{ inputs.package-directory }}
+          REQUESTED_VERSION: ${{ inputs.version }}
           NODE_AUTH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
+          set -euo pipefail
+
           PLAN_ARGS=(
             "$PACKAGE_SELECTOR"
             --registry="${{ inputs.registry }}"
@@ -239,9 +242,69 @@ jobs:
             PLAN_ARGS+=(--tag="${{ inputs.tag }}")
           fi
 
+          PLAN_ROOT="$GITHUB_WORKSPACE"
+          PLAN_WORKTREE=""
+
+          if [ -n "$REQUESTED_VERSION" ]; then
+            if [ "$PACKAGE_SELECTOR" = "." ]; then
+              MANIFEST="package.json"
+            elif [ -f "$PACKAGE_SELECTOR/package.json" ]; then
+              MANIFEST="${PACKAGE_SELECTOR%/}/package.json"
+            else
+              MANIFEST="$(
+                find . -name package.json -not -path './node_modules/*' -print0 |
+                  xargs -0 -r jq -r --arg selector "$PACKAGE_SELECTOR" '
+                    select(.name == $selector) | input_filename
+                  ' |
+                  head -n 1
+              )"
+              MANIFEST="${MANIFEST#./}"
+            fi
+
+            if [ -z "${MANIFEST:-}" ] || [ ! -f "$MANIFEST" ]; then
+              echo "::error::Unable to resolve package selector: $PACKAGE_SELECTOR"
+              exit 1
+            fi
+
+            PACKAGE_NAME="$(jq -r '.name // empty' "$MANIFEST")"
+            PACKAGE_DIRECTORY="${MANIFEST%/package.json}"
+
+            if [ "$PACKAGE_DIRECTORY" = "$MANIFEST" ]; then
+              PACKAGE_DIRECTORY="."
+            fi
+
+            if [ "$PACKAGE_DIRECTORY" = "." ]; then
+              REQUESTED_RELEASE_TAG="$PACKAGE_NAME@$REQUESTED_VERSION"
+            else
+              REQUESTED_RELEASE_TAG="$PACKAGE_DIRECTORY@$REQUESTED_VERSION"
+            fi
+
+            RELEASE_COMMIT="$(git rev-list -n 1 "$REQUESTED_RELEASE_TAG" 2>/dev/null || true)"
+            if [ -z "$RELEASE_COMMIT" ]; then
+              echo "::error::Requested release tag does not exist: $REQUESTED_RELEASE_TAG"
+              exit 1
+            fi
+
+            PLAN_WORKTREE="$RUNNER_TEMP/npm-publish-plan-source"
+            rm -rf "$PLAN_WORKTREE"
+            git worktree add --detach "$PLAN_WORKTREE" "$RELEASE_COMMIT"
+            PLAN_ROOT="$PLAN_WORKTREE"
+          fi
+
+          cleanup_plan_worktree() {
+            if [ -n "$PLAN_WORKTREE" ]; then
+              git worktree remove --force "$PLAN_WORKTREE" >/dev/null 2>&1 || true
+            fi
+          }
+          trap cleanup_plan_worktree EXIT
+
           PLAN="$(
+            cd "$PLAN_ROOT"
             node "$WORKSPACE_TOOLS_BIN/workspace-publish.mjs" "${PLAN_ARGS[@]}"
           )"
+
+          cleanup_plan_worktree
+          trap - EXIT
 
           echo "$PLAN" | jq -e '
             type == "object" and
@@ -285,11 +348,11 @@ jobs:
       - name: Validate requested version
         if: ${{ inputs.version != '' }}
         env:
-          CURRENT_VERSION: ${{ steps.plan.outputs.version }}
+          RESOLVED_VERSION: ${{ steps.plan.outputs.version }}
           REQUESTED_VERSION: ${{ inputs.version }}
         run: |
-          if [ "$REQUESTED_VERSION" != "$CURRENT_VERSION" ]; then
-            echo "Requested publish version $REQUESTED_VERSION does not match package version $CURRENT_VERSION."
+          if [ "$REQUESTED_VERSION" != "$RESOLVED_VERSION" ]; then
+            echo "Requested publish version $REQUESTED_VERSION does not match canonical tag package version $RESOLVED_VERSION."
             exit 1
           fi
       - name: Verify matching GitHub Release
