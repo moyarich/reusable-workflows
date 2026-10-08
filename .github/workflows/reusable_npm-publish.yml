@@ -3,6 +3,11 @@ name: "Reusable · Publish npm package"
 on:
   workflow_dispatch:
     inputs:
+      target-branch:
+        description: Optional target branch; defaults to the selected workflow run ref
+        required: false
+        default: ""
+        type: string
       dry-run:
         description: Preview publishing without registry mutation
         required: true
@@ -11,7 +16,7 @@ on:
       package-directory:
         description: Workspace path, directory name, or package name
         required: true
-        default: packages/workspace-tools
+        default: "."
         type: string
       version-mode:
         description: Version mode
@@ -171,7 +176,7 @@ jobs:
       result-json: ${{ steps.publish.outputs.result-json }}
     env:
       GH_TOKEN: ${{ github.token }}
-      TARGET_BRANCH: ${{ github.event_name == 'workflow_dispatch' && github.ref_name || inputs.target-branch }}
+      TARGET_BRANCH: ${{ inputs.target-branch || github.ref_name }}
     steps:
       - name: Initialize workflow summary
         if: ${{ always() }}
