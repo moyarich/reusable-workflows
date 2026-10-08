@@ -268,7 +268,7 @@ jobs:
         uses: moyarich/reusable-workflows/actions/setup-workspace-tools@main
         with:
           source: repository
-          ref: feat/typed-workflow-inputs
+          ref: main
 
       - name: Parse typed dispatch inputs with workspace-tools
         id: typed
