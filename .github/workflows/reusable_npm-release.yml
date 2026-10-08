@@ -3,6 +3,11 @@ name: "Reusable · Release npm package"
 on:
   workflow_dispatch:
     inputs:
+      show-input-summary:
+        description: Show effective workflow inputs in the job summary
+        required: false
+        default: true
+        type: boolean
       target-branch:
         description: Optional target branch; defaults to the selected workflow run ref
         required: false
@@ -161,7 +166,7 @@ permissions: {}
 jobs:
   workflow-call-input-summary:
     name: "job: Reusable workflow parameters"
-    if: ${{ github.event_name == 'workflow_dispatch' || inputs.show-input-summary }}
+    if: ${{ inputs.show-input-summary }}
     permissions:
       contents: read
     uses: moyarich/reusable-workflows/.github/workflows/reusable_dispatch-input-summary.yml@main
