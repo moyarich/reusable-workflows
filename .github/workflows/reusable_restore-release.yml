@@ -1,8 +1,5 @@
 name: "Reusable · Restore Release"
 
-run-name: >-
-  Restore release · ${{ inputs.package }} · ${{ inputs.restore-source }} · dry-run=${{ inputs.dry-run }}
-
 on:
   workflow_call:
     inputs:
