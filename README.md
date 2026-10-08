@@ -1,6 +1,6 @@
 # Reusable Workflows
 
-Reusable GitHub Actions workflows and standalone actions for Node.js projects and repositories.
+Reusable GitHub Actions workflows and standalone actions for Moya repositories.
 
 This repository uses the published `@moyarich/workspace-tools` package for workspace discovery, releases, publishing, dependency checks, and related repository automation.
 
@@ -11,7 +11,7 @@ Pin an immutable release when reproducibility matters:
 ```yaml
 jobs:
   ci:
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_node-ci.yml@main
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_node-ci.yml@v0.1.0
 ```
 
 Or follow the latest compatible `0.x` release:
@@ -19,13 +19,13 @@ Or follow the latest compatible `0.x` release:
 ```yaml
 jobs:
   ci:
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_node-ci.yml@main
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_node-ci.yml@v0
 ```
 
 Standalone actions use the same release line:
 
 ```yaml
-- uses: moyarich/reusable-workflows/actions/discover-packages@main
+- uses: moyarich/reusable-workflows/actions/discover-packages@v0
 ```
 
 ## Versioning
@@ -98,7 +98,7 @@ additional reusable summary:
 ```yaml
 jobs:
   release:
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_npm-release.yml@main
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_npm-release.yml@v0
     with:
       package: .
       show-input-summary: false
