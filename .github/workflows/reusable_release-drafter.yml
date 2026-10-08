@@ -380,7 +380,7 @@ jobs:
           import { join } from 'node:path';
           const e = process.env;
           const parse = (v) => {
-            const m = /^(\\d+)\\.(\\d+)\\.(\\d+)(?:-([\\da-zA-Z.-]+))?(?:\\+[\\da-zA-Z.-]+)?$/.exec(v);
+            const m = /^(\d+)\.(\d+)\.(\d+)(?:-([\da-zA-Z.-]+))?(?:\+[\da-zA-Z.-]+)?$/.exec(v);
             if (!m) throw Error('Invalid semantic version: ' + v);
             return { major:+m[1], minor:+m[2], patch:+m[3], pre:m[4] || '' };
           };
@@ -405,7 +405,7 @@ jobs:
               else if (kind === 'prerelease') {
                 const parts=v.pre.split('.');
                 const last=parts.length-1;
-                if (/^\\d+$/.test(parts[last])) parts[last]=String(Number(parts[last])+1);
+                if (/^\d+$/.test(parts[last])) parts[last]=String(Number(parts[last])+1);
                 else parts.push('0');
                 v.pre=parts.join('.');
               }
