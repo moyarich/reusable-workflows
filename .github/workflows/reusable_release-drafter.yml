@@ -183,15 +183,15 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
       TARGET_BRANCH: ${{ inputs.target-branch }}
-      TARGET_PATH: ${{ steps.typed.outputs.package-directory || inputs.package-directory }}
+      TARGET_PATH: ${{ inputs.package-directory }}
       INCLUDE_PATHS: ${{ inputs.include-paths }}
       TARGET_KEY_INPUT: ${{ inputs.target-key }}
-      PACKAGE_NAME: ${{ steps.typed.outputs.package-name || inputs.package-name }}
+      PACKAGE_NAME: ${{ inputs.package-name }}
       CHANGELOG_PATH: ${{ inputs.changelog-path }}
       TEMPLATE_PATH: ${{ inputs.template-path }}
       TAG_PREFIX: ${{ inputs.tag-prefix }}
-      RELEASE_TAG_INPUT: ${{ steps.typed.outputs.release-tag || inputs.release-tag }}
-      RELEASE_NAME_INPUT: ${{ steps.typed.outputs.release-name || inputs.release-name || 'Release {{VERSION}}' }}
+      RELEASE_TAG_INPUT: ${{ inputs.release-tag }}
+      RELEASE_NAME_INPUT: ${{ inputs.release-name }}
       INPUT_VERSION: ${{ inputs.version }}
       INITIAL_VERSION: ${{ inputs.initial-version }}
       SEED_BODY_BASE64: ${{ inputs.seed-body-base64 }}
@@ -206,6 +206,22 @@ jobs:
           version: ${{ inputs.version-selection }}
           target: ${{ inputs.target }}
           release: ${{ inputs.release }}
+
+      - name: Export typed dispatch identity
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        shell: bash
+        env:
+          TARGET_DIRECTORY: ${{ steps.typed.outputs.package-directory }}
+          TARGET_PACKAGE: ${{ steps.typed.outputs.package-name }}
+          RELEASE_TAG: ${{ steps.typed.outputs.release-tag }}
+          RELEASE_NAME: ${{ steps.typed.outputs.release-name }}
+        run: |
+          {
+            echo "TARGET_PATH=$TARGET_DIRECTORY"
+            echo "PACKAGE_NAME=$TARGET_PACKAGE"
+            echo "RELEASE_TAG_INPUT=$RELEASE_TAG"
+            echo "RELEASE_NAME_INPUT=${RELEASE_NAME:-Release {{VERSION}}}"
+          } >> "$GITHUB_ENV"
 
       - name: Checkout caller repository
         uses: actions/checkout@v7
@@ -403,9 +419,9 @@ jobs:
       - name: Resolve requested release version
         id: resolve-version
         env:
-          MODE: ${{ inputs.version-mode }}
-          BUMP: ${{ inputs.version-bump }}
-          EXACT: ${{ inputs.exact-version }}
+          MODE: ${{ steps.typed.outputs.version-mode || inputs.version-mode }}
+          BUMP: ${{ steps.typed.outputs.version-bump || inputs.version-bump }}
+          EXACT: ${{ steps.typed.outputs.exact-version || inputs.exact-version }}
           EXPLICIT: ${{ inputs.version }}
           PREVIOUS_TAG: ${{ steps.history.outputs.previous-tag }}
           PREFIX: ${{ inputs.tag-prefix }}
