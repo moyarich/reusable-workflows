@@ -20,7 +20,7 @@ jobs:
       event-name: workflow_dispatch
       before-sha: ""
       after-sha: ${{ github.sha }}
-      target-branch: ${{ github.ref_name }}
+      target-branch: ${{ github.sha }}
       version-mode: bump
       version-bump: patch
 
