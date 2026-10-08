@@ -198,34 +198,14 @@ jobs:
       SEED_UPDATED_AT: ${{ inputs.seed-updated-at }}
 
     steps:
-      - name: Setup Node.js for typed inputs
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        uses: actions/setup-node@v7
-        with:
-          node-version: "24"
-
-      - name: Resolve typed input CLI
-        id: typed-cli
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        uses: moyarich/reusable-workflows/actions/setup-workspace-tools@main
-        with:
-          source: repository
-          ref: main
-
-      - name: Parse typed dispatch inputs with workspace-tools
+      - name: Parse typed dispatch inputs
         id: typed
         if: ${{ github.event_name == 'workflow_dispatch' }}
-        shell: bash
-        env:
-          VERSION_SELECTION: ${{ inputs.version-selection }}
-          TARGET_SELECTION: ${{ inputs.target }}
-          RELEASE_SELECTION: ${{ inputs.release }}
-        run: |
-          "${{ steps.typed-cli.outputs.bin-dir }}/typed-input-resolver.mjs" \
-            --version "$VERSION_SELECTION" \
-            --target "$TARGET_SELECTION" \
-            --release "$RELEASE_SELECTION" \
-            --github-output --json
+        uses: moyarich/reusable-workflows/actions/parse-typed-inputs@main
+        with:
+          version: ${{ inputs.version-selection }}
+          target: ${{ inputs.target }}
+          release: ${{ inputs.release }}
 
       - name: Export typed dispatch identity
         if: ${{ github.event_name == 'workflow_dispatch' }}

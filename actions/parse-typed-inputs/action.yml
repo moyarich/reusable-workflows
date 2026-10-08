@@ -1,0 +1,82 @@
+name: Parse typed workflow inputs
+description: Parse GitHub Actions typed selections without installing workspace-tools
+inputs:
+  version:
+    description: auto, package-json, bump:minor, exact:1.2.3
+    default: auto
+  target:
+    description: repository, package:name, directory:path
+    default: repository
+  release:
+    description: auto, tag:name, name:title
+    default: auto
+  workspace-tools:
+    description: workspace, registry:version, repository:ref
+    default: registry:0.1.0
+outputs:
+  version-mode:
+    value: ${{ steps.parse.outputs.version-mode }}
+  version-bump:
+    value: ${{ steps.parse.outputs.version-bump }}
+  exact-version:
+    value: ${{ steps.parse.outputs.exact-version }}
+  package-name:
+    value: ${{ steps.parse.outputs.package-name }}
+  package-directory:
+    value: ${{ steps.parse.outputs.package-directory }}
+  release-tag:
+    value: ${{ steps.parse.outputs.release-tag }}
+  release-name:
+    value: ${{ steps.parse.outputs.release-name }}
+  workspace-tools-source:
+    value: ${{ steps.parse.outputs.workspace-tools-source }}
+  workspace-tools-version:
+    value: ${{ steps.parse.outputs.workspace-tools-version }}
+  workspace-tools-ref:
+    value: ${{ steps.parse.outputs.workspace-tools-ref }}
+runs:
+  using: composite
+  steps:
+    - id: parse
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        TARGET: ${{ inputs.target }}
+        RELEASE: ${{ inputs.release }}
+        TOOLS: ${{ inputs.workspace-tools }}
+      run: |
+        python3 - <<'PY'
+        import os, re
+        def split(value, allowed, bare=()):
+            kind, sep, detail = value.partition(':')
+            if kind not in allowed or (sep and not detail) or ('\n' in value):
+                raise ValueError(f'Invalid typed input: {value!r}')
+            if kind in bare and sep:
+                raise ValueError(f'{kind} does not accept a value')
+            if kind not in bare and not sep:
+                raise ValueError(f'{kind} requires a value')
+            return kind, detail
+        version, bump = split(os.environ['VERSION'], {'auto','package-json','bump','exact'}, {'auto','package-json'})
+        if version == 'bump' and bump not in {'patch','minor','major','prepatch','preminor','premajor','prerelease'}:
+            raise ValueError(f'Invalid bump: {bump}')
+        if version == 'exact' and not re.fullmatch(r'(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?', bump):
+            raise ValueError(f'Invalid exact version: {bump}')
+        target, target_value = split(os.environ['TARGET'], {'repository','package','directory'}, {'repository'})
+        release, release_value = split(os.environ['RELEASE'], {'auto','tag','name'}, {'auto'})
+        source, source_value = split(os.environ['TOOLS'], {'workspace','registry','repository'}, {'workspace'})
+        outputs = {
+            'version-mode': version,
+            'version-bump': bump if version == 'bump' else '',
+            'exact-version': bump if version == 'exact' else '',
+            'package-name': target_value if target == 'package' else '',
+            'package-directory': target_value if target == 'directory' else '',
+            'release-tag': release_value if release == 'tag' else '',
+            'release-name': release_value if release == 'name' else '',
+            'workspace-tools-source': source,
+            'workspace-tools-version': source_value if source == 'registry' else '',
+            'workspace-tools-ref': source_value if source == 'repository' else '',
+        }
+        with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+            for key, value in outputs.items():
+                print(f'{key}={value}', file=f)
+        PY
