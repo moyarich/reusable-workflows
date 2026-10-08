@@ -11,7 +11,7 @@ Pin an immutable release when reproducibility matters:
 ```yaml
 jobs:
   ci:
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_node-ci.yml@v0.1.0
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_node-ci.yml@main
 ```
 
 Or follow the latest compatible `0.x` release:
@@ -19,13 +19,13 @@ Or follow the latest compatible `0.x` release:
 ```yaml
 jobs:
   ci:
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_node-ci.yml@v0
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_node-ci.yml@main
 ```
 
 Standalone actions use the same release line:
 
 ```yaml
-- uses: moyarich/reusable-workflows/actions/discover-packages@v0
+- uses: moyarich/reusable-workflows/actions/discover-packages@main
 ```
 
 ## Versioning
@@ -98,7 +98,7 @@ additional reusable summary:
 ```yaml
 jobs:
   release:
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_npm-release.yml@v0
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_npm-release.yml@main
     with:
       package: .
       show-input-summary: false
@@ -121,7 +121,7 @@ jobs:
       contents: write
       packages: read
       pull-requests: read
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_reset-release.yml@v0
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_reset-release.yml@main
     with:
       package: .
       target-branch: main
@@ -137,7 +137,7 @@ jobs:
       contents: write
       packages: read
       pull-requests: read
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_restore-release.yml@v0
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_restore-release.yml@main
     with:
       package: .
       target-branch: main
@@ -192,7 +192,7 @@ jobs:
   formatting:
     permissions:
       contents: write
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_prettier.yml@v0
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_prettier.yml@main
     with:
       mode: check
       prettier-config: reusable-workflows
