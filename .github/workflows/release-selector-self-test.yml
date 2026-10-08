@@ -1,0 +1,45 @@
+name: Release package selector self-test
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/reusable_select-release-packages.yml
+      - .github/workflows/release-selector-self-test.yml
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  selection:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/reusable_select-release-packages.yml
+    with:
+      packages-json: '[{"name":"example","directory":"packages/example"}]'
+      package: example
+      event-name: workflow_dispatch
+      before-sha: ""
+      after-sha: ${{ github.sha }}
+      target-branch: ${{ github.ref_name }}
+      version-mode: bump
+      version-bump: patch
+
+  verify:
+    needs: selection
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check reusable workflow matrix and version inputs
+        env:
+          MATRIX_JSON: ${{ needs.selection.outputs.matrix }}
+          COUNT: ${{ needs.selection.outputs.count }}
+          VERSION_MODE: ${{ needs.selection.outputs.version-mode }}
+          VERSION_BUMP: ${{ needs.selection.outputs.version-bump }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ "$COUNT" = "1" ]
+          [ "$VERSION_MODE" = "bump" ]
+          [ "$VERSION_BUMP" = "patch" ]
+          jq -e '.include | length == 1 and .[0].name == "example" and .[0].directory == "packages/example"' <<< "$MATRIX_JSON"
