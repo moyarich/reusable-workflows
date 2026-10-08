@@ -20,6 +20,11 @@ on:
         type: string
   workflow_call:
     inputs:
+      browser-tests:
+        description: Install Chromium dependencies for browser-based tests
+        required: false
+        default: false
+        type: boolean
       package-directory:
         description: Workspace path, directory name, or package name
         required: false
