@@ -174,3 +174,38 @@ rather than constructing a token-bearing Git command. Grant the calling job
 ## Portable npm release defaults
 
 Manually dispatched npm release, publish and prepare workflows default to the root package (`.`). Release and Publish support an optional target branch; when absent, the selected dispatch ref is used. Explicit `workflow_call` inputs retain precedence.
+
+## Prettier self-heal configuration
+
+The `reusable_prettier.yml` workflow reads the consuming repository's
+`devDependencies.prettier` version and respects its `.prettierignore`.
+Protected `.github/workflows/` and generated `dist/` paths are always excluded,
+including from auto-commits.
+
+Use `prettier-config: this-repository` (the default) to let Prettier discover the
+consumer's existing configuration. Choose `prettier-config: reusable-workflows` to
+apply `reusable-configurations/.prettierrc.json` from this repository while
+still honoring the consumer's ignore patterns:
+
+```yaml
+jobs:
+  formatting:
+    permissions:
+      contents: write
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_prettier.yml@main
+    with:
+      mode: check
+      prettier-config: reusable-workflows
+      commit: false
+      node-version: "24"
+```
+
+The `reusable-workflows` option explicitly overrides the caller's formatting rules;
+the `this-repository` option never pulls a remote configuration. Both modes use the
+same ignore merging and safe commit behavior.
+
+Use `mode: check` for a read-only CI formatting gate and `mode: fix` to run
+`prettier --write`. Only `mode: fix` can commit changes, and only when
+`commit: true`. The workflow installs dependencies with `npm ci --ignore-scripts`
+and invokes the consumer's lockfile-resolved `node_modules/.bin/prettier`.
+It does not invoke autofix.ci or fetch an unpinned Prettier version.
