@@ -156,8 +156,7 @@ reports the expected tag, commit and registry state.
 
 ### Consumer-specific draft templates
 
-Reset and Restore accept optional `draft-template-path`. By default it is empty,
-so consuming repositories do not need a workspace-tools-specific template file.
+Reset and Restore accept optional `draft-template-path`. By default it uses `.github/release-drafter-template.yml`, resolved from the caller if present or from the reusable-workflows repository at the matching workflow ref.
 If your repository uses a custom Release Drafter template, pass its path explicitly:
 
 ```yaml
