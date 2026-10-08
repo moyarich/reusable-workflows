@@ -263,25 +263,21 @@ jobs:
           NODE_AUTH_TOKEN: ${{ github.token }}
         run: npm ci --include=optional
 
+      - name: Parse typed dispatch inputs
+        id: typed
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        uses: moyarich/reusable-workflows/actions/parse-typed-inputs@main
+        with:
+          version: ${{ inputs.version }}
+          workspace-tools: ${{ inputs.workspace-tools }}
+
       - name: Resolve workspace tools CLI
         id: workspace-tools
         uses: moyarich/reusable-workflows/actions/setup-workspace-tools@main
         with:
-          source: repository
-          ref: main
-
-      - name: Parse typed dispatch inputs with workspace-tools
-        id: typed
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        shell: bash
-        env:
-          VERSION_SELECTION: ${{ inputs.version }}
-          TOOLS_SELECTION: ${{ inputs.workspace-tools }}
-        run: |
-          "${{ steps.workspace-tools.outputs.bin-dir }}/typed-input-resolver.mjs" \
-            --version "$VERSION_SELECTION" \
-            --workspace-tools "$TOOLS_SELECTION" \
-            --github-output --json
+          source: ${{ steps.typed.outputs.workspace-tools-source || inputs.workspace-tools-source || 'registry' }}
+          version: ${{ steps.typed.outputs.workspace-tools-version || inputs.workspace-tools-version || '0.1.0' }}
+          ref: ${{ steps.typed.outputs.workspace-tools-ref || inputs.workspace-tools-ref || 'main' }}
 
       - name: Export workspace tools CLI path
         shell: bash
