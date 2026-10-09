@@ -60,6 +60,10 @@ on:
         required: false
         default: "."
         type: string
+    secrets:
+      package-token:
+        description: Token with read access to GitHub Packages
+        required: false
 
 permissions:
   contents: read
