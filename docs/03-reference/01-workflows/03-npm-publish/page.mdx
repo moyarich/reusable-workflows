@@ -62,3 +62,17 @@ The `npm-token` secret is required when publishing to npm using token authentica
 | `show-input-summary` | `false` (reusable call) | Optional additional parameter summary |
 
 The reusable workflow default registry remains `github`; the example explicitly selects `npm`.
+
+## Dispatch with GitHub CLI
+
+The caller above exposes `package`, `registry`, and `dry-run` (not the reusable workflow's `package-directory` input):
+
+```sh
+gh workflow run publish.yml --repo OWNER/REPO --ref main \\
+  -f package=. -f registry=npm -f dry-run=true
+
+gh run list --repo OWNER/REPO --workflow publish.yml --limit 5
+gh run watch RUN_ID --repo OWNER/REPO --exit-status
+```
+
+Once the dry-run and GitHub Release match are verified, use `-f dry-run=false` to publish. Use `-f registry=all` to publish to both registries.
