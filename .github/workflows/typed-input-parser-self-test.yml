@@ -21,7 +21,7 @@ jobs:
           version: ""
           target: ""
           release: ""
-          workspace-tools: ""
+          workspace-tools-source: ""
       - name: Verify defaults
         shell: bash
         env:
@@ -38,7 +38,7 @@ jobs:
           version: bump:minor
           target: package:example
           release: tag:v1.2.3
-          workspace-tools: checkout:upstream;branch:main
+          workspace-tools-source: checkout:upstream;branch:main
       - name: Verify overrides
         shell: bash
         env:
