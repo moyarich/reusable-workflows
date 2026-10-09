@@ -8,16 +8,23 @@ User-facing changes to the reusable workflows and standalone GitHub Actions are 
 
 ### Breaking changes
 
-- Rename Workspace Tools source options to `registry`, `workspace`, and `repository`, replacing `package`, `local`, and `upstream`. Rename `workspace-tools-upstream-ref` to `workspace-tools-ref` and the setup action's `upstream-ref` to `ref`. Update action and workflow callers to use the new names.
+- **Typed Workspace Tools source selection** — Use a single `workspace-tools-source` input such as `registry:npm:0.2.0`, `checkout:current`, or `checkout:upstream;branch:main`. Previous separate source/ref inputs and legacy aliases are no longer supported.
+- **Named CLI selectors** — Callers using Workspace Tools commands must use the new named package and directory options available in `@moyarich/workspace-tools@0.2.0`.
 
-### Improvements
+### Release and publishing
 
-- Select a published Workspace Tools version, build from the current workspace, or fetch and build from a chosen Git repository ref. Repository-source builds are isolated from the consuming checkout.
-- Run additional reusable workflows manually from GitHub Actions, including GitHub Release, Release Drafter, action version publication, and dispatch input summaries.
-- Configure browser-based Node.js CI tests through both manual and reusable workflow inputs.
-- Improve workspace CI configuration and remove repository-specific browser-test assumptions.
+- **Choose release versions** — Draft and release packages with patch, minor, major, prerelease, exact, or package-manifest version selection.
+- **Publish to npm or GitHub Packages** — Select `npm`, `github`, or `all` and optionally override the suggested npm distribution tag. Publishing verifies the canonical release identity and uses the tagged package source.
+- **Reuse existing release drafts** — Finalize an existing exact-tag draft or create a missing one, including when publishing and releasing are separate operations.
+- **Review publish and release previews** — Dry-run summaries show selected parameters, release identity, package version, distribution tag, and readiness without publishing.
 
-## [0.1.0] - Initial Release
+### Workflows and actions
+
+- **Test workflows directly** — Manually dispatch reusable release, publish, draft, and input-summary workflows to preview their behavior.
+- **Run configurable browser tests** — Enable browser-based checks through reusable Node.js CI inputs.
+- **Use current or upstream Workspace Tools source** — Test unreleased workspace tooling against a checked-out repository while keeping consumer source isolated.
+
+\n## [0.1.0] - Initial Release
 
 ### CI and package quality
 
