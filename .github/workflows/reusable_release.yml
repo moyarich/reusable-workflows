@@ -334,7 +334,17 @@ jobs:
             fi
 
             gh release create "${ARGS[@]}"
-            CREATED="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG")"
+            # GitHub's release-by-tag endpoint excludes unpublished drafts.
+            # Resolve the newly created draft from the full releases collection
+            # using its exact tag, just as the existing-release path does.
+            CREATED="$(
+              gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" |
+                jq -c --arg tag "$RELEASE_TAG" '[.[][] | select(.tag_name == $tag)] | first // empty'
+            )"
+            if [ -z "$CREATED" ]; then
+              echo "::error::Created GitHub Release could not be resolved by exact tag $RELEASE_TAG."
+              exit 1
+            fi
             RELEASE_ID="$(jq -r '.id' <<< "$CREATED")"
             RELEASE_URL="$(jq -r '.html_url' <<< "$CREATED")"
 
