@@ -51,3 +51,20 @@ Reusable workflows declare their required inputs, secrets, and permissions throu
 ## Workspace Tools CLI source
 
 Use `workspace-tools-source: registry:npm:0.2.0` for published CLI tooling, `checkout:current` for a caller that is the Workspace Tools repository, or `checkout:upstream;branch:main` to test the upstream checkout. Release and publish commands use named `--package` and `--directory` options.
+
+## Run a workflow with GitHub CLI
+
+`gh workflow run` dispatches a workflow **in the repository specified by `--repo`**. For consumers, dispatch the caller workflow in your own repository; do not try to dispatch a reusable workflow in another repository as a substitute for its caller.
+
+```sh
+# Preview package publication from a consumer's .github/workflows/publish.yml
+gh workflow run publish.yml --repo OWNER/REPO --ref main \\
+  -f package-directory=packages/my-package \\
+  -f registry=npm -f dry-run=true
+
+# Find the resulting run, then watch it
+gh run list --repo OWNER/REPO --workflow publish.yml --limit 5
+gh run watch RUN_ID --repo OWNER/REPO --exit-status
+```
+
+Use the actual input names defined under the caller's `on.workflow_dispatch.inputs`. A reusable workflow's `workflow_call` inputs aren't automatically exposed as inputs on the caller. A direct manual run of a workflow in this repository instead uses `--repo moyarich/reusable-workflows` and its own `workflow_dispatch` contract.
