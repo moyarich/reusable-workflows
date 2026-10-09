@@ -1,11 +1,13 @@
 ---
-title: release draft
+title: Release draft
 description: Create or reuse a release draft without tagging or publishing.
 ---
 
 # Release Drafter workflow
 
-Use `reusable_release-drafter.yml` for repositories that prepare a release draft without creating a Git tag or publishing the release.
+Use `reusable_release-drafter.yml` to prepare release notes without creating a Git tag or publishing a GitHub Release. This is a **draft-only** workflow, not the repository release or npm publishing workflow.
+
+For this repository, manually run `.github/workflows/release.yml` to publish the GitHub Actions release and update version tags. For npm package consumers, use `reusable_npm-release.yml` for package release preparation and `reusable_npm-publish.yml` for registry publication; publishing does not create the package release.
 
 ## Copy and paste
 
