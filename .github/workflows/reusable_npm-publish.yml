@@ -170,6 +170,13 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       TARGET_BRANCH: ${{ inputs.target-branch || github.ref_name }}
     steps:
+      - name: Prevent publishing this workflows repository as an npm package
+        if: ${{ github.repository == 'moyarich/reusable-workflows' && github.event_name == 'workflow_dispatch' && !inputs.dry-run }}
+        shell: bash
+        run: |
+          echo "::error::This repository is distributed using GitHub Releases and version tags. Use .github/workflows/release.yml; npm workflows here are reusable implementations for package-owning repositories."
+          exit 1
+
       - name: Initialize workflow summary
         if: ${{ always() }}
         shell: bash
