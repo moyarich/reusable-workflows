@@ -1,5 +1,6 @@
 import { fileURLToPath, URL } from "node:url";
 import mdx from "@mdx-js/rollup";
+import rehypeSlug from "rehype-slug";
 import react from "@vitejs/plugin-react";
 import remarkFrontmatter from "remark-frontmatter";
 import remarkGfm from "remark-gfm";
@@ -15,6 +16,7 @@ export default defineConfig({
       enforce: "pre",
       ...mdx({
         providerImportSource: "@mdx-js/react",
+        rehypePlugins: [rehypeSlug],
         remarkPlugins: [
           remarkFrontmatter,
           remarkGfm,
