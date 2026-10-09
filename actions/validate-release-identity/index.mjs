@@ -1,7 +1,7 @@
 import process from "node:process";
 import { execFileSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
-import { validateReleaseMarker } from "../release-draft-sync/identity.mjs";
+import { validateReleaseMarker } from "../release-draft-sync/identity.ts";
 const input = name => process.env["INPUT_" + name.toUpperCase().replaceAll("-", "_")] || "";
 try {
   const tag = input("release-tag");
