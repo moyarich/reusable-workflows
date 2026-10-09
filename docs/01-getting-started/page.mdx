@@ -68,3 +68,22 @@ gh run watch RUN_ID --repo OWNER/REPO --exit-status
 ```
 
 Use the actual input names defined under the caller's `on.workflow_dispatch.inputs`. A reusable workflow's `workflow_call` inputs aren't automatically exposed as inputs on the caller. A direct manual run of a workflow in this repository instead uses `--repo moyarich/reusable-workflows` and its own `workflow_dispatch` contract.
+
+## Lucide icons in MDX
+
+The playground provides Lucide React icons through an `Icon` MDX component. Use a [Lucide icon name](https://lucide.dev/icons/) in kebab-case; icons load on demand.
+
+```mdx
+<Icon name="check-circle" size={20} aria-label="Available" />
+<Icon name="terminal" size={20} strokeWidth={1.75} />
+```
+
+For custom React/MDX components, import individual icons directly from `lucide-react`:
+
+```mdx
+import { ArrowRight } from "lucide-react";
+
+<ArrowRight size={18} aria-hidden="true" />
+```
+
+Decorative icons should use `aria-hidden="true"`; meaningful icons should have an accessible label.
