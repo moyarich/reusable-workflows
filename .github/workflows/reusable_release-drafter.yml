@@ -288,11 +288,6 @@ jobs:
 
           RELEASES="$(gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100")"
 
-          EXPECTED_TAG="$RELEASE_TAG_INPUT"
-          if [ -z "$EXPECTED_TAG" ] && [ -n "$INPUT_VERSION" ]; then
-            EXPECTED_TAG="$TAG_PREFIX$INPUT_VERSION"
-          fi
-
           PREVIOUS_TAG="$(
             jq -r --arg prefix "$TAG_PREFIX" '
               [
@@ -308,97 +303,6 @@ jobs:
             ' <<< "$RELEASES"
           )"
 
-          EXISTING="$(
-            jq -c               --arg marker "<!-- release-draft-sync:target=$TARGET_KEY -->"               --arg expectedTag "$EXPECTED_TAG" '
-              [
-                .[][] |
-                select(
-                  .draft == true and
-                  ((.body // "") | contains($marker)) and
-                  (
-                    ($expectedTag | length) == 0 or
-                    .tag_name == $expectedTag
-                  )
-                )
-              ]
-              | sort_by(.created_at)
-              | last // empty
-            ' <<< "$RELEASES"
-          )"
-
-          # Migration path for drafts created before persistent target markers.
-          # When the caller supplied a version/tag, never migrate a different
-          # version's draft into the requested release identity.
-          if [ -z "$EXISTING" ]; then
-            EXISTING="$(
-              jq -c                 --arg prefix "$TAG_PREFIX"                 --arg expectedTag "$EXPECTED_TAG" '
-                [
-                  .[][] |
-                  select(
-                    .draft == true and
-                    (.tag_name | startswith($prefix)) and
-                    (
-                      ($expectedTag | length) == 0 or
-                      .tag_name == $expectedTag
-                    )
-                  )
-                ]
-                | sort_by(.created_at)
-                | last // empty
-              ' <<< "$RELEASES"
-            )"
-          fi
-
-          EXISTING_BODY_FILE="$RUNNER_TEMP/existing-release-body.md"
-          : > "$EXISTING_BODY_FILE"
-
-          EXISTING_ID=""
-          EXISTING_URL=""
-          EXISTING_TAG=""
-          EXISTING_UPDATED_AT=""
-          SEED_SHA=""
-
-          if [ -n "$EXISTING" ]; then
-            EXISTING_ID="$(jq -r '.id' <<< "$EXISTING")"
-            EXISTING_URL="$(jq -r '.html_url' <<< "$EXISTING")"
-            EXISTING_TAG="$(jq -r '.tag_name' <<< "$EXISTING")"
-            EXISTING_UPDATED_AT="$(jq -r '.updated_at // .created_at // ""' <<< "$EXISTING")"
-            jq -r '.body // ""' <<< "$EXISTING" > "$EXISTING_BODY_FILE"
-
-            SEED_SHA="$(
-              sed -n 's/.*release-draft-sync:seed-sha=\([^ ]*\).*/\1/p'                 "$EXISTING_BODY_FILE" |
-                head -n 1
-            )"
-
-            # Existing unmarked drafts are authoritative. Establish a migration
-            # baseline from the draft's last update so historical PRs are not
-            # replayed, while PRs merged after that draft state can append.
-            if [ -z "$SEED_SHA" ]; then
-              if [ -n "$EXISTING_UPDATED_AT" ]; then
-                SEED_SHA="$(git rev-list -1 --before="$EXISTING_UPDATED_AT" HEAD)"
-              fi
-
-              if [ -z "$SEED_SHA" ]; then
-                SEED_SHA="$(git rev-parse HEAD^ 2>/dev/null || git rev-parse HEAD)"
-              fi
-            fi
-          elif [ -n "$SEED_BODY_BASE64" ]; then
-            printf '%s' "$SEED_BODY_BASE64" | base64 --decode > "$EXISTING_BODY_FILE"
-
-            SEED_SHA="$(
-              sed -n 's/.*release-draft-sync:seed-sha=\([^ ]*\).*/\1/p' "$EXISTING_BODY_FILE" |
-                head -n 1
-            )"
-
-            if [ -z "$SEED_SHA" ] && [ -n "$SEED_UPDATED_AT" ]; then
-              SEED_SHA="$(git rev-list -1 --before="$SEED_UPDATED_AT" HEAD)"
-            fi
-
-            if [ -z "$SEED_SHA" ]; then
-              SEED_SHA="$(git rev-parse HEAD^ 2>/dev/null || git rev-parse HEAD)"
-            fi
-          fi
-
           EFFECTIVE_VERSION="$INPUT_VERSION"
           if [ -z "$PREVIOUS_TAG" ] && [ -z "$EFFECTIVE_VERSION" ]; then
             EFFECTIVE_VERSION="$INITIAL_VERSION"
@@ -406,14 +310,8 @@ jobs:
 
           {
             echo "target-key=$TARGET_KEY"
-            echo "expected-tag=$EXPECTED_TAG"
             echo "previous-tag=$PREVIOUS_TAG"
             echo "effective-version=$EFFECTIVE_VERSION"
-            echo "existing-id=$EXISTING_ID"
-            echo "existing-url=$EXISTING_URL"
-            echo "existing-tag=$EXISTING_TAG"
-            echo "existing-body-file=$EXISTING_BODY_FILE"
-            echo "seed-sha=$SEED_SHA"
           } >> "$GITHUB_OUTPUT"
 
       - name: Resolve requested release version
@@ -485,6 +383,117 @@ jobs:
           appendFileSync(e.GITHUB_OUTPUT, 'version=' + (version || '') + '\n');
           NODE
 
+      # Resolve a complete release identity before looking up an existing draft.
+      # Package identity alone must never select a draft from another version.
+      - name: Match existing draft by exact tag
+        id: match
+        shell: bash
+        env:
+          RESOLVED_VERSION: ${{ steps.resolve-version.outputs.version || steps.history.outputs.effective-version }}
+          TARGET_KEY: ${{ steps.history.outputs.target-key }}
+        run: |
+          set -euo pipefail
+          if [ -z "$RESOLVED_VERSION" ] && [ -z "$RELEASE_TAG_INPUT" ]; then
+            echo "::error::Cannot match an existing draft without a resolved version or explicit tag."
+            exit 1
+          fi
+          EXPECTED_TAG="${RELEASE_TAG_INPUT:-$TAG_PREFIX$RESOLVED_VERSION}"
+          RELEASES="$(gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100")"
+          EXISTING="$(
+            jq -c               --arg marker "<!-- release-draft-sync:target=$TARGET_KEY -->"               --arg expectedTag "$EXPECTED_TAG" '
+              [
+                .[][] |
+                select(
+                  .draft == true and
+                  ((.body // "") | contains($marker)) and
+                  .tag_name == $expectedTag
+                )
+              ]
+              | sort_by(.created_at)
+              | last // empty
+            ' <<< "$RELEASES"
+          )"
+
+          # Migration path for drafts created before persistent target markers.
+          # When the caller supplied a version/tag, never migrate a different
+          # version's draft into the requested release identity.
+          if [ -z "$EXISTING" ]; then
+            EXISTING="$(
+              jq -c                 --arg prefix "$TAG_PREFIX"                 --arg expectedTag "$EXPECTED_TAG" '
+                [
+                  .[][] |
+                  select(
+                    .draft == true and
+                    (.tag_name | startswith($prefix)) and
+                    .tag_name == $expectedTag
+                  )
+                ]
+                | sort_by(.created_at)
+                | last // empty
+              ' <<< "$RELEASES"
+            )"
+          fi
+
+          EXISTING_BODY_FILE="$RUNNER_TEMP/existing-release-body.md"
+          : > "$EXISTING_BODY_FILE"
+
+          EXISTING_ID=""
+          EXISTING_URL=""
+          EXISTING_TAG=""
+          EXISTING_UPDATED_AT=""
+          SEED_SHA=""
+
+          if [ -n "$EXISTING" ]; then
+            EXISTING_ID="$(jq -r '.id' <<< "$EXISTING")"
+            EXISTING_URL="$(jq -r '.html_url' <<< "$EXISTING")"
+            EXISTING_TAG="$(jq -r '.tag_name' <<< "$EXISTING")"
+            EXISTING_UPDATED_AT="$(jq -r '.updated_at // .created_at // ""' <<< "$EXISTING")"
+            jq -r '.body // ""' <<< "$EXISTING" > "$EXISTING_BODY_FILE"
+
+            SEED_SHA="$(
+              sed -n 's/.*release-draft-sync:seed-sha=\([^ ]*\).*/\1/p'                 "$EXISTING_BODY_FILE" |
+                head -n 1
+            )"
+
+            # Existing unmarked drafts are authoritative. Establish a migration
+            # baseline from the draft's last update so historical PRs are not
+            # replayed, while PRs merged after that draft state can append.
+            if [ -z "$SEED_SHA" ]; then
+              if [ -n "$EXISTING_UPDATED_AT" ]; then
+                SEED_SHA="$(git rev-list -1 --before="$EXISTING_UPDATED_AT" HEAD)"
+              fi
+
+              if [ -z "$SEED_SHA" ]; then
+                SEED_SHA="$(git rev-parse HEAD^ 2>/dev/null || git rev-parse HEAD)"
+              fi
+            fi
+          elif [ -n "$SEED_BODY_BASE64" ]; then
+            printf '%s' "$SEED_BODY_BASE64" | base64 --decode > "$EXISTING_BODY_FILE"
+
+            SEED_SHA="$(
+              sed -n 's/.*release-draft-sync:seed-sha=\([^ ]*\).*/\1/p' "$EXISTING_BODY_FILE" |
+                head -n 1
+            )"
+
+            if [ -z "$SEED_SHA" ] && [ -n "$SEED_UPDATED_AT" ]; then
+              SEED_SHA="$(git rev-list -1 --before="$SEED_UPDATED_AT" HEAD)"
+            fi
+
+            if [ -z "$SEED_SHA" ]; then
+              SEED_SHA="$(git rev-parse HEAD^ 2>/dev/null || git rev-parse HEAD)"
+            fi
+          fi
+
+
+          {
+            echo "expected-tag=$EXPECTED_TAG"
+            echo "existing-id=$EXISTING_ID"
+            echo "existing-url=$EXISTING_URL"
+            echo "existing-tag=$EXISTING_TAG"
+            echo "existing-body-file=$EXISTING_BODY_FILE"
+            echo "seed-sha=$SEED_SHA"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Generate Release Drafter config
         id: config
         shell: bash
@@ -544,7 +553,7 @@ jobs:
           commitish: ${{ inputs.target-branch }}
           dry-run: true
           version: ${{ steps.resolve-version.outputs.version || steps.history.outputs.effective-version }}
-          from: ${{ steps.history.outputs.seed-sha }}
+          from: ${{ steps.match.outputs.seed-sha }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
@@ -591,7 +600,7 @@ jobs:
         id: reconcile-inputs
         env:
           GENERATED_BODY: ${{ steps.drafter.outputs.body }}
-          EXISTING_SEED_SHA: ${{ steps.history.outputs.seed-sha }}
+          EXISTING_SEED_SHA: ${{ steps.match.outputs.seed-sha }}
         shell: bash
         run: |
           set -euo pipefail
@@ -616,7 +625,7 @@ jobs:
         id: reconcile
         uses: ./.github/reusable-workflows-runtime/actions/release-draft-sync
         with:
-          existing-body-file: ${{ steps.history.outputs.existing-body-file }}
+          existing-body-file: ${{ steps.match.outputs.existing-body-file }}
           generated-body-file: ${{ steps.reconcile-inputs.outputs.generated-file }}
           output-file: ${{ steps.reconcile-inputs.outputs.result-file }}
           changelog-path: ${{ inputs.changelog-path }}
@@ -648,8 +657,8 @@ jobs:
       - name: Create or update persistent draft
         id: write
         env:
-          EXISTING_ID: ${{ steps.history.outputs.existing-id }}
-          EXISTING_URL: ${{ steps.history.outputs.existing-url }}
+          EXISTING_ID: ${{ steps.match.outputs.existing-id }}\n          EXISTING_TAG: ${{ steps.match.outputs.existing-tag }}
+          EXISTING_URL: ${{ steps.match.outputs.existing-url }}
           RELEASE_TAG: ${{ steps.identity.outputs.tag }}
           RELEASE_NAME: ${{ steps.identity.outputs.name }}
           BODY_FILE: ${{ steps.reconcile-inputs.outputs.result-file }}
@@ -664,6 +673,12 @@ jobs:
             echo "url=$EXISTING_URL" >> "$GITHUB_OUTPUT"
             echo "action=previewed" >> "$GITHUB_OUTPUT"
             exit 0
+          fi
+
+          # Never repurpose an existing release for a different tag.
+          if [ -n "$EXISTING_ID" ] && [ "$EXISTING_TAG" != "$RELEASE_TAG" ]; then
+            echo "::error::Existing draft tag $EXISTING_TAG differs from requested $RELEASE_TAG."
+            exit 1
           fi
 
           if [ -n "$EXISTING_ID" ]; then
@@ -686,7 +701,7 @@ jobs:
         env:
           BODY_FILE: ${{ steps.reconcile.outputs.body-file }}
           SUMMARY_TARGET: ${{ steps.history.outputs.target-key || 'unresolved' }}
-          SUMMARY_EXPECTED_TAG: ${{ steps.history.outputs.expected-tag || 'auto' }}
+          SUMMARY_EXPECTED_TAG: ${{ steps.match.outputs.expected-tag || 'auto' }}
           SUMMARY_VERSION: ${{ steps.identity.outputs.version || 'unresolved' }}
           SUMMARY_TAG: ${{ steps.identity.outputs.tag || 'unresolved' }}
           SUMMARY_SEED_SHA: ${{ steps.reconcile-inputs.outputs.seed-sha || 'unresolved' }}
