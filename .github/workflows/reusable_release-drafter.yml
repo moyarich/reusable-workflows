@@ -200,7 +200,7 @@ jobs:
     steps:
       - name: Parse typed dispatch inputs
         id: typed
-        if: ${{ github.event_name == 'workflow_dispatch' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.version-selection != '' }}
         uses: moyarich/reusable-workflows/actions/parse-typed-inputs@main
         with:
           version: ${{ inputs.version-selection }}
@@ -208,7 +208,7 @@ jobs:
           release: ${{ inputs.release }}
 
       - name: Export typed dispatch identity
-        if: ${{ github.event_name == 'workflow_dispatch' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.version-selection != '' }}
         shell: bash
         env:
           TARGET_DIRECTORY: ${{ steps.typed.outputs.package-directory }}
