@@ -398,14 +398,13 @@ jobs:
           set -euo pipefail
 
           RELEASE_ARGS=(
-            "${{ inputs.package }}"
+            "--package=${{ inputs.package }}"
             "--mode=$VERSION_MODE"
             "--json"
             "--dry-run"
           )
 
           if [ "$VERSION_MODE" != "package-json" ]; then
-            RELEASE_ARGS[0]="${{ inputs.package }}=$VERSION_REQUEST"
             RELEASE_ARGS+=("--version=$VERSION_REQUEST")
           fi
 
@@ -604,13 +603,12 @@ jobs:
           set -euo pipefail
 
           RELEASE_ARGS=(
-            "${{ inputs.package }}"
+            "--package=${{ inputs.package }}"
             "--mode=$VERSION_MODE"
             "--json"
           )
 
           if [ "$VERSION_MODE" != "package-json" ]; then
-            RELEASE_ARGS[0]="${{ inputs.package }}=$VERSION_REQUEST"
             RELEASE_ARGS+=("--version=$VERSION_REQUEST")
           fi
 
