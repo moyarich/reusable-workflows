@@ -1,19 +1,11 @@
 name: Setup Workspace Tools
-description: Resolve @moyarich/caller-tools from the npm registry, current caller, or Git repository.
+description: Resolve @moyarich/workspace-tools from the npm registry, current caller, or Git repository.
 
 inputs:
   source:
-    description: Tooling source. Use registry for published versions, caller for the current checkout, or repository for a Git ref.
+    description: "registry:npm:<version>, checkout:current, or checkout:upstream;branch:<ref> (tag: and sha: also supported)"
     required: false
-    default: registry
-  version:
-    description: Published @moyarich/caller-tools version used when source is registry.
-    required: false
-    default: "0.1.1"
-  ref:
-    description: Git ref of moyarich/caller-tools when source is repository.
-    required: false
-    default: main
+    default: registry:npm:0.1.1
   build-command:
     description: Build command used when source is caller or repository.
     required: false
@@ -21,7 +13,7 @@ inputs:
 
 outputs:
   bin-dir:
-    description: Directory containing caller-tools executables.
+    description: Directory containing workspace-tools executables.
     value: ${{ steps.resolve.outputs.bin-dir }}
   source:
     description: Resolved tooling source.
@@ -30,22 +22,33 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Validate source
+    - name: Resolve typed source
+      id: typed
       shell: bash
       env:
         SOURCE: ${{ inputs.source }}
       run: |
         set -euo pipefail
         case "$SOURCE" in
-          registry|caller|repository) ;;
-          *)
-            echo "::error::source must be 'registry', 'caller', or 'repository'"
-            exit 1
+          checkout:current) mode=current; value="" ;;
+          registry:npm:*)
+            mode=registry
+            value="${SOURCE#registry:npm:}"
+            [[ "$value" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.+-]+)?$ ]] || { echo "::error::Expected an explicit npm version"; exit 1; }
             ;;
+          checkout:upstream\;branch:*|checkout:upstream\;tag:*|checkout:upstream\;sha:*)
+            mode=upstream
+            value="${SOURCE#checkout:upstream;}"
+            value="${value#*:}"
+            [ -n "$value" ] && [[ "$value" != -* ]] || { echo "::error::Missing or invalid upstream ref"; exit 1; }
+            ;;
+          *) echo "::error::Invalid workspace-tools source: $SOURCE"; exit 1 ;;
         esac
+        echo "mode=$mode" >> "$GITHUB_OUTPUT"
+        echo "value=$value" >> "$GITHUB_OUTPUT"
 
     - name: Setup Node.js for published package
-      if: ${{ inputs.source == 'registry' }}
+      if: ${{ steps.typed.outputs.mode == 'registry' }}
       uses: actions/setup-node@v7
       with:
         node-version: "24"
@@ -53,16 +56,16 @@ runs:
         scope: "@moyarich"
 
     - name: Install published caller tools
-      if: ${{ inputs.source == 'registry' }}
+      if: ${{ steps.typed.outputs.mode == 'registry' }}
       shell: bash
       env:
-        VERSION: ${{ inputs.version }}
+        VERSION: ${{ steps.typed.outputs.value }}
       run: |
         set -euo pipefail
-        npm install --global "@moyarich/caller-tools@$VERSION" --registry=https://registry.npmjs.org
+        npm install --global "@moyarich/workspace-tools@$VERSION" --registry=https://registry.npmjs.org
 
     - name: Setup Node.js for repository source
-      if: ${{ inputs.source == 'repository' }}
+      if: ${{ steps.typed.outputs.mode == 'upstream' }}
       uses: actions/setup-node@v7
       with:
         node-version: "24"
@@ -70,36 +73,36 @@ runs:
         scope: "@moyarich"
 
     - name: Checkout caller tools repository
-      if: ${{ inputs.source == 'repository' }}
+      if: ${{ steps.typed.outputs.mode == 'upstream' }}
       shell: bash
       env:
-        UPSTREAM_REF: ${{ inputs.ref }}
+        UPSTREAM_REF: ${{ steps.typed.outputs.value }}
         GH_TOKEN: ${{ github.token }}
       run: |
         set -euo pipefail
-        TOOL_DIR="$RUNNER_TEMP/caller-tools-upstream"
+        TOOL_DIR="$RUNNER_TEMP/workspace-tools-upstream"
         rm -rf "$TOOL_DIR"
         mkdir -p "$TOOL_DIR"
         git -C "$TOOL_DIR" init -q
-        git -C "$TOOL_DIR" remote add origin https://github.com/moyarich/caller-tools.git
+        git -C "$TOOL_DIR" remote add origin https://github.com/moyarich/workspace-tools.git
         git -C "$TOOL_DIR" -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)" fetch --depth=1 origin "$UPSTREAM_REF"
         git -C "$TOOL_DIR" checkout -q --detach FETCH_HEAD
 
     - name: Build caller tools repository
-      if: ${{ inputs.source == 'repository' }}
+      if: ${{ steps.typed.outputs.mode == 'upstream' }}
       shell: bash
       env:
         BUILD_COMMAND: ${{ inputs.build-command }}
         NODE_AUTH_TOKEN: ${{ github.token }}
       run: |
         set -euo pipefail
-        cd "$RUNNER_TEMP/caller-tools-upstream"
+        cd "$RUNNER_TEMP/workspace-tools-upstream"
         npm ci --include=optional
         bash -lc "$BUILD_COMMAND"
         test -f dist/bin/discover-packages.mjs || { echo "::error::Upstream build missing discover-packages CLI"; exit 1; }
 
     - name: Build caller tools from current caller
-      if: ${{ inputs.source == 'caller' }}
+      if: ${{ steps.typed.outputs.mode == 'current' }}
       shell: bash
       env:
         BUILD_COMMAND: ${{ inputs.build-command }}
@@ -107,8 +110,8 @@ runs:
         set -euo pipefail
 
         PACKAGE_NAME="$(node -p "require('./package.json').name")"
-        if [ "$PACKAGE_NAME" != "@moyarich/caller-tools" ]; then
-          echo "::error::source=caller is only supported when the checked-out local package is @moyarich/caller-tools; found $PACKAGE_NAME"
+        if [ "$PACKAGE_NAME" != "@moyarich/workspace-tools" ]; then
+          echo "::error::source=caller is only supported when the checked-out local package is @moyarich/workspace-tools; found $PACKAGE_NAME"
           exit 1
         fi
 
@@ -123,19 +126,19 @@ runs:
       name: Resolve CLI directory
       shell: bash
       env:
-        SOURCE: ${{ inputs.source }}
+        SOURCE: ${{ steps.typed.outputs.mode }}
       run: |
         set -euo pipefail
 
-        if [ "$SOURCE" = "caller" ]; then
+        if [ "$SOURCE" = "current" ]; then
           BIN_DIR="$GITHUB_WORKSPACE/dist/bin"
-        elif [ "$SOURCE" = "repository" ]; then
-          BIN_DIR="$RUNNER_TEMP/caller-tools-upstream/dist/bin"
+        elif [ "$SOURCE" = "upstream" ]; then
+          BIN_DIR="$RUNNER_TEMP/workspace-tools-upstream/dist/bin"
         else
-          BIN_DIR="$(dirname "$(command -v caller-release)")"
+          BIN_DIR="$(dirname "$(command -v workspace-release)")"
         fi
 
         {
           echo "bin-dir=$BIN_DIR"
-          echo "source=$SOURCE"
+          echo "source=${{ inputs.source }}"
         } >> "$GITHUB_OUTPUT"
