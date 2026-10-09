@@ -227,13 +227,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
-            npm ci --include=optional
-          else
-            # A lockfile is not required by npm for publishing a standalone package.
-            # Do not generate one or modify the checked-in manifest in the runner.
-            npm install --no-save --package-lock=false --include=optional
-          fi
+          npm install --include=optional
 
       - name: Resolve workspace tools CLI
         id: workspace-tools
