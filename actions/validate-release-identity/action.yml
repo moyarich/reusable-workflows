@@ -1,0 +1,24 @@
+name: Validate Release Identity
+description: Validate exact GitHub Release identity against canonical metadata (legacy metadata accepted).
+inputs:
+  release-tag:
+    description: Canonical GitHub Release tag.
+    required: true
+  version:
+    description: Expected version.
+    required: false
+  package-name:
+    description: Expected package name.
+    required: false
+  target:
+    description: Expected package directory.
+    required: false
+  required:
+    description: Fail when no release matches the tag.
+    default: "false"
+outputs:
+  format:
+    description: v2, legacy, or none.
+runs:
+  using: node24
+  main: index.mjs
