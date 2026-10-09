@@ -128,13 +128,6 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
     steps:
-      - name: Prevent preparing an npm release for this workflows repository
-        if: ${{ github.repository == 'moyarich/reusable-workflows' && github.event_name == 'workflow_dispatch' }}
-        shell: bash
-        run: |
-          echo "::error::This repository is distributed using GitHub Releases and version tags, not npm package releases. Use .github/workflows/release.yml."
-          exit 1
-
       - name: Checkout target branch
         uses: actions/checkout@v7 # v7
         with:
