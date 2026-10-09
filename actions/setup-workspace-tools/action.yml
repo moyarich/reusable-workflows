@@ -97,7 +97,7 @@ runs:
         cd "$RUNNER_TEMP/workspace-tools-upstream"
         npm ci --include=optional
         bash -lc "$BUILD_COMMAND"
-        test -f dist/bin/discover-packages || { echo "::error::Upstream build missing discover-packages CLI"; exit 1; }
+        test -f dist/bin/discover-packages.mjs || { echo "::error::Upstream build missing discover-packages CLI"; exit 1; }
 
     - name: Build workspace tools from current workspace
       if: ${{ inputs.source == 'workspace' }}
