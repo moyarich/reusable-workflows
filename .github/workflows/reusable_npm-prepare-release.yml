@@ -47,7 +47,7 @@ on:
       workspace-tools-source:
         description: Workspace Tools source — published package or current caller checkout
         required: true
-        default: registry:npm:0.1.1
+        default: registry:npm:0.2.0
         type: string
       node-version:
         description: Node.js version
@@ -83,7 +83,7 @@ on:
       workspace-tools-source:
         description: Workspace Tools source — published package or current caller checkout
         required: false
-        default: registry:npm:0.1.1
+        default: registry:npm:0.2.0
         type: string
       node-version:
         required: false
