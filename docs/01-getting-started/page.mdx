@@ -10,10 +10,10 @@ Reusable workflows are called at the job level.
 ```yaml
 jobs:
   ci:
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_node-ci.yml@v0.1.0
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_node-ci.yml@main
 ```
 
-Reusable workflows have their own release line. Pin an immutable workflow release such as `workflows-v0.1.0` when reproducibility matters, or use the moving compatible major alias `workflows-v0`.
+Reusable workflows have their own release line. Use `@main` while validating unreleased changes. After the 0.2.0 release is tagged, pin `@v0.2.0` for reproducibility or use the moving `@v0` compatibility alias.
 
 Do not use the npm package release tag for reusable workflow callers. Package tags such as `@moyarich/workspace-tools@0.1.0` identify the installable npm package, not the reusable workflow API.
 
@@ -37,9 +37,9 @@ Workflow releases are versioned independently from the npm package:
 
 ```text
 release version
-└─ 0.1.0
-   ├─ workflows-v0.1.0   immutable release tag
-   └─ workflows-v0       moving compatible major alias
+└─ 0.2.0
+   ├─ v0.2.0   immutable release tag (after publication)
+   └─ v0       moving major alias
 ```
 
 Workflow release notes are maintained in `CHANGELOG.md`.
@@ -47,3 +47,7 @@ Workflow release notes are maintained in `CHANGELOG.md`.
 ## Secrets and permissions
 
 Reusable workflows declare their required inputs, secrets, and permissions through `workflow_call`. The calling repository remains responsible for supplying required secrets and granting compatible permissions.
+
+## Workspace Tools CLI source
+
+Use `workspace-tools-source: registry:npm:0.2.0` for published CLI tooling, `checkout:current` for a caller that is the Workspace Tools repository, or `checkout:upstream;branch:main` to test the upstream checkout. Release and publish commands use named `--package` and `--directory` options.
