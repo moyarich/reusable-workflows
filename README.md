@@ -45,20 +45,21 @@ Reusable workflows that need Workspace Tools default to the published package:
 
 ```yaml
 with:
-  workspace-tools-source: package
-  workspace-tools-version: "0.1.0"
+  workspace-tools-source: registry:npm:0.1.1
 ```
 
 The `workspace-tools` repository itself uses the current checked-out caller source instead:
 
 ```yaml
 with:
-  workspace-tools-source: caller
+  workspace-tools-source: checkout:current
 ```
 
 In caller mode the workflow verifies that the checked-out root package is `@moyarich/workspace-tools`, builds the current checkout, and runs the CLIs from `dist/bin`. This lets Workspace Tools test and release CLI changes before that version has been published.
 
-CLI migration: the next `@moyarich/workspace-tools` release uses named package selectors (`--package`) rather than positional arguments. The changes in this repository's CLI invocation workflows require that newer package; deploy them only after the new CLI version has been published, or use `workspace-tools-source: caller` while testing the unreleased CLI.
+CLI migration: the next `@moyarich/workspace-tools` release uses named package selectors (`--package`) rather than positional arguments. The changes in this repository's CLI invocation workflows require that newer package; deploy them only after the new CLI version has been published, or use `workspace-tools-source: checkout:current` while testing the unreleased CLI.
+
+For unreleased CLI code, use `workspace-tools-source: checkout:upstream;branch:feat/named-cli-options` to build the selected upstream branch. The source resolver accepts only these compact, typed forms and rejects legacy aliases.
 
 The dependency direction remains one-way for normal consumers:
 
