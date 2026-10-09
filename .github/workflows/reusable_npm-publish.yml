@@ -327,10 +327,10 @@ jobs:
             fi
 
             if [ -n "$RELEASE_COMMIT" ]; then
-            PLAN_WORKTREE="$RUNNER_TEMP/npm-publish-plan-source"
-            rm -rf "$PLAN_WORKTREE"
-            git worktree add --detach "$PLAN_WORKTREE" "$RELEASE_COMMIT"
-            PLAN_ROOT="$PLAN_WORKTREE"
+              PLAN_WORKTREE="$RUNNER_TEMP/npm-publish-plan-source"
+              rm -rf "$PLAN_WORKTREE"
+              git worktree add --detach "$PLAN_WORKTREE" "$RELEASE_COMMIT"
+              PLAN_ROOT="$PLAN_WORKTREE"
             fi
           fi
 
@@ -553,7 +553,7 @@ jobs:
           trap - EXIT
 
           if [ ! -f "$ARTIFACT_PATH" ]; then
-            echo "::error::Canonical package artifact was not created."
+            echo "::error::Package artifact was not created."
             exit 1
           fi
 
@@ -565,7 +565,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
           {
-            echo "## Canonical npm package artifact"
+            echo "## npm package artifact"
             echo
             echo "| Field | Value |"
             echo "| --- | --- |"
