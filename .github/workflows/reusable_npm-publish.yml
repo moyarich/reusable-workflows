@@ -199,10 +199,41 @@ jobs:
       - name: Ensure staged publishing CLI support
         if: inputs.registry == 'npm' || inputs.registry == 'all'
         run: npm install --global npm@">=11.15.0 <12"
+      - name: Validate release package
+        env:
+          PACKAGE_SELECTOR: ${{ inputs.package-directory }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$PACKAGE_SELECTOR" = "." ]; then
+            MANIFEST=package.json
+          elif [ -f "$PACKAGE_SELECTOR/package.json" ]; then
+            MANIFEST="$PACKAGE_SELECTOR/package.json"
+          else
+            MANIFEST="$(find . -name package.json -not -path '*/node_modules/*' -print0 | xargs -0 -r jq -r --arg name "$PACKAGE_SELECTOR" 'select(.name == $name) | input_filename' | head -n 1)"
+          fi
+          if [ -z "${MANIFEST:-}" ] || [ ! -f "$MANIFEST" ]; then
+            echo "::error::Package selector '$PACKAGE_SELECTOR' does not resolve to a package.json."
+            exit 1
+          fi
+          if [ "$(jq -r '.private // false' "$MANIFEST")" = true ]; then
+            echo "::error::Cannot release or publish private package '$PACKAGE_SELECTOR' ($MANIFEST). Select a publishable package."
+            exit 1
+          fi
+
       - name: Install workspace dependencies
         env:
           NODE_AUTH_TOKEN: ${{ github.token }}
-        run: npm ci --include=optional
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
+            npm ci --include=optional
+          else
+            # A lockfile is not required by npm for publishing a standalone package.
+            # Do not generate one or modify the checked-in manifest in the runner.
+            npm install --no-save --package-lock=false --include=optional
+          fi
 
       - name: Resolve workspace tools CLI
         id: workspace-tools
