@@ -1,7 +1,10 @@
 name: Issue Dependency Tree
 description: Render native GitHub issue blocking relationships as a cycle-aware dependency tree.
 
-inputs:
+inputs:  workspace-tools-source:
+    description: "registry:npm:0.2.0, checkout:current, or checkout:upstream;branch:main"
+    required: false
+    default: registry:npm:0.2.0
   repo:
     description: Optional owner/repository override. Defaults to the current repository.
     required: false
@@ -16,26 +19,22 @@ outputs:
 runs:
   using: composite
   steps:
-    - uses: actions/setup-node@v7
+    - name: Resolve Workspace Tools
+      id: workspace-tools
+      uses: moyarich/reusable-workflows/actions/setup-workspace-tools@main
       with:
-        node-version: "24"
-        registry-url: https://npm.pkg.github.com
-        scope: "@moyarich"
-    - name: Install workspace tools
-      shell: bash
-      env:
-        NODE_AUTH_TOKEN: ${{ github.token }}
-      run: npm install --global @moyarich/workspace-tools@0.1.0 --registry=https://npm.pkg.github.com
+        source: ${{ inputs.workspace-tools-source }}
     - id: render
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
+        WORKSPACE_TOOLS_BIN: ${{ steps.workspace-tools.outputs.bin-dir }}
       run: |
         set -euo pipefail
         args=()
         [ -n "${{ inputs.repo }}" ] && args+=(--repo "${{ inputs.repo }}")
-        tree="$(issue-dependency-tree "${args[@]}")"
-        graph="$(issue-dependency-tree "${args[@]}" --json)"
+        tree="$(node "$WORKSPACE_TOOLS_BIN/issue-dependency-tree.mjs" "${args[@]}")"
+        graph="$(node "$WORKSPACE_TOOLS_BIN/issue-dependency-tree.mjs" "${args[@]}" --json)"
         {
           echo "tree<<__TREE__"
           printf '%s\n' "$tree"
