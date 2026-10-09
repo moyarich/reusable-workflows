@@ -275,9 +275,9 @@ jobs:
         id: workspace-tools
         uses: moyarich/reusable-workflows/actions/setup-workspace-tools@main
         with:
-          source: ${{ steps.typed.outputs.workspace-tools-source || inputs.workspace-tools-source || 'registry' }}
-          version: ${{ steps.typed.outputs.workspace-tools-version || inputs.workspace-tools-version || '0.1.0' }}
-          ref: ${{ steps.typed.outputs.workspace-tools-ref || inputs.workspace-tools-ref || 'main' }}
+          source: ${{ inputs.workspace-tools-source || steps.typed.outputs.workspace-tools-source || 'registry' }}
+          version: ${{ inputs.workspace-tools-version || steps.typed.outputs.workspace-tools-version || '0.1.0' }}
+          ref: ${{ inputs.workspace-tools-ref || steps.typed.outputs.workspace-tools-ref || 'main' }}
 
       - name: Export workspace tools CLI path
         shell: bash
@@ -288,9 +288,9 @@ jobs:
 
       - name: Validate release inputs
         env:
-          VERSION_MODE: ${{ steps.typed.outputs.version-mode || inputs.version-mode }}
-          VERSION_BUMP: ${{ steps.typed.outputs.version-bump || inputs.version-bump }}
-          EXACT_VERSION: ${{ steps.typed.outputs.exact-version || inputs.exact-version }}
+          VERSION_MODE: ${{ inputs.version-mode || steps.typed.outputs.version-mode }}
+          VERSION_BUMP: ${{ inputs.version-bump || steps.typed.outputs.version-bump }}
+          EXACT_VERSION: ${{ inputs.exact-version || steps.typed.outputs.exact-version }}
         shell: bash
         run: |
           set -euo pipefail
@@ -326,9 +326,9 @@ jobs:
 
       - name: Resolve release version
         env:
-          VERSION_MODE: ${{ steps.typed.outputs.version-mode || inputs.version-mode }}
-          VERSION_BUMP: ${{ steps.typed.outputs.version-bump || inputs.version-bump }}
-          EXACT_VERSION: ${{ steps.typed.outputs.exact-version || inputs.exact-version }}
+          VERSION_MODE: ${{ inputs.version-mode || steps.typed.outputs.version-mode }}
+          VERSION_BUMP: ${{ inputs.version-bump || steps.typed.outputs.version-bump }}
+          EXACT_VERSION: ${{ inputs.exact-version || steps.typed.outputs.exact-version }}
         shell: bash
         run: |
           set -euo pipefail
@@ -391,7 +391,7 @@ jobs:
       - name: Resolve target release
         id: preview
         env:
-          VERSION_MODE: ${{ steps.typed.outputs.version-mode || inputs.version-mode }}
+          VERSION_MODE: ${{ inputs.version-mode || steps.typed.outputs.version-mode }}
           GIT_REF: ${{ env.TARGET_BRANCH }}
         shell: bash
         run: |
@@ -598,7 +598,7 @@ jobs:
         id: release
         if: ${{ steps.execution.outputs.dry-run == 'false' }}
         env:
-          VERSION_MODE: ${{ steps.typed.outputs.version-mode || inputs.version-mode }}
+          VERSION_MODE: ${{ inputs.version-mode || steps.typed.outputs.version-mode }}
         shell: bash
         run: |
           set -euo pipefail
