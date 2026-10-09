@@ -14,9 +14,9 @@ on:
         default: bump:patch
         type: string
       workspace-tools:
-        description: "CLI source: registry:0.1.1, repository:main, or caller"
+        description: "registry:npm:0.1.1, checkout:current, or checkout:upstream;branch:main"
         required: true
-        default: registry:0.1.1
+        default: registry:npm:0.1.1
         type: string
       target-branch:
         description: Optional target branch
@@ -265,7 +265,7 @@ jobs:
         id: workspace-tools
         uses: moyarich/reusable-workflows/actions/setup-workspace-tools@main
         with:
-          source: ${{ inputs.workspace-tools-source || 'registry:npm:0.1.1' }}
+          source: ${{ inputs.workspace-tools-source || steps.typed.outputs.workspace-tools-source || 'registry:npm:0.1.1' }}
 
       - name: Export workspace tools CLI path
         shell: bash
