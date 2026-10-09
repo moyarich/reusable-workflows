@@ -310,14 +310,8 @@ jobs:
 
           {
             echo "target-key=$TARGET_KEY"
-            echo "expected-tag=$EXPECTED_TAG"
             echo "previous-tag=$PREVIOUS_TAG"
             echo "effective-version=$EFFECTIVE_VERSION"
-            echo "existing-id=$EXISTING_ID"
-            echo "existing-url=$EXISTING_URL"
-            echo "existing-tag=$EXISTING_TAG"
-            echo "existing-body-file=$EXISTING_BODY_FILE"
-            echo "seed-sha=$SEED_SHA"
           } >> "$GITHUB_OUTPUT"
 
       - name: Resolve requested release version
