@@ -47,10 +47,10 @@ on:
       workspace-tools-source:
         description: Workspace Tools source — published package or current caller checkout
         required: true
-        default: package
+        default: registry
         type: choice
         options:
-          - package
+          - registry
           - caller
       workspace-tools-version:
         description: Published @moyarich/workspace-tools version when source is package
@@ -91,7 +91,7 @@ on:
       workspace-tools-source:
         description: Workspace Tools source — published package or current caller checkout
         required: false
-        default: package
+        default: registry
         type: string
       workspace-tools-version:
         description: Published @moyarich/workspace-tools version when source is package
@@ -164,7 +164,7 @@ jobs:
         id: workspace-tools
         shell: bash
         env:
-          SOURCE: ${{ inputs.workspace-tools-source || 'package' }}
+          SOURCE: ${{ inputs.workspace-tools-source || 'registry' }}
           VERSION: ${{ inputs.workspace-tools-version || '0.1.1' }}
           NODE_AUTH_TOKEN: ${{ github.token }}
         run: |
@@ -184,12 +184,12 @@ jobs:
                 exit 1
               }
               ;;
-            package)
+            registry)
               npm install --global "@moyarich/workspace-tools@$VERSION" --registry=https://registry.npmjs.org
               BIN_DIR="$(dirname "$(command -v workspace-release)")"
               ;;
             *)
-              echo "::error::workspace-tools-source must be 'package' or 'caller'."
+              echo "::error::workspace-tools-source must be 'registry' or 'caller'."
               exit 1
               ;;
           esac
