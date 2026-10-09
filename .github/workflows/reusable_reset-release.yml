@@ -61,6 +61,7 @@ jobs:
       contents: read
       packages: read
     outputs:
+      blocked: ${{ steps.package.outputs.blocked }}
       package-name: ${{ steps.package.outputs.name }}
       package-version: ${{ steps.package.outputs.package-version }}
       package-directory: ${{ steps.package.outputs.directory }}
@@ -195,6 +196,17 @@ jobs:
             echo
           } >> "$GITHUB_STEP_SUMMARY"
 
+          if [ "${#PUBLISHED_REGISTRIES[@]}" -gt 0 ] && [ "${{ inputs.dry-run }}" = "true" ]; then
+            echo "blocked=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "## Reset preview blocked"
+              echo
+              echo "This package version is already published. Reset is prohibited."
+              echo "No release, Git tag, or registry state was changed."
+              echo "Restore can repair a published version only from its original source."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           if [ "${#PUBLISHED_REGISTRIES[@]}" -gt 0 ]; then
             echo "::error::$PACKAGE_NAME@$PACKAGE_VERSION is already published to one or more supported registries:"
             printf '::error::%s\n' "${PUBLISHED_REGISTRIES[@]}"
@@ -202,6 +214,8 @@ jobs:
             echo "::error::Use Restore Release to repair the tag for this version, then release newer source under a new version."
             exit 1
           fi
+
+          echo "blocked=false" >> "$GITHUB_OUTPUT"
 
           BACKUP_RELEASE="$(
             gh api --paginate --slurp "repos/${{ github.repository }}/releases?per_page=100" |
@@ -281,6 +295,7 @@ jobs:
 
 
       - name: Validate selected release marker before recovery
+        if: ${{ steps.package.outputs.blocked != 'true' }}
         uses: moyarich/reusable-workflows/actions/validate-release-identity@main
         env:
           GH_TOKEN: ${{ github.token }}
@@ -294,6 +309,7 @@ jobs:
   delete-release:
     name: "stage: Delete release + tag"
     needs: resolve
+    if: ${{ needs.resolve.outputs.blocked != 'true' }}
     permissions:
       contents: write
     uses: moyarich/reusable-workflows/.github/workflows/reusable_delete-release-tag.yml@main
@@ -306,7 +322,7 @@ jobs:
     needs:
       - resolve
       - delete-release
-    if: ${{ needs.resolve.result == 'success' && needs.delete-release.result == 'success' }}
+    if: ${{ needs.resolve.outputs.blocked != 'true' && needs.resolve.result == 'success' && needs.delete-release.result == 'success' }}
     permissions:
       contents: write
     uses: moyarich/reusable-workflows/.github/workflows/reusable_release-tag-move.yml@main
@@ -322,7 +338,7 @@ jobs:
     needs:
       - resolve
       - move-tag
-    if: ${{ needs.resolve.result == 'success' && needs.move-tag.result == 'success' }}
+    if: ${{ needs.resolve.outputs.blocked != 'true' && needs.resolve.result == 'success' && needs.move-tag.result == 'success' }}
     permissions:
       contents: write
       pull-requests: read
@@ -364,16 +380,23 @@ jobs:
             echo "| Stage | Result |"
             echo "| --- | --- |"
             echo "| Resolve target | **${{ needs.resolve.result }}** |"
+            echo "| Published package guard | **${{ needs.resolve.outputs.blocked == 'true' && 'blocked (preview only)' || 'clear' }}** |"
             echo "| Delete release + tag | **${{ needs.delete-release.result }}** |"
             echo "| Move canonical tag | **${{ needs.move-tag.result }}** |"
             echo "| Rebuild release draft | **${{ needs.create-draft.result }}** |"
             echo
-            if [ "${{ inputs.dry-run }}" = "true" ]; then
+            if [ "${{ needs.resolve.outputs.blocked }}" = "true" ]; then
+              echo "> Blocked: published package. No reset stages ran and no state was changed."
+            elif [ "${{ inputs.dry-run }}" = "true" ]; then
               echo '> Preview only. Re-run with `dry-run=false` to move the tag to the current target branch and rebuild the draft.'
             else
               echo "> Reset completed. The canonical tag now points at the current target branch source and the draft was rebuilt."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${{ inputs.dry-run }}" = "true" ] && [ "${{ needs.resolve.outputs.blocked }}" = "true" ] && [ "${{ needs.resolve.result }}" = "success" ]; then
+            exit 0
+          fi
 
           if [ "${{ needs.resolve.result }}" != "success" ] ||
              [ "${{ needs.delete-release.result }}" != "success" ] ||
