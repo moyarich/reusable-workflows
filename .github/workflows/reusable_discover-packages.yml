@@ -4,102 +4,109 @@ on:
   workflow_dispatch:
     inputs:
       packages-directory:
-        description: Directory containing direct-child packages when workspace discovery is disabled
-        required: true
+        description: "Folder to scan when use-workspaces is false."
+        required: false
         default: packages
         type: string
       use-workspaces:
-        description: Discover packages from root package.json workspaces patterns
-        required: true
+        description: "Discover packages using root package.json workspaces instead of scanning a folder."
+        required: false
         default: false
         type: boolean
       include-root-package:
-        description: Include the repository root package.json when it matches the filters
-        required: true
+        description: "Also consider the repository root package.json."
+        required: false
         default: false
         type: boolean
       include-private:
-        description: Include private packages
-        required: true
+        description: "Include packages marked private in package.json."
+        required: false
         default: false
         type: boolean
       require-publish-config:
-        description: Only include publishable packages
-        required: true
+        description: "Only include packages with publishConfig in package.json."
+        required: false
         default: false
         type: boolean
       require-test-script:
-        description: Only include packages with a test script
-        required: true
+        description: "Only include packages defining an npm test script."
+        required: false
         default: false
         type: boolean
       require-build-script:
-        description: Only include packages with a build script
-        required: true
+        description: "Only include packages defining an npm build script."
+        required: false
         default: false
         type: boolean
       workspace-tools-source:
-        description: Workspace Tools source — registry, current workspace, or upstream repository
-        required: true
+        description: "CLI location: registry (public npm), repository (Git ref), or workspace (local checkout)."
+        required: false
         default: registry
         type: choice
         options:
           - registry
-          - workspace
           - repository
+          - workspace
       workspace-tools-ref:
-        description: Git ref for repository-built Workspace Tools
+        description: "Workspace Tools Git branch, tag, or commit when source is repository."
         required: false
         default: main
         type: string
       workspace-tools-version:
-        description: Published @moyarich/workspace-tools version when source is registry
-        required: true
+        description: "Workspace Tools version on public npm when source is registry."
+        required: false
         default: "0.1.1"
         type: string
 
   workflow_call:
     inputs:
       packages-directory:
+        description: "Folder to scan when use-workspaces is false."
         required: false
         default: packages
         type: string
       use-workspaces:
+        description: "Discover packages using root package.json workspaces instead of scanning a folder."
         required: false
         default: false
         type: boolean
       include-root-package:
+        description: "Also consider the repository root package.json."
         required: false
         default: false
         type: boolean
       include-private:
+        description: "Include packages marked private in package.json."
         required: false
         default: false
         type: boolean
       require-publish-config:
+        description: "Only include packages with publishConfig in package.json."
         required: false
         default: false
         type: boolean
       require-test-script:
+        description: "Only include packages defining an npm test script."
         required: false
         default: false
         type: boolean
       require-build-script:
+        description: "Only include packages defining an npm build script."
         required: false
         default: false
         type: boolean
       workspace-tools-source:
-        description: Workspace Tools source — registry, workspace, or repository
+        description: "CLI location: registry (public npm), repository (Git ref), or workspace (local checkout)."
         required: false
         default: registry
         type: string
       workspace-tools-ref:
-        description: Git ref for repository-built Workspace Tools
+        description: "Workspace Tools Git branch, tag, or commit when source is repository."
         required: false
         default: main
         type: string
       workspace-tools-version:
-        description: Published @moyarich/workspace-tools version when source is registry
+        description: "Workspace Tools version on public npm when source is registry."
         required: false
         default: "0.1.1"
         type: string
