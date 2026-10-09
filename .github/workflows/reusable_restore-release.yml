@@ -33,7 +33,7 @@ on:
       workspace-tools-version:
         description: Published workspace-tools CLI version providing historical source resolution
         required: false
-        default: "0.1.1"
+        default: "0.2.0"
         type: string
       exact-tag:
         description: Existing release tag to match when match-mode is exact
