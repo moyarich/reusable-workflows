@@ -1,12 +1,31 @@
 name: Example · Reset release
 on:
   workflow_dispatch:
-permissions:
-  contents: write
-  pull-requests: write
+    inputs:
+      package:
+        type: string
+        default: "."
+        required: true
+      match-mode:
+        type: choice
+        options: [package-json, exact]
+        default: package-json
+      exact-tag:
+        type: string
+        default: ""
+      dry-run:
+        type: boolean
+        default: true
 jobs:
-  example:
+  reset:
+    permissions:
+      contents: write
+      packages: read
+      pull-requests: read
     uses: moyarich/reusable-workflows/.github/workflows/reusable_reset-release.yml@v0
     with:
-      package: '.'
-      dry-run: true
+      package: ${{ inputs.package }}
+      match-mode: ${{ inputs.match-mode }}
+      exact-tag: ${{ inputs.exact-tag }}
+      target-branch: ${{ github.ref_name }}
+      dry-run: ${{ inputs.dry-run }}

@@ -83,12 +83,7 @@ npm run dev
 
 ## Release workflow parameter summaries
 
-The reusable npm release, npm publish, npm prepare-release, GitHub Release, and
-release-drafter workflows display their effective workflow inputs in a separate
-GitHub Actions job summary **by default**, including when invoked by another
-repository via `workflow_call`. Consumers do not need to copy a summary job.
-Inputs are read as passed; the summary does not change release configuration
-or replace operational results.
+Direct manual dispatches display workflow parameters. Reusable npm release and npm publish calls suppress the optional parameter-summary job by default, avoiding duplicate summaries when their caller already reports inputs. Use `show-input-summary: true` to opt in. Operational results remain available in each workflow's own summary.
 
 Sensitive-looking input **names** are automatically excluded by the shared
 summary renderer. GitHub Actions secrets must still be passed as secrets,
@@ -112,6 +107,8 @@ artifact, or draft content in its operational job summary. No caller inputs
 or GitHub Actions step summaries are overwritten.
 
 ## Reset and restore releases from any repository
+
+Reset dry-runs against published versions report **blocked** without modifying releases or tags; real resets are forbidden. Restore requires a historical `restore-source` and uses Workspace Tools `0.2.0` by default. A published version should only be restored from its original source.
 
 Call these workflows directly from a repository that contains an npm `package.json`
 and changelog. The implementation and GitHub Actions summaries live here,

@@ -12,15 +12,16 @@ Use `reusable_release-drafter.yml` for repositories that prepare a release draft
 ```yaml
 jobs:
   release:
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_release-drafter.yml@v0.1.0
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_release-drafter.yml@main
     permissions:
       contents: write
     with:
       target-branch: main
-      version: 0.1.0
-      release-name: My Project v0.1.0
+      version: 0.2.0
+      release-name: My Project v0.2.0
       changelog-path: CHANGELOG.md
       dry-run: true
+      workspace-tools-source: registry:npm:0.2.0
 ```
 
 ## Draft behavior
@@ -38,3 +39,5 @@ When a matching draft already exists, the workflow reuses it and preserves its b
 | `target-branch`  | No       | `main`         |
 | `changelog-path` | No       | `CHANGELOG.md` |
 | `dry-run`        | No       | `true`         |
+
+A manual preview in this repository uses `gh workflow run reusable_release-drafter.yml --repo moyarich/reusable-workflows --ref main -f target=repository -f version-selection=auto -f dry-run=true`. Consumer repositories dispatch their own caller workflow.
