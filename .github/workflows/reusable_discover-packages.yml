@@ -41,7 +41,7 @@ on:
       workspace-tools-source:
         description: Workspace Tools source — registry, current workspace, or upstream repository
         required: true
-        default: repository
+        default: registry
         type: choice
         options:
           - registry
@@ -55,7 +55,7 @@ on:
       workspace-tools-version:
         description: Published @moyarich/workspace-tools version when source is registry
         required: true
-        default: "0.1.0"
+        default: "0.1.1"
         type: string
 
   workflow_call:
@@ -101,7 +101,7 @@ on:
       workspace-tools-version:
         description: Published @moyarich/workspace-tools version when source is registry
         required: false
-        default: "0.1.0"
+        default: "0.1.1"
         type: string
     outputs:
       packages:
@@ -119,7 +119,6 @@ on:
 
 permissions:
   contents: read
-  packages: read
 
 jobs:
   discover:
@@ -141,7 +140,7 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: "24"
-          registry-url: https://npm.pkg.github.com
+          registry-url: https://registry.npmjs.org
           scope: "@moyarich"
 
       - name: Install local Workspace Tools build dependencies
