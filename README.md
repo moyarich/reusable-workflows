@@ -45,7 +45,7 @@ Reusable workflows that need Workspace Tools default to the published package:
 
 ```yaml
 with:
-  workspace-tools-source: registry:npm:0.1.1
+  workspace-tools-source: registry:npm:0.2.0
 ```
 
 The `workspace-tools` repository itself uses the current checked-out caller source instead:
@@ -59,7 +59,7 @@ In caller mode the workflow verifies that the checked-out root package is `@moya
 
 CLI migration: the next `@moyarich/workspace-tools` release uses named package selectors (`--package`) rather than positional arguments. The changes in this repository's CLI invocation workflows require that newer package; deploy them only after the new CLI version has been published, or use `workspace-tools-source: checkout:current` while testing the unreleased CLI.
 
-For unreleased CLI code, use `workspace-tools-source: checkout:upstream;branch:feat/named-cli-options` to build the selected upstream branch. The source resolver accepts only these compact, typed forms and rejects legacy aliases.
+For workflows maintained in `reusable-workflows`, use `checkout:upstream;branch:main` when testing the current upstream Workspace Tools code. For workflows triggered by `moyarich/workspace-tools` itself, use `checkout:current` to build the checked-out source. Normal external callers default to `registry:npm:0.2.0` after that version is published.\n\nFor unreleased CLI code, use `workspace-tools-source: checkout:upstream;branch:feat/named-cli-options` to build the selected upstream branch. The source resolver accepts only these compact, typed forms and rejects legacy aliases.
 
 The dependency direction remains one-way for normal consumers:
 
