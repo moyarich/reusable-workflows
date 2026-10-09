@@ -142,8 +142,17 @@ runs:
         elif [ "$SOURCE" = "upstream" ]; then
           BIN_DIR="$RUNNER_TEMP/workspace-tools-upstream/dist/bin"
         else
-          BIN_DIR="$(dirname "$(command -v workspace-release)")"
+          RELEASE_BIN="$(command -v workspace-release)"
+          RELEASE_TARGET="$(readlink -f "$RELEASE_BIN")"
+          BIN_DIR="$(dirname "$RELEASE_TARGET")"
         fi
+
+        for cli in workspace-release.mjs workspace-publish.mjs; do
+          if [ ! -f "$BIN_DIR/$cli" ]; then
+            echo "::error::Workspace Tools CLI is missing: $BIN_DIR/$cli"
+            exit 1
+          fi
+        done
 
         {
           echo "bin-dir=$BIN_DIR"
