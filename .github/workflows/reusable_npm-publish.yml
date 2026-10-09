@@ -319,14 +319,19 @@ jobs:
 
             RELEASE_COMMIT="$(git rev-list -n 1 "$REQUESTED_RELEASE_TAG" 2>/dev/null || true)"
             if [ -z "$RELEASE_COMMIT" ]; then
-              echo "::error::Requested release tag does not exist: $REQUESTED_RELEASE_TAG"
-              exit 1
+              if [ "${{ inputs.dry-run }}" != "true" ]; then
+                echo "::error::Requested release tag does not exist: $REQUESTED_RELEASE_TAG"
+                exit 1
+              fi
+              echo "::notice::Release tag $REQUESTED_RELEASE_TAG is missing; using checked-out source for the dry-run plan."
             fi
 
-            PLAN_WORKTREE="$RUNNER_TEMP/npm-publish-plan-source"
-            rm -rf "$PLAN_WORKTREE"
-            git worktree add --detach "$PLAN_WORKTREE" "$RELEASE_COMMIT"
-            PLAN_ROOT="$PLAN_WORKTREE"
+            if [ -n "$RELEASE_COMMIT" ]; then
+              PLAN_WORKTREE="$RUNNER_TEMP/npm-publish-plan-source"
+              rm -rf "$PLAN_WORKTREE"
+              git worktree add --detach "$PLAN_WORKTREE" "$RELEASE_COMMIT"
+              PLAN_ROOT="$PLAN_WORKTREE"
+            fi
           fi
 
           cleanup_plan_worktree() {
@@ -495,15 +500,22 @@ jobs:
           PACKAGE_NAME: ${{ steps.plan.outputs.name }}
           PACKAGE_SELECTOR: ${{ inputs.package-directory }}
           RELEASE_COMMIT: ${{ steps.plan.outputs.release-commit }}
+          DRY_RUN: ${{ inputs.dry-run }}
         shell: bash
         run: |
           set -euo pipefail
 
           ARTIFACT_DIRECTORY="$RUNNER_TEMP/npm-package-artifacts"
 
+          ARTIFACT_SOURCE="canonical-tag"
           if [ -z "$RELEASE_COMMIT" ]; then
-            echo "::error::Cannot resolve the canonical Git tag commit for ${{ steps.plan.outputs.release-tag }}."
-            exit 1
+            if [ "$DRY_RUN" != "true" ]; then
+              echo "::error::Cannot resolve the canonical Git tag commit for ${{ steps.plan.outputs.release-tag }}."
+              exit 1
+            fi
+            RELEASE_COMMIT="$GITHUB_SHA"
+            ARTIFACT_SOURCE="checkout-preview"
+            echo "::notice::Release tag is missing; packaging the checked-out commit as a dry-run preview, not a canonical release artifact."
           fi
 
           WORKTREE="$RUNNER_TEMP/npm-release-source"
@@ -541,29 +553,33 @@ jobs:
           trap - EXIT
 
           if [ ! -f "$ARTIFACT_PATH" ]; then
-            echo "::error::Canonical package artifact was not created."
+            echo "::error::Package artifact was not created."
             exit 1
           fi
 
           {
-            echo "source=canonical-tag"
+            echo "source=$ARTIFACT_SOURCE"
             echo "path=$ARTIFACT_PATH"
             echo "filename=$(basename "$ARTIFACT_PATH")"
             echo "sha1=$(shasum -a 1 "$ARTIFACT_PATH" | awk '{print $1}')"
           } >> "$GITHUB_OUTPUT"
 
           {
-            echo "## Canonical npm package artifact"
+            echo "## npm package artifact"
             echo
             echo "| Field | Value |"
             echo "| --- | --- |"
-            echo "| Source | **canonical Git tag commit** |"
+            printf '| Source | **%s** |\n' "$ARTIFACT_SOURCE"
             printf '| Release tag | `%s` |\n' "${{ steps.plan.outputs.release-tag }}"
             printf '| Source commit | `%s` |\n' "$RELEASE_COMMIT"
             printf '| Artifact | `%s` |\n' "$(basename "$ARTIFACT_PATH")"
             printf '| SHA-1 | `%s` |\n' "$(shasum -a 1 "$ARTIFACT_PATH" | awk '{print $1}')"
             echo
-            echo "> Registry publication is authoritative from the canonical Git tag commit. Release assets are updated when the matching GitHub Release is mutable; immutable releases are left unchanged."
+            if [ "$ARTIFACT_SOURCE" = "checkout-preview" ]; then
+              echo "> Dry-run preview only: no canonical Git tag exists. Actual publication requires the canonical tag and matching release."
+            else
+              echo "> Registry publication is authoritative from the canonical Git tag commit. Release assets are updated when the matching GitHub Release is mutable; immutable releases are left unchanged."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Validate packaged CLI entry points
         env:
