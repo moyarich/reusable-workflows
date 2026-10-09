@@ -170,7 +170,7 @@ jobs:
           BIN_DIR: ${{ steps.workspace-tools.outputs.bin-dir }}
         run: |
           set -euo pipefail
-          args=( "${{ inputs.packages-directory }}" --json )
+          args=( "--directory=${{ inputs.packages-directory }}" --json )
           [ "${{ inputs.use-workspaces }}" = "true" ] && args+=(--workspaces)
           [ "${{ inputs.include-root-package }}" = "true" ] && args+=(--include-root-package)
           [ "${{ inputs.include-private }}" = "true" ] && args+=(--include-private)
