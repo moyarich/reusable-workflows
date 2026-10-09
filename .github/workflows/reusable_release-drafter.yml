@@ -412,10 +412,7 @@ jobs:
                 select(
                   .draft == true and
                   ((.body // "") | contains($marker)) and
-                  (
-                    ($expectedTag | length) == 0 or
-                    .tag_name == $expectedTag
-                  )
+                  .tag_name == $expectedTag
                 )
               ]
               | sort_by(.created_at)
@@ -434,10 +431,7 @@ jobs:
                   select(
                     .draft == true and
                     (.tag_name | startswith($prefix)) and
-                    (
-                      ($expectedTag | length) == 0 or
-                      .tag_name == $expectedTag
-                    )
+                    .tag_name == $expectedTag
                   )
                 ]
                 | sort_by(.created_at)
