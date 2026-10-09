@@ -14,3 +14,23 @@ import reusableWorkflow from "../../.github/workflows/reusable_release-drafter.y
     { name: "reusable_release-drafter.yml", source: reusableWorkflow, language: "yaml" },
   ]}
 />
+
+## Run with GitHub CLI
+
+After copying the caller workflow to `.github/workflows/release-drafter.yml`:
+
+```sh
+# The sample caller uses dry-run: true
+gh workflow run release-drafter.yml --repo OWNER/REPO --ref main
+
+gh run list --repo OWNER/REPO --workflow release-drafter.yml --limit 5
+gh run watch RUN_ID --repo OWNER/REPO --exit-status
+```
+
+This caller has no manual inputs; its `dry-run` value is configured in YAML. For direct testing of the reusable workflow in its own repository, use its dispatch inputs instead:
+
+```sh
+gh workflow run reusable_release-drafter.yml \\
+  --repo moyarich/reusable-workflows --ref main \\
+  -f target=repository -f version-selection=auto -f dry-run=true
+```
