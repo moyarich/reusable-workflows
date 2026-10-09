@@ -6,17 +6,23 @@ import { Playground } from "./Playground";
 
 const allPages = CONTENT_SECTIONS.flatMap((section) => section.pages);
 
-function resolveMdxHref(sourcePath: string, href?: string) {
-  if (!href || !href.endsWith(".mdx")) return null;
+function resolveMdxHref(page: ContentPage, href?: string) {
+  if (!href) return null;
+  if (href.startsWith("#")) return `${page.route}${href}`;
+  if (/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(href)) return null;
+  const [path, fragment = ""] = href.split("#", 2);
+  if (!path || !path.endsWith(".mdx")) return null;
+  const sourcePath = page.sourcePath;
 
   const segments = sourcePath.split("/").slice(0, -1);
-  for (const segment of href.split("/")) {
+  for (const segment of path.split("/")) {
     if (!segment || segment === ".") continue;
     if (segment === "..") segments.pop();
     else segments.push(segment);
   }
 
-  return `/${segments.join("/").replace(/\/page\.mdx$/, "")}`;
+  const match = allPages.find((candidate) => candidate.sourcePath === segments.join("/"));
+  return match ? `${match.route}${fragment ? `#${fragment}` : ""}` : null;
 }
 
 function MdxLink({
@@ -25,9 +31,9 @@ function MdxLink({
   children,
   ...props
 }: ComponentPropsWithoutRef<"a"> & { page: ContentPage }) {
-  const route = resolveMdxHref(page.sourcePath, href);
+  const route = resolveMdxHref(page, href);
   return route ? (
-    <Link to={route}>{children}</Link>
+    <Link to={route} {...props}>{children}</Link>
   ) : (
     <a href={href} {...props}>{children}</a>
   );
