@@ -14,9 +14,9 @@ on:
         default: bump:patch
         type: string
       workspace-tools-source:
-        description: "registry:npm:0.1.1, checkout:current, or checkout:upstream;branch:main"
+        description: "registry:npm:0.2.0, checkout:current, or checkout:upstream;branch:main"
         required: true
-        default: registry:npm:0.1.1
+        default: registry:npm:0.2.0
         type: string
       target-branch:
         description: Optional target branch
@@ -83,7 +83,7 @@ on:
       workspace-tools-source:
         description: Workspace Tools source — npm registry, current caller, or Git repository
         required: false
-        default: registry:npm:0.1.1
+        default: registry:npm:0.2.0
         type: string
       node-version:
         description: Advanced — Node.js version
@@ -264,7 +264,7 @@ jobs:
         id: workspace-tools
         uses: moyarich/reusable-workflows/actions/setup-workspace-tools@main
         with:
-          source: ${{ inputs.workspace-tools-source || 'registry:npm:0.1.1' }}
+          source: ${{ inputs.workspace-tools-source || 'registry:npm:0.2.0' }}
 
       - name: Export workspace tools CLI path
         shell: bash
