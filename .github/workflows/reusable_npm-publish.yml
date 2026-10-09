@@ -62,7 +62,7 @@ on:
         type: choice
         options:
           - registry
-          - workspace
+          - caller
       workspace-tools-version:
         description: Published @moyarich/workspace-tools version when source is registry
         required: true
@@ -228,10 +228,10 @@ jobs:
           set -euo pipefail
 
           case "$SOURCE" in
-            workspace)
+            caller)
               PACKAGE_NAME="$(node -p "require('./package.json').name")"
               if [ "$PACKAGE_NAME" != "@moyarich/workspace-tools" ]; then
-                echo "::error::workspace-tools-source=workspace requires the checked-out caller package to be @moyarich/workspace-tools; found $PACKAGE_NAME"
+                echo "::error::workspace-tools-source=caller requires the checked-out caller package to be @moyarich/workspace-tools; found $PACKAGE_NAME"
                 exit 1
               fi
               npm run build
@@ -246,7 +246,7 @@ jobs:
               BIN_DIR="$(dirname "$(command -v workspace-release)")"
               ;;
             *)
-              echo "::error::workspace-tools-source must be 'registry' or 'workspace'."
+              echo "::error::workspace-tools-source must be 'registry' or 'caller'."
               exit 1
               ;;
           esac
