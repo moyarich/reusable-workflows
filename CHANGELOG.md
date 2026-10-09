@@ -4,6 +4,8 @@ User-facing changes to the reusable workflows and standalone GitHub Actions are 
 
 ## Unreleased
 
+## [0.2.0]
+
 ### Breaking changes
 
 - Rename Workspace Tools source options to `registry`, `workspace`, and `repository`, replacing `package`, `local`, and `upstream`. Rename `workspace-tools-upstream-ref` to `workspace-tools-ref` and the setup action's `upstream-ref` to `ref`. Update action and workflow callers to use the new names.
