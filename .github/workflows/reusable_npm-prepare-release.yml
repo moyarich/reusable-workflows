@@ -47,15 +47,7 @@ on:
       workspace-tools-source:
         description: Workspace Tools source — published package or current caller checkout
         required: true
-        default: registry
-        type: choice
-        options:
-          - registry
-          - caller
-      workspace-tools-version:
-        description: Published @moyarich/workspace-tools version when source is package
-        required: true
-        default: "0.1.1"
+        default: registry:npm:0.1.1
         type: string
       node-version:
         description: Node.js version
@@ -91,12 +83,7 @@ on:
       workspace-tools-source:
         description: Workspace Tools source — published package or current caller checkout
         required: false
-        default: registry
-        type: string
-      workspace-tools-version:
-        description: Published @moyarich/workspace-tools version when source is package
-        required: false
-        default: "0.1.1"
+        default: registry:npm:0.1.1
         type: string
       node-version:
         required: false
@@ -162,42 +149,9 @@ jobs:
 
       - name: Resolve workspace tools CLI
         id: workspace-tools
-        shell: bash
-        env:
-          SOURCE: ${{ inputs.workspace-tools-source || 'registry' }}
-          VERSION: ${{ inputs.workspace-tools-version || '0.1.1' }}
-          NODE_AUTH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-
-          case "$SOURCE" in
-            caller)
-              PACKAGE_NAME="$(node -p "require('./package.json').name")"
-              if [ "$PACKAGE_NAME" != "@moyarich/workspace-tools" ]; then
-                echo "::error::workspace-tools-source=caller requires the checked-out caller package to be @moyarich/workspace-tools; found $PACKAGE_NAME"
-                exit 1
-              fi
-              npm run build
-              BIN_DIR="$GITHUB_WORKSPACE/dist/bin"
-              [ -d "$BIN_DIR" ] || {
-                echo "::error::Caller build did not produce dist/bin."
-                exit 1
-              }
-              ;;
-            registry)
-              npm install --global "@moyarich/workspace-tools@$VERSION" --registry=https://registry.npmjs.org
-              BIN_DIR="$(dirname "$(command -v workspace-release)")"
-              ;;
-            *)
-              echo "::error::workspace-tools-source must be 'registry' or 'caller'."
-              exit 1
-              ;;
-          esac
-
-          {
-            echo "bin-dir=$BIN_DIR"
-            echo "source=$SOURCE"
-          } >> "$GITHUB_OUTPUT"
+        uses: moyarich/reusable-workflows/actions/setup-workspace-tools@main
+        with:
+          source: ${{ inputs.workspace-tools-source }}
 
       - name: Export workspace tools CLI path
         shell: bash
