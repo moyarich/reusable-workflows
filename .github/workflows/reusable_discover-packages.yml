@@ -41,7 +41,7 @@ on:
       workspace-tools-source:
         description: "CLI location: registry (public npm), repository (Git ref), or caller (local checkout)."
         required: false
-        default: registry:npm:0.1.1
+        default: registry:npm:0.2.0
         type: string
 
   workflow_call:
@@ -84,7 +84,7 @@ on:
       workspace-tools-source:
         description: "CLI location: registry (public npm), repository (Git ref), or caller (local checkout)."
         required: false
-        default: registry:npm:0.1.1
+        default: registry:npm:0.2.0
         type: string
 
     outputs:
