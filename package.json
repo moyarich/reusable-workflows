@@ -1,6 +1,6 @@
 {
   "name": "reusable-workflows-workspace",
-  "private": false,
+  "private": true,
   "version": "0.2.0",
   "workspaces": [
     "apps/*"
