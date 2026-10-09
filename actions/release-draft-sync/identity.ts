@@ -13,9 +13,9 @@ export type ReleaseMarker =
   | { format: "legacy"; target?: string; "seed-sha"?: string; source?: string }
   | { format: "none" };
 
-const versionedMarker = /<!--\\s*release-draft-sync:(v\\d+)\\b([\\s\\S]*?)-->/g;
-const legacyTarget = /<!--\\s*release-draft-sync:target=([^\\s>]+)\\s*-->/;
-const legacySeed = /<!--\\s*release-draft-sync:seed-sha=([^\\s>]+)(?:\\s+source=([^\\s>]+))?\\s*-->/;
+const versionedMarker = /<!--\s*release-draft-sync:(v\d+)\b([\s\S]*?)-->/g;
+const legacyTarget = /<!--\s*release-draft-sync:target=([^\s>]+)\s*-->/;
+const legacySeed = /<!--\s*release-draft-sync:seed-sha=([^\s>]+)(?:\s+source=([^\s>]+))?\s*-->/;
 const fields = ["package", "version", "tag", "target", "seed-sha", "source"];
 
 type ParsedMarker = Exclude<ReleaseMarker, { format: "none" }>;
