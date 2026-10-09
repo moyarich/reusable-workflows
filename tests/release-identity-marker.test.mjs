@@ -45,7 +45,7 @@ test("dispatches legacy and v2 markers independently", () => {
   assert.equal(parseReleaseMarker(v2)?.format, "v2");
 });
 test("rejects unsupported future marker versions without legacy fallback", () => {
-  const unknown = "<!-- release-draft-sync:v3\\npackage=test\\n-->";
+  const unknown = "<!-- release-draft-sync:v3\npackage=test\n-->";
   assert.throws(() => parseReleaseMarker(unknown), /Unsupported release identity marker version: v3/);
-  assert.throws(() => parseReleaseMarker(unknown + "\\n<!-- release-draft-sync:target=legacy -->"), /Unsupported/);
+  assert.throws(() => parseReleaseMarker(unknown + "\n<!-- release-draft-sync:target=legacy -->"), /Unsupported/);
 });
