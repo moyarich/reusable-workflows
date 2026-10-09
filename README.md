@@ -55,11 +55,13 @@ with:
   workspace-tools-source: checkout:current
 ```
 
-In caller mode the workflow verifies that the checked-out root package is `@moyarich/workspace-tools`, builds the current checkout, and runs the CLIs from `dist/bin`. This lets Workspace Tools test and release CLI changes before that version has been published.
+In `checkout:current` mode the workflow verifies that the checked-out root package is `@moyarich/workspace-tools`, builds the current checkout, and runs the CLIs from `dist/bin`. This lets Workspace Tools test and release CLI changes before that version has been published.
 
-CLI migration: the next `@moyarich/workspace-tools` release uses named package selectors (`--package`) rather than positional arguments. The changes in this repository's CLI invocation workflows require that newer package; deploy them only after the new CLI version has been published, or use `workspace-tools-source: checkout:current` while testing the unreleased CLI.
+CLI migration: the next `@moyarich/workspace-tools` release uses named package selectors (`--package`) rather than positional arguments. The changes in this repository's CLI invocation workflows require that newer package; deploy them only after the new CLI version has been published, or use `workspace-tools-source: checkout:upstream;branch:feat/named-cli-options` while testing the unreleased CLI from `reusable-workflows`.
 
-For workflows maintained in `reusable-workflows`, use `checkout:upstream;branch:main` when testing the current upstream Workspace Tools code. For workflows triggered by `moyarich/workspace-tools` itself, use `checkout:current` to build the checked-out source. Normal external callers default to `registry:npm:0.2.0` after that version is published.\n\nFor unreleased CLI code, use `workspace-tools-source: checkout:upstream;branch:feat/named-cli-options` to build the selected upstream branch. The source resolver accepts only these compact, typed forms and rejects legacy aliases.
+For workflows maintained in `reusable-workflows`, use `checkout:upstream;branch:main` when testing the current upstream Workspace Tools code. For workflows triggered by `moyarich/workspace-tools` itself, use `checkout:current` to build the checked-out source. Normal external callers default to `registry:npm:0.2.0` after that version is published.
+
+For unreleased CLI code, use `workspace-tools-source: checkout:upstream;branch:feat/named-cli-options` to build the selected upstream branch. The source resolver accepts only these compact, typed forms and rejects legacy aliases.
 
 The dependency direction remains one-way for normal consumers:
 
