@@ -1,0 +1,60 @@
+name: Typed input parser self-test
+
+on:
+  pull_request:
+    paths:
+      - actions/parse-typed-inputs/**
+      - .github/workflows/typed-input-parser-self-test.yml
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  parser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Parse explicitly blank optional inputs
+        id: defaults
+        uses: ./actions/parse-typed-inputs
+        with:
+          version: ""
+          target: ""
+          release: ""
+          workspace-tools: ""
+      - name: Verify defaults
+        shell: bash
+        env:
+          VERSION: ${{ steps.defaults.outputs.version-mode }}
+          SOURCE: ${{ steps.defaults.outputs.workspace-tools-source }}
+          PACKAGE_VERSION: ${{ steps.defaults.outputs.workspace-tools-version }}
+        run: |
+          set -euo pipefail
+          test "$VERSION" = auto
+          test "$SOURCE" = registry
+          test "$PACKAGE_VERSION" = 0.1.0
+      - name: Parse explicit overrides
+        id: overrides
+        uses: ./actions/parse-typed-inputs
+        with:
+          version: bump:minor
+          target: package:example
+          release: tag:v1.2.3
+          workspace-tools: repository:main
+      - name: Verify overrides
+        shell: bash
+        env:
+          MODE: ${{ steps.overrides.outputs.version-mode }}
+          BUMP: ${{ steps.overrides.outputs.version-bump }}
+          PACKAGE: ${{ steps.overrides.outputs.package-name }}
+          TAG: ${{ steps.overrides.outputs.release-tag }}
+          SOURCE: ${{ steps.overrides.outputs.workspace-tools-source }}
+          REF: ${{ steps.overrides.outputs.workspace-tools-ref }}
+        run: |
+          set -euo pipefail
+          test "$MODE" = bump
+          test "$BUMP" = minor
+          test "$PACKAGE" = example
+          test "$TAG" = v1.2.3
+          test "$SOURCE" = repository
+          test "$REF" = main
