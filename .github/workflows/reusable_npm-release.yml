@@ -13,7 +13,7 @@ on:
         required: true
         default: bump:patch
         type: string
-      workspace-tools:
+      workspace-tools-source:
         description: "registry:npm:0.1.1, checkout:current, or checkout:upstream;branch:main"
         required: true
         default: registry:npm:0.1.1
@@ -259,13 +259,12 @@ jobs:
         uses: moyarich/reusable-workflows/actions/parse-typed-inputs@main
         with:
           version: ${{ inputs.version }}
-          workspace-tools: ${{ inputs.workspace-tools }}
 
       - name: Resolve workspace tools CLI
         id: workspace-tools
         uses: moyarich/reusable-workflows/actions/setup-workspace-tools@main
         with:
-          source: ${{ inputs.workspace-tools-source || steps.typed.outputs.workspace-tools-source || 'registry:npm:0.1.1' }}
+          source: ${{ inputs.workspace-tools-source || 'registry:npm:0.1.1' }}
 
       - name: Export workspace tools CLI path
         shell: bash
