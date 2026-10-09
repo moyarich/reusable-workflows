@@ -657,7 +657,8 @@ jobs:
       - name: Create or update persistent draft
         id: write
         env:
-          EXISTING_ID: ${{ steps.match.outputs.existing-id }}\n          EXISTING_TAG: ${{ steps.match.outputs.existing-tag }}
+          EXISTING_ID: ${{ steps.match.outputs.existing-id }}
+          EXISTING_TAG: ${{ steps.match.outputs.existing-tag }}
           EXISTING_URL: ${{ steps.match.outputs.existing-url }}
           RELEASE_TAG: ${{ steps.identity.outputs.tag }}
           RELEASE_NAME: ${{ steps.identity.outputs.name }}
