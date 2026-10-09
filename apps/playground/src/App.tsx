@@ -1,4 +1,5 @@
 import { MDXProvider } from "@mdx-js/react";
+import { DynamicIcon } from "lucide-react/dynamic";
 import type { ComponentPropsWithoutRef } from "react";
 import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { CONTENT_SECTIONS, type ContentPage } from "./content";
@@ -60,6 +61,7 @@ function ContentRoute() {
       <MDXProvider
         components={{
           Playground,
+          Icon: DynamicIcon,
           a: (props) => <MdxLink {...props} page={page} />,
         }}
       >
