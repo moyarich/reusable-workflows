@@ -2,7 +2,12 @@ import process from "node:process";
 import { execFileSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
 import { validateReleaseMarker } from "../release-draft-sync/identity.ts";
-const input = name => process.env["INPUT_" + name.toUpperCase().replaceAll("-", "_")] || "";
+// GitHub Actions exposes input names verbatim (including hyphens). Accept the
+// underscore form as a fallback for locally invoked tests and scripts.
+const input = name => {
+  const key = "INPUT_" + name.toUpperCase();
+  return process.env[key] ?? process.env[key.replaceAll("-", "_")] ?? "";
+};
 try {
   const tag = input("release-tag");
   if (!tag) throw new Error("release-tag is required");
