@@ -58,6 +58,8 @@ with:
 
 In caller mode the workflow verifies that the checked-out root package is `@moyarich/workspace-tools`, builds the current checkout, and runs the CLIs from `dist/bin`. This lets Workspace Tools test and release CLI changes before that version has been published.
 
+CLI migration: the next `@moyarich/workspace-tools` release uses named package selectors (`--package`) rather than positional arguments. The changes in this repository's CLI invocation workflows require that newer package; deploy them only after the new CLI version has been published, or use `workspace-tools-source: caller` while testing the unreleased CLI.
+
 The dependency direction remains one-way for normal consumers:
 
 ```text
