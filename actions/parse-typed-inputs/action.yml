@@ -10,7 +10,7 @@ inputs:
   release:
     description: auto, tag:name, name:title
     default: auto
-  workspace-tools:
+  workspace-tools-source:
     description: registry:npm:0.2.0, checkout:current, or checkout:upstream;branch:main
     default: registry:npm:0.2.0
 outputs:
@@ -39,7 +39,7 @@ runs:
         VERSION: ${{ inputs.version }}
         TARGET: ${{ inputs.target }}
         RELEASE: ${{ inputs.release }}
-        TOOLS: ${{ inputs.workspace-tools }}
+        TOOLS: ${{ inputs.workspace-tools-source }}
       run: |
         python3 - <<'PY'
         import os, re
