@@ -41,13 +41,13 @@ on:
       workspace-tools-source:
         description: Workspace Tools source — published package or current caller checkout
         required: true
-        default: package
+        default: registry
         type: choice
         options:
-          - package
-          - caller
+          - registry
+          - workspace
       workspace-tools-version:
-        description: Published @moyarich/workspace-tools version when source is package
+        description: Published @moyarich/workspace-tools version when source is registry
         required: true
         default: "0.1.0"
         type: string
@@ -85,10 +85,10 @@ on:
       workspace-tools-source:
         description: Workspace Tools source — published package or current caller checkout
         required: false
-        default: package
+        default: registry
         type: string
       workspace-tools-version:
-        description: Published @moyarich/workspace-tools version when source is package
+        description: Published @moyarich/workspace-tools version when source is registry
         required: false
         default: "0.1.0"
         type: string
@@ -136,28 +136,28 @@ jobs:
         id: workspace-tools
         shell: bash
         env:
-          SOURCE: ${{ inputs.workspace-tools-source || 'package' }}
+          SOURCE: ${{ inputs.workspace-tools-source || 'registry' }}
           VERSION: ${{ inputs.workspace-tools-version || '0.1.0' }}
           NODE_AUTH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           case "$SOURCE" in
-            caller)
+            workspace)
               PACKAGE_NAME="$(node -p "require('./package.json').name")"
               if [ "$PACKAGE_NAME" != "@moyarich/workspace-tools" ]; then
-                echo "::error::workspace-tools-source=caller requires @moyarich/workspace-tools; found $PACKAGE_NAME"
+                echo "::error::workspace-tools-source=workspace requires @moyarich/workspace-tools; found $PACKAGE_NAME"
                 exit 1
               fi
               npm ci --ignore-scripts
               npm run build
               BIN_DIR="$GITHUB_WORKSPACE/dist/bin"
               ;;
-            package)
+            registry)
               npm install --global "@moyarich/workspace-tools@$VERSION" --registry=https://npm.pkg.github.com
               BIN_DIR="$(dirname "$(command -v discover-packages)")"
               ;;
             *)
-              echo "::error::workspace-tools-source must be 'package' or 'caller'."
+              echo "::error::workspace-tools-source must be 'registry' or 'workspace'."
               exit 1
               ;;
           esac
