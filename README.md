@@ -2,16 +2,16 @@
 
 Reusable GitHub Actions workflows and standalone actions for Moya repositories.
 
-This repository uses the published `@moyarich/workspace-tools` package for workspace discovery, releases, publishing, dependency checks, and related repository automation.
+Workflows provide reusable CI, package discovery, release drafting, GitHub Releases, and npm publishing. Workflows requiring CLI tooling default to `@moyarich/workspace-tools@0.2.0`.
 
 ## Usage
 
-Pin an immutable release when reproducibility matters:
+For the 0.2.0 release, pin `@v0.2.0` once that tag is published. Until then, use `@main` for testing.
 
 ```yaml
 jobs:
   ci:
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_node-ci.yml@v0.1.0
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_node-ci.yml@main
 ```
 
 Or follow the latest compatible `0.x` release:
@@ -32,7 +32,7 @@ See [Release Drafter manual dispatch and version selection](docs/release-drafter
 
 ## Versioning
 
-- `v0.1.0` is immutable.
+- `v0.1.0` is immutable; publish `v0.2.0` as the next immutable release.
 - `v0` is the moving compatible major alias.
 - `CHANGELOG.md` covers only user-facing workflow and action capabilities.
 
@@ -57,11 +57,7 @@ with:
 
 In `checkout:current` mode the workflow verifies that the checked-out root package is `@moyarich/workspace-tools`, builds the current checkout, and runs the CLIs from `dist/bin`. This lets Workspace Tools test and release CLI changes before that version has been published.
 
-CLI migration: the next `@moyarich/workspace-tools` release uses named package selectors (`--package`) rather than positional arguments. The changes in this repository's CLI invocation workflows require that newer package; deploy them only after the new CLI version has been published, or use `workspace-tools-source: checkout:upstream;branch:feat/named-cli-options` while testing the unreleased CLI from `reusable-workflows`.
-
-For workflows maintained in `reusable-workflows`, use `checkout:upstream;branch:main` when testing the current upstream Workspace Tools code. For workflows triggered by `moyarich/workspace-tools` itself, use `checkout:current` to build the checked-out source. Normal external callers default to `registry:npm:0.2.0` after that version is published.
-
-For unreleased CLI code, use `workspace-tools-source: checkout:upstream;branch:feat/named-cli-options` to build the selected upstream branch. The source resolver accepts only these compact, typed forms and rejects legacy aliases.
+The supported `workspace-tools-source` forms are `registry:npm:<version>`, `checkout:current`, and `checkout:upstream;branch:<branch>` (or `tag:<tag>` / `sha:<40-character-sha>`). Legacy source/ref inputs are not supported. See [Getting Started](docs/01-getting-started/page.mdx) for consumer usage.
 
 The dependency direction remains one-way for normal consumers:
 
