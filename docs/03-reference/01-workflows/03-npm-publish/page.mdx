@@ -1,72 +1,64 @@
+---
+title: npm Publish
+description: Publish the exact tagged package to npm or GitHub Packages.
+---
+
 # npm publish workflow
 
-Use `npm-publish.yml` to publish a package located under `packages/<directory>`.
+Use `reusable_npm-publish.yml` to publish a root or workspace package. It verifies the matching Git tag and GitHub Release, builds the canonical tagged package artifact, and supports dry-run previews.
 
-## Copy and paste: GitHub Packages
+## Example caller
 
 Create `.github/workflows/publish.yml`:
 
 ```yaml
 name: Publish package
-
 on:
   workflow_dispatch:
     inputs:
       package:
-        description: Package directory under packages/
-        required: true
         type: string
-
+        default: .
+        required: true
+      registry:
+        type: choice
+        options: [npm, github, all]
+        default: npm
+      dry-run:
+        type: boolean
+        default: true
 jobs:
   publish:
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_npm-publish.yml@v0.1.0
+    permissions:
+      contents: write
+      packages: write
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_npm-publish.yml@main
     with:
-      package: ${{ inputs.package }}
-      registry: github
-      tag: latest
-      node-version: "24"
-    secrets:
-      github-token: ${{ secrets.GITHUB_TOKEN }}
-```
-
-For a package at `packages/my-library/package.json`, enter `my-library` when dispatching the workflow.
-
-## Copy and paste: npm
-
-Create `.github/workflows/stage-npm.yml`:
-
-```yaml
-name: Stage npm package
-
-on:
-  workflow_dispatch:
-    inputs:
-      package:
-        description: Package directory under packages/
-        required: true
-        type: string
-
-jobs:
-  publish:
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_npm-publish.yml@v0.1.0
-    with:
-      package: ${{ inputs.package }}
-      registry: npm
-      tag: latest
-      node-version: "24"
+      package-directory: ${{ inputs.package }}
+      registry: ${{ inputs.registry }}
+      version-mode: package-json
+      dry-run: ${{ inputs.dry-run }}
+      workspace-tools-source: registry:npm:0.2.0
     secrets:
       npm-token: ${{ secrets.NPM_TOKEN }}
 ```
 
-Create the `NPM_TOKEN` repository secret before running the npm example. The reusable tooling validates the selected package before publishing/staging it.
+Use `version-mode: exact` and `exact-version: 0.2.0` to publish the specific version already tagged. `registry: all` targets both registries. Leave `tag` empty to use the suggested distribution tag, usually `latest` for stable releases.
 
-`tag` has no publishing default. Dry-run previews report a suggested tag (`latest` for stable versions or the prerelease identifier for prereleases), but a real publish requires an explicit `tag` value.
+The `npm-token` secret is required when publishing to npm using token authentication. GitHub Packages uses the caller's `GITHUB_TOKEN` and appropriate `packages: write` permission. Keep `dry-run: true` until you have reviewed the package and matching release identity.
 
-## Inputs
+## Common inputs
 
-| Input          | Required | Default  |
-| -------------- | -------- | -------- |
-| `package`      | Yes      | —        |
-| `registry`     | No       | `github` |
-| `tag`          | No       | —        |
-| `node-version` | No       | `24`     |
+| Input | Default | Purpose |
+| --- | --- | --- |
+| `package-directory` | Required for reusable calls | Root `.`, workspace directory, or package name |
+| `version-mode` | `package-json` | `package-json` or `exact` |
+| `exact-version` | Empty | Required with `version-mode: exact` |
+| `registry` | `github` | `npm`, `github`, or `all` |
+| `tag` | Suggested | npm distribution tag override |
+| `dry-run` | `true` | Preview without publishing |
+| `verify-git-tag` | `true` | Verify canonical Git tag |
+| `workspace-tools-source` | `registry:npm:0.2.0` | Workspace Tools CLI source |
+| `show-input-summary` | `false` (reusable call) | Optional additional parameter summary |
+
+The reusable workflow default registry remains `github`; the example explicitly selects `npm`.
