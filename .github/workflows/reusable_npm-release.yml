@@ -14,7 +14,7 @@ on:
         default: bump:patch
         type: string
       workspace-tools:
-        description: "CLI source: registry:0.1.1, repository:main, or workspace"
+        description: "CLI source: registry:0.1.1, repository:main, or caller"
         required: true
         default: registry:0.1.1
         type: string
@@ -81,7 +81,7 @@ on:
         type: string
 
       workspace-tools-source:
-        description: Workspace Tools source — npm registry, current workspace, or Git repository
+        description: Workspace Tools source — npm registry, current caller, or Git repository
         required: false
         default: registry
         type: string
