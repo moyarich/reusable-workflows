@@ -1,5 +1,5 @@
 name: Setup Workspace Tools
-description: Resolve @moyarich/workspace-tools from the npm registry, current caller, or Git repository.
+description: Resolve @moyarich/workspace-tools from the npm registry, current checkout, or Git repository.
 
 inputs:
   source:
@@ -101,7 +101,7 @@ runs:
         bash -lc "$BUILD_COMMAND"
         test -f dist/bin/discover-packages.mjs || { echo "::error::Upstream build missing discover-packages CLI"; exit 1; }
 
-    - name: Build caller tools from current caller
+    - name: Build caller tools from current checkout
       if: ${{ steps.typed.outputs.mode == 'current' }}
       shell: bash
       env:
@@ -111,7 +111,7 @@ runs:
 
         PACKAGE_NAME="$(node -p "require('./package.json').name")"
         if [ "$PACKAGE_NAME" != "@moyarich/workspace-tools" ]; then
-          echo "::error::source=caller is only supported when the checked-out local package is @moyarich/workspace-tools; found $PACKAGE_NAME"
+          echo "::error::source=checkout:current is only supported when the checked-out local package is @moyarich/workspace-tools; found $PACKAGE_NAME"
           exit 1
         fi
 
