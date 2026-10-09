@@ -39,13 +39,19 @@ on:
         default: false
         type: boolean
       workspace-tools-source:
-        description: Workspace Tools source — published package or current caller checkout
+        description: Workspace Tools source — registry, current workspace, or upstream repository
         required: true
-        default: registry
+        default: repository
         type: choice
         options:
           - registry
           - workspace
+          - repository
+      workspace-tools-ref:
+        description: Git ref for repository-built Workspace Tools
+        required: false
+        default: main
+        type: string
       workspace-tools-version:
         description: Published @moyarich/workspace-tools version when source is registry
         required: true
@@ -83,9 +89,14 @@ on:
         default: false
         type: boolean
       workspace-tools-source:
-        description: Workspace Tools source — published package or current caller checkout
+        description: Workspace Tools source — registry, workspace, or repository
         required: false
         default: registry
+        type: string
+      workspace-tools-ref:
+        description: Git ref for repository-built Workspace Tools
+        required: false
+        default: main
         type: string
       workspace-tools-version:
         description: Published @moyarich/workspace-tools version when source is registry
@@ -132,36 +143,18 @@ jobs:
           registry-url: https://npm.pkg.github.com
           scope: "@moyarich"
 
+      - name: Install local Workspace Tools build dependencies
+        if: ${{ inputs.workspace-tools-source == 'workspace' }}
+        shell: bash
+        run: npm ci --ignore-scripts
+
       - name: Resolve workspace tools CLI
         id: workspace-tools
-        shell: bash
-        env:
-          SOURCE: ${{ inputs.workspace-tools-source || 'registry' }}
-          VERSION: ${{ inputs.workspace-tools-version || '0.1.0' }}
-          NODE_AUTH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          case "$SOURCE" in
-            workspace)
-              PACKAGE_NAME="$(node -p "require('./package.json').name")"
-              if [ "$PACKAGE_NAME" != "@moyarich/workspace-tools" ]; then
-                echo "::error::workspace-tools-source=workspace requires @moyarich/workspace-tools; found $PACKAGE_NAME"
-                exit 1
-              fi
-              npm ci --ignore-scripts
-              npm run build
-              BIN_DIR="$GITHUB_WORKSPACE/dist/bin"
-              ;;
-            registry)
-              npm install --global "@moyarich/workspace-tools@$VERSION" --registry=https://npm.pkg.github.com
-              BIN_DIR="$(dirname "$(command -v discover-packages)")"
-              ;;
-            *)
-              echo "::error::workspace-tools-source must be 'registry' or 'workspace'."
-              exit 1
-              ;;
-          esac
-          echo "bin-dir=$BIN_DIR" >> "$GITHUB_OUTPUT"
+        uses: moyarich/reusable-workflows/actions/setup-workspace-tools@main
+        with:
+          source: ${{ inputs.workspace-tools-source }}
+          version: ${{ inputs.workspace-tools-version }}
+          ref: ${{ inputs.workspace-tools-ref }}
 
       - id: packages
         name: Discover packages
