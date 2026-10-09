@@ -291,7 +291,7 @@ jobs:
           fi
 
           PLAN_ARGS=(
-            "$PACKAGE_SELECTOR"
+            "--package=$PACKAGE_SELECTOR"
             --registry="${{ inputs.registry }}"
             --list
             --json
@@ -736,7 +736,7 @@ jobs:
           mkdir -p "$ARTIFACT_DIRECTORY"
 
           PUBLISH_ARGS=(
-            "$PACKAGE_SELECTOR"
+            "--package=$PACKAGE_SELECTOR"
             --registry="${{ inputs.registry }}"
             --artifact-directory="$ARTIFACT_DIRECTORY"
             --json
