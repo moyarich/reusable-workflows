@@ -3,10 +3,14 @@ title: GitHub Pages
 description: Copyable GitHub Pages caller workflow.
 ---
 
+import { Globe } from "lucide-react";
+
 import workflow from "./workflow.yml?raw";
 import reusableWorkflow from "../../.github/workflows/reusable_github-pages.yml?raw";
 
 # GitHub Pages
+
+<p><Globe size={20} strokeWidth={1.75} aria-hidden="true" /> Deploy a static site with the reusable GitHub Pages workflow.</p>
 
 <Playground
   files={[
