@@ -137,7 +137,7 @@ jobs:
           fi
 
           RESOLUTION="$(
-            node "$WORKSPACE_RELEASE_IDENTITY" restore-source "$RESTORE_SOURCE" \
+            node "$WORKSPACE_RELEASE_IDENTITY" restore-source --source "$RESTORE_SOURCE" \
               --repository "$GH_REPO" \
               --json
           )"
