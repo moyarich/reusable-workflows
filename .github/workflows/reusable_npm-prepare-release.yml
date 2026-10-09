@@ -250,7 +250,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           RELEASE_ARGS=(
-            "${PACKAGE_SELECTOR}=${VERSION_REQUEST}"
+            "--package=${PACKAGE_SELECTOR}"
             "--mode=${VERSION_MODE}"
             "--version=${VERSION_REQUEST}"
             "--json"
