@@ -288,11 +288,6 @@ jobs:
 
           RELEASES="$(gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100")"
 
-          EXPECTED_TAG="$RELEASE_TAG_INPUT"
-          if [ -z "$EXPECTED_TAG" ] && [ -n "$INPUT_VERSION" ]; then
-            EXPECTED_TAG="$TAG_PREFIX$INPUT_VERSION"
-          fi
-
           PREVIOUS_TAG="$(
             jq -r --arg prefix "$TAG_PREFIX" '
               [
@@ -308,6 +303,108 @@ jobs:
             ' <<< "$RELEASES"
           )"
 
+          EFFECTIVE_VERSION="$INPUT_VERSION"
+          if [ -z "$PREVIOUS_TAG" ] && [ -z "$EFFECTIVE_VERSION" ]; then
+            EFFECTIVE_VERSION="$INITIAL_VERSION"
+          fi
+
+          {
+            echo "target-key=$TARGET_KEY"
+            echo "expected-tag=$EXPECTED_TAG"
+            echo "previous-tag=$PREVIOUS_TAG"
+            echo "effective-version=$EFFECTIVE_VERSION"
+            echo "existing-id=$EXISTING_ID"
+            echo "existing-url=$EXISTING_URL"
+            echo "existing-tag=$EXISTING_TAG"
+            echo "existing-body-file=$EXISTING_BODY_FILE"
+            echo "seed-sha=$SEED_SHA"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Resolve requested release version
+        id: resolve-version
+        env:
+          MODE: ${{ steps.typed.outputs.version-mode || inputs.version-mode }}
+          BUMP: ${{ steps.typed.outputs.version-bump || inputs.version-bump }}
+          EXACT: ${{ steps.typed.outputs.exact-version || inputs.exact-version }}
+          EXPLICIT: ${{ inputs.version }}
+          PREVIOUS_TAG: ${{ steps.history.outputs.previous-tag }}
+          PREFIX: ${{ inputs.tag-prefix }}
+          DIRECTORY: ${{ inputs.package-directory }}
+          INITIAL: ${{ inputs.initial-version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { readFileSync, appendFileSync } from 'node:fs';
+          import { join } from 'node:path';
+          const e = process.env;
+          const parse = (v) => {
+            const m = /^(\d+)\.(\d+)\.(\d+)(?:-([\da-zA-Z.-]+))?(?:\+[\da-zA-Z.-]+)?$/.exec(v);
+            if (!m) throw Error('Invalid semantic version: ' + v);
+            return { major:+m[1], minor:+m[2], patch:+m[3], pre:m[4] || '' };
+          };
+          let version = e.EXPLICIT;
+          if (e.MODE === 'exact') {
+            if (!e.EXACT) throw Error('exact-version is required for exact mode');
+            version = e.EXACT;
+          } else if (e.MODE === 'package-json') {
+            version = JSON.parse(readFileSync(join(e.DIRECTORY || '.', 'package.json'), 'utf8')).version;
+          } else if (e.MODE === 'bump') {
+            const kind = e.BUMP || 'patch';
+            if (!['major','minor','patch','premajor','preminor','prepatch','prerelease'].includes(kind)) throw Error('Invalid version bump: ' + kind);
+            const previous = e.PREVIOUS_TAG && e.PREVIOUS_TAG.startsWith(e.PREFIX) ? e.PREVIOUS_TAG.slice(e.PREFIX.length) : '';
+            // The npm release CLI bumps package.json, not the last GitHub tag.
+            // Use that same baseline so draft and published versions agree,
+            // including 0.x minor releases. Non-package targets retain the
+            // existing tag/initial-version fallback.
+            const manifestPath = join(e.DIRECTORY || '.', 'package.json');
+            let current = '';
+            try {
+              current = JSON.parse(readFileSync(manifestPath, 'utf8')).version;
+            } catch (error) {
+              if (error.code !== 'ENOENT') throw error;
+            }
+            if (current) parse(current);
+            if (!previous) {
+              // An initial draft remains pinned to the configured first
+              // release, rather than skipping directly to its next bump.
+              version = e.EXPLICIT || e.INITIAL;
+            } else {
+              const v = parse(current || previous);
+              if (kind === 'major' || kind === 'premajor') { v.major++; v.minor=0; v.patch=0; v.pre=''; }
+              else if (kind === 'minor' || kind === 'preminor') { v.minor++; v.patch=0; v.pre=''; }
+              else if (kind === 'patch' || kind === 'prepatch' || (kind === 'prerelease' && !v.pre)) { v.patch++; v.pre=''; }
+              if (kind.startsWith('pre')) v.pre='0';
+              else if (kind === 'prerelease') {
+                const parts=v.pre.split('.');
+                const last=parts.length-1;
+                if (/^\d+$/.test(parts[last])) parts[last]=String(Number(parts[last])+1);
+                else parts.push('0');
+                v.pre=parts.join('.');
+              }
+              version = `${v.major}.${v.minor}.${v.patch}${v.pre ? '-' + v.pre : ''}`;
+            }
+          } else if (e.MODE) throw Error('Invalid version mode: ' + e.MODE);
+          if (version) parse(version);
+          appendFileSync(e.GITHUB_OUTPUT, 'version=' + (version || '') + '\n');
+          NODE
+
+      # Resolve a complete release identity before looking up an existing draft.
+      # Package identity alone must never select a draft from another version.
+      - name: Match existing draft by exact tag
+        id: match
+        shell: bash
+        env:
+          RESOLVED_VERSION: ${{ steps.resolve-version.outputs.version || steps.history.outputs.effective-version }}
+          TARGET_KEY: ${{ steps.history.outputs.target-key }}
+        run: |
+          set -euo pipefail
+          if [ -z "$RESOLVED_VERSION" ] && [ -z "$RELEASE_TAG_INPUT" ]; then
+            echo "::error::Cannot match an existing draft without a resolved version or explicit tag."
+            exit 1
+          fi
+          EXPECTED_TAG="${RELEASE_TAG_INPUT:-$TAG_PREFIX$RESOLVED_VERSION}"
+          RELEASES="$(gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100")"
           EXISTING="$(
             jq -c               --arg marker "<!-- release-draft-sync:target=$TARGET_KEY -->"               --arg expectedTag "$EXPECTED_TAG" '
               [
@@ -399,91 +496,15 @@ jobs:
             fi
           fi
 
-          EFFECTIVE_VERSION="$INPUT_VERSION"
-          if [ -z "$PREVIOUS_TAG" ] && [ -z "$EFFECTIVE_VERSION" ]; then
-            EFFECTIVE_VERSION="$INITIAL_VERSION"
-          fi
 
           {
-            echo "target-key=$TARGET_KEY"
             echo "expected-tag=$EXPECTED_TAG"
-            echo "previous-tag=$PREVIOUS_TAG"
-            echo "effective-version=$EFFECTIVE_VERSION"
             echo "existing-id=$EXISTING_ID"
             echo "existing-url=$EXISTING_URL"
             echo "existing-tag=$EXISTING_TAG"
             echo "existing-body-file=$EXISTING_BODY_FILE"
             echo "seed-sha=$SEED_SHA"
           } >> "$GITHUB_OUTPUT"
-
-      - name: Resolve requested release version
-        id: resolve-version
-        env:
-          MODE: ${{ steps.typed.outputs.version-mode || inputs.version-mode }}
-          BUMP: ${{ steps.typed.outputs.version-bump || inputs.version-bump }}
-          EXACT: ${{ steps.typed.outputs.exact-version || inputs.exact-version }}
-          EXPLICIT: ${{ inputs.version }}
-          PREVIOUS_TAG: ${{ steps.history.outputs.previous-tag }}
-          PREFIX: ${{ inputs.tag-prefix }}
-          DIRECTORY: ${{ inputs.package-directory }}
-          INITIAL: ${{ inputs.initial-version }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          node --input-type=module <<'NODE'
-          import { readFileSync, appendFileSync } from 'node:fs';
-          import { join } from 'node:path';
-          const e = process.env;
-          const parse = (v) => {
-            const m = /^(\d+)\.(\d+)\.(\d+)(?:-([\da-zA-Z.-]+))?(?:\+[\da-zA-Z.-]+)?$/.exec(v);
-            if (!m) throw Error('Invalid semantic version: ' + v);
-            return { major:+m[1], minor:+m[2], patch:+m[3], pre:m[4] || '' };
-          };
-          let version = e.EXPLICIT;
-          if (e.MODE === 'exact') {
-            if (!e.EXACT) throw Error('exact-version is required for exact mode');
-            version = e.EXACT;
-          } else if (e.MODE === 'package-json') {
-            version = JSON.parse(readFileSync(join(e.DIRECTORY || '.', 'package.json'), 'utf8')).version;
-          } else if (e.MODE === 'bump') {
-            const kind = e.BUMP || 'patch';
-            if (!['major','minor','patch','premajor','preminor','prepatch','prerelease'].includes(kind)) throw Error('Invalid version bump: ' + kind);
-            const previous = e.PREVIOUS_TAG && e.PREVIOUS_TAG.startsWith(e.PREFIX) ? e.PREVIOUS_TAG.slice(e.PREFIX.length) : '';
-            // The npm release CLI bumps package.json, not the last GitHub tag.
-            // Use that same baseline so draft and published versions agree,
-            // including 0.x minor releases. Non-package targets retain the
-            // existing tag/initial-version fallback.
-            const manifestPath = join(e.DIRECTORY || '.', 'package.json');
-            let current = '';
-            try {
-              current = JSON.parse(readFileSync(manifestPath, 'utf8')).version;
-            } catch (error) {
-              if (error.code !== 'ENOENT') throw error;
-            }
-            if (current) parse(current);
-            if (!previous) {
-              // An initial draft remains pinned to the configured first
-              // release, rather than skipping directly to its next bump.
-              version = e.EXPLICIT || e.INITIAL;
-            } else {
-              const v = parse(current || previous);
-              if (kind === 'major' || kind === 'premajor') { v.major++; v.minor=0; v.patch=0; v.pre=''; }
-              else if (kind === 'minor' || kind === 'preminor') { v.minor++; v.patch=0; v.pre=''; }
-              else if (kind === 'patch' || kind === 'prepatch' || (kind === 'prerelease' && !v.pre)) { v.patch++; v.pre=''; }
-              if (kind.startsWith('pre')) v.pre='0';
-              else if (kind === 'prerelease') {
-                const parts=v.pre.split('.');
-                const last=parts.length-1;
-                if (/^\d+$/.test(parts[last])) parts[last]=String(Number(parts[last])+1);
-                else parts.push('0');
-                v.pre=parts.join('.');
-              }
-              version = `${v.major}.${v.minor}.${v.patch}${v.pre ? '-' + v.pre : ''}`;
-            }
-          } else if (e.MODE) throw Error('Invalid version mode: ' + e.MODE);
-          if (version) parse(version);
-          appendFileSync(e.GITHUB_OUTPUT, 'version=' + (version || '') + '\n');
-          NODE
 
       - name: Generate Release Drafter config
         id: config
@@ -544,7 +565,7 @@ jobs:
           commitish: ${{ inputs.target-branch }}
           dry-run: true
           version: ${{ steps.resolve-version.outputs.version || steps.history.outputs.effective-version }}
-          from: ${{ steps.history.outputs.seed-sha }}
+          from: ${{ steps.match.outputs.seed-sha }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
@@ -591,7 +612,7 @@ jobs:
         id: reconcile-inputs
         env:
           GENERATED_BODY: ${{ steps.drafter.outputs.body }}
-          EXISTING_SEED_SHA: ${{ steps.history.outputs.seed-sha }}
+          EXISTING_SEED_SHA: ${{ steps.match.outputs.seed-sha }}
         shell: bash
         run: |
           set -euo pipefail
@@ -616,7 +637,7 @@ jobs:
         id: reconcile
         uses: ./.github/reusable-workflows-runtime/actions/release-draft-sync
         with:
-          existing-body-file: ${{ steps.history.outputs.existing-body-file }}
+          existing-body-file: ${{ steps.match.outputs.existing-body-file }}
           generated-body-file: ${{ steps.reconcile-inputs.outputs.generated-file }}
           output-file: ${{ steps.reconcile-inputs.outputs.result-file }}
           changelog-path: ${{ inputs.changelog-path }}
@@ -648,8 +669,8 @@ jobs:
       - name: Create or update persistent draft
         id: write
         env:
-          EXISTING_ID: ${{ steps.history.outputs.existing-id }}
-          EXISTING_URL: ${{ steps.history.outputs.existing-url }}
+          EXISTING_ID: ${{ steps.match.outputs.existing-id }}
+          EXISTING_URL: ${{ steps.match.outputs.existing-url }}
           RELEASE_TAG: ${{ steps.identity.outputs.tag }}
           RELEASE_NAME: ${{ steps.identity.outputs.name }}
           BODY_FILE: ${{ steps.reconcile-inputs.outputs.result-file }}
@@ -686,7 +707,7 @@ jobs:
         env:
           BODY_FILE: ${{ steps.reconcile.outputs.body-file }}
           SUMMARY_TARGET: ${{ steps.history.outputs.target-key || 'unresolved' }}
-          SUMMARY_EXPECTED_TAG: ${{ steps.history.outputs.expected-tag || 'auto' }}
+          SUMMARY_EXPECTED_TAG: ${{ steps.match.outputs.expected-tag || 'auto' }}
           SUMMARY_VERSION: ${{ steps.identity.outputs.version || 'unresolved' }}
           SUMMARY_TAG: ${{ steps.identity.outputs.tag || 'unresolved' }}
           SUMMARY_SEED_SHA: ${{ steps.reconcile-inputs.outputs.seed-sha || 'unresolved' }}
