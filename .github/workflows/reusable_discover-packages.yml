@@ -39,14 +39,14 @@ on:
         default: false
         type: boolean
       workspace-tools-source:
-        description: "CLI location: registry (public npm), repository (Git ref), or workspace (local checkout)."
+        description: "CLI location: registry (public npm), repository (Git ref), or caller (local checkout)."
         required: false
         default: registry
         type: choice
         options:
           - registry
           - repository
-          - workspace
+          - caller
       workspace-tools-ref:
         description: "Workspace Tools Git branch, tag, or commit when source is repository."
         required: false
@@ -96,7 +96,7 @@ on:
         default: false
         type: boolean
       workspace-tools-source:
-        description: "CLI location: registry (public npm), repository (Git ref), or workspace (local checkout)."
+        description: "CLI location: registry (public npm), repository (Git ref), or caller (local checkout)."
         required: false
         default: registry
         type: string
@@ -151,7 +151,7 @@ jobs:
           scope: "@moyarich"
 
       - name: Install local Workspace Tools build dependencies
-        if: ${{ inputs.workspace-tools-source == 'workspace' }}
+        if: ${{ inputs.workspace-tools-source == 'caller' }}
         shell: bash
         run: npm ci --ignore-scripts
 
