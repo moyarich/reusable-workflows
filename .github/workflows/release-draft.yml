@@ -1,18 +1,48 @@
 name: Release Draft
 
+run-name: >-
+  Release draft · ${{ github.event_name == 'workflow_dispatch' && inputs.package || 'changed' }}
+
 on:
   push:
     branches:
       - main
   workflow_dispatch:
     inputs:
-      version:
-        description: Optional explicit semantic version
+      package:
+        description: Package selector (all, package name, ".", or any workspace directory)
+        required: true
+        default: all
+        type: string
+      version-mode:
+        description: Version mode
+        required: true
+        default: bump
+        type: choice
+        options:
+          - bump
+          - package-json
+          - exact
+      version-bump:
+        description: Version bump
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - prepatch
+          - preminor
+          - premajor
+          - prerelease
+      exact-version:
+        description: Exact version when version-mode is exact
         required: false
         default: ""
         type: string
       dry-run:
-        description: Preview without writing the draft
+        description: Preview without creating or modifying release drafts
         required: true
         default: true
         type: boolean
@@ -20,15 +50,39 @@ on:
 permissions: {}
 
 jobs:
+  # This repository releases reusable workflows as a single product; its
+  # playground workspace is private and has no independent release draft.
+  # Reject unsupported selectors instead of silently drafting the root release.
+  select-target:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Validate repository release target
+        env:
+          PACKAGE: ${{ github.event_name == 'workflow_dispatch' && inputs.package || 'all' }}
+        shell: bash
+        run: |
+          case "$PACKAGE" in
+            all|.|reusable-workflows-workspace) ;;
+            *)
+              echo "::error::This repository has a single release target. Use all, ., or reusable-workflows-workspace; received: $PACKAGE"
+              exit 1
+              ;;
+          esac
+
   draft:
+    needs: select-target
     permissions:
       contents: write
       pull-requests: read
     uses: ./.github/workflows/reusable_release-drafter.yml
     with:
       target-branch: ${{ github.ref_name }}
-      version: ${{ github.event_name == 'workflow_dispatch' && inputs.version || '' }}
       initial-version: "0.1.0"
+      version-mode: ${{ github.event_name == 'workflow_dispatch' && inputs.version-mode || '' }}
+      version-bump: ${{ github.event_name == 'workflow_dispatch' && inputs.version-bump || '' }}
+      exact-version: ${{ github.event_name == 'workflow_dispatch' && inputs.exact-version || '' }}
       tag-prefix: "v"
       release-name: "Reusable Workflows v$RESOLVED_VERSION"
       changelog-path: CHANGELOG.md
