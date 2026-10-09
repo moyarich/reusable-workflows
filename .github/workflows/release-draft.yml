@@ -26,7 +26,7 @@ jobs:
       pull-requests: read
     uses: ./.github/workflows/reusable_release-drafter.yml
     with:
-      target-branch: main
+      target-branch: ${{ github.ref_name }}
       version: ${{ github.event_name == 'workflow_dispatch' && inputs.version || '' }}
       initial-version: "0.1.0"
       tag-prefix: "v"
@@ -34,4 +34,4 @@ jobs:
       changelog-path: CHANGELOG.md
       template-path: .github/release-drafter-template.yml
       target-key: reusable-workflows
-      dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run || false }}
+      dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run == true }}
