@@ -68,9 +68,9 @@ on:
   workflow_call:
     inputs:
       show-input-summary:
-        description: Report effective reusable workflow inputs; set false when the caller already reports them
+        description: Report effective reusable workflow inputs; enable when the caller does not report them
         required: false
-        default: true
+        default: false
         type: boolean
       target-branch:
         description: Branch containing the package version to publish
