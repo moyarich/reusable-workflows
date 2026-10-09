@@ -177,6 +177,18 @@ ${commits}` };
 function reconcileReleaseBody(options) {
   const existing = options.existingBody.trim();
   const generated = options.generatedBody.trim();
+
+  // A release-specific curated changelog is the source of truth for public
+  // notes. Do not reintroduce internal PR titles or stale install commands
+  // from persistent Release Drafter output on subsequent runs.
+  if (options.version && options.changelogPath && existsSync(options.changelogPath)) {
+    const curated = changelogSection(readFileSync(options.changelogPath, "utf8"), options.version);
+    if (curated) {
+      const existingSeed = existing.match(/<!--\\s*release-draft-sync:seed-sha=([^\\s]+)(?:\\s+source=[^>]+)?\\s*-->/);
+      const seedSha = existingSeed?.[1] || options.seedSha;
+      return ensureMetadata(curated, options.targetKey, seedSha, "changelog");
+    }
+  }
   if (!existing) {
     const seed = resolveInitialSeed(options);
     return ensureMetadata(
