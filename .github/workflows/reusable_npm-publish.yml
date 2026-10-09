@@ -493,6 +493,17 @@ jobs:
             echo "::error::This release-oriented publish workflow requires a matching GitHub Release identity."
             exit 1
           fi
+      - name: Validate release identity marker
+        if: ${{ steps.release-state.outputs.id != '' }}
+        uses: moyarich/reusable-workflows/actions/validate-release-identity@main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          release-tag: ${{ steps.plan.outputs.release-tag }}
+          version: ${{ steps.plan.outputs.version }}
+          package-name: ${{ steps.plan.outputs.package-name }}
+          required: "true"
+
       - name: Prepare package artifact directory
         shell: bash
         run: |
