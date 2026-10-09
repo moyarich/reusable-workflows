@@ -14,3 +14,16 @@ import reusableWorkflow from "../../.github/workflows/reusable_restore-release.y
     { name: "reusable_restore-release.yml", source: reusableWorkflow, language: "yaml" },
   ]}
 />
+
+## Preview with GitHub CLI
+
+After copying `workflow.yml` to `.github/workflows/restore-release.yml` in your repository, supply a real historical source (the tag is an example):
+
+```sh
+gh workflow run restore-release.yml --repo OWNER/REPO --ref main \\
+  -f package=. -f match-mode=exact \\
+  -f exact-tag='@scope/package@0.2.0' \\
+  -f restore-source='tag:@scope/package@0.2.0' -f dry-run=true
+```
+
+`restore-source` is required. The preview does not move tags, delete releases, or publish packages.
