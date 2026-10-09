@@ -32,7 +32,7 @@ jobs:
           set -euo pipefail
           test "$VERSION" = auto
           test "$SOURCE" = registry
-          test "$PACKAGE_VERSION" = 0.1.0
+          test "$PACKAGE_VERSION" = 0.1.1
       - name: Parse explicit overrides
         id: overrides
         uses: ./actions/parse-typed-inputs

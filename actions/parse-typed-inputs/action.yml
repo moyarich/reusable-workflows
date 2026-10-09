@@ -12,7 +12,7 @@ inputs:
     default: auto
   workspace-tools:
     description: workspace, registry:version, repository:ref
-    default: registry:0.1.0
+    default: registry:0.1.1
 outputs:
   version-mode:
     value: ${{ steps.parse.outputs.version-mode }}
@@ -63,7 +63,7 @@ runs:
             raise ValueError(f'Invalid exact version: {bump}')
         target, target_value = split(os.environ['TARGET'] or 'repository', {'repository','package','directory'}, {'repository'})
         release, release_value = split(os.environ['RELEASE'] or 'auto', {'auto','tag','name'}, {'auto'})
-        source, source_value = split(os.environ['TOOLS'] or 'registry:0.1.0', {'workspace','registry','repository'}, {'workspace'})
+        source, source_value = split(os.environ['TOOLS'] or 'registry:0.1.1', {'workspace','registry','repository'}, {'workspace'})
         outputs = {
             'version-mode': version,
             'version-bump': bump if version == 'bump' else '',

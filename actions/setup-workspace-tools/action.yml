@@ -9,7 +9,7 @@ inputs:
   version:
     description: Published @moyarich/workspace-tools version used when source is registry.
     required: false
-    default: "0.1.0"
+    default: "0.1.1"
   ref:
     description: Git ref of moyarich/workspace-tools when source is repository.
     required: false
@@ -49,25 +49,24 @@ runs:
       uses: actions/setup-node@v7
       with:
         node-version: "24"
-        registry-url: https://npm.pkg.github.com
+        registry-url: https://registry.npmjs.org
         scope: "@moyarich"
 
     - name: Install published workspace tools
       if: ${{ inputs.source == 'registry' }}
       shell: bash
       env:
-        NODE_AUTH_TOKEN: ${{ github.token }}
         VERSION: ${{ inputs.version }}
       run: |
         set -euo pipefail
-        npm install --global "@moyarich/workspace-tools@$VERSION" --registry=https://npm.pkg.github.com
+        npm install --global "@moyarich/workspace-tools@$VERSION" --registry=https://registry.npmjs.org
 
     - name: Setup Node.js for repository source
       if: ${{ inputs.source == 'repository' }}
       uses: actions/setup-node@v7
       with:
         node-version: "24"
-        registry-url: https://npm.pkg.github.com
+        registry-url: https://registry.npmjs.org
         scope: "@moyarich"
 
     - name: Checkout workspace tools repository
@@ -97,7 +96,7 @@ runs:
         cd "$RUNNER_TEMP/workspace-tools-upstream"
         npm ci --include=optional
         bash -lc "$BUILD_COMMAND"
-        test -f dist/bin/discover-packages || { echo "::error::Upstream build missing discover-packages CLI"; exit 1; }
+        test -f dist/bin/discover-packages.mjs || { echo "::error::Upstream build missing discover-packages CLI"; exit 1; }
 
     - name: Build workspace tools from current workspace
       if: ${{ inputs.source == 'workspace' }}
