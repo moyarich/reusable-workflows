@@ -10,7 +10,7 @@ on:
       registry:
         description: Package registry
         required: true
-        default: all
+        default: npm
         type: choice
         options:
           - github
@@ -18,7 +18,8 @@ on:
           - all
       tag:
         description: npm distribution tag
-        required: true
+        required: false
+        default: ""
         type: string
       dry-run:
         description: Preview without publishing
@@ -38,4 +39,6 @@ jobs:
       tag: ${{ inputs.tag }}
       dry-run: ${{ inputs.dry-run }}
       node-version: "24"
+      workspace-tools-source: registry:npm:0.2.0
+      show-input-summary: false
     secrets: inherit

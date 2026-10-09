@@ -18,3 +18,24 @@ import reusableWorkflow from "../../.github/workflows/reusable_npm-publish.yml?r
     },
   ]}
 />
+
+## Run with GitHub CLI
+
+After copying `workflow.yml` to `.github/workflows/publish.yml` in your repository:
+
+```sh
+# Preview publishing to npm
+gh workflow run publish.yml --repo OWNER/REPO --ref main \\
+  -f package-directory=packages/my-package \\
+  -f registry=npm -f dry-run=true
+
+# Publish for real only after checking the release and dry-run report
+gh workflow run publish.yml --repo OWNER/REPO --ref main \\
+  -f package-directory=packages/my-package \\
+  -f registry=npm -f dry-run=false
+
+gh run list --repo OWNER/REPO --workflow publish.yml --limit 5
+gh run watch RUN_ID --repo OWNER/REPO --exit-status
+```
+
+`RUN_ID` is the run created by your dispatch, not the job ID. This example caller uses `package-directory`, not `package`; it defaults to npm and dry-run mode. Publishing needs an existing matching Git tag and GitHub Release.

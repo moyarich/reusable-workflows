@@ -24,3 +24,4 @@ jobs:
       version-mode: bump
       version-bump: patch
       node-version: "24"
+      workspace-tools-source: registry:npm:0.2.0

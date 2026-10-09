@@ -18,3 +18,22 @@ import reusableWorkflow from "../../.github/workflows/reusable_npm-release.yml?r
     },
   ]}
 />
+
+## Run with GitHub CLI
+
+Copy the example to `.github/workflows/release.yml` in your consuming repository, then dispatch it:
+
+```sh
+# Preview the example's patch-bump release
+gh workflow run release.yml --repo OWNER/REPO --ref main \\
+  -f package=packages/my-package -f dry-run=true
+
+# Create release state only after validating the preview
+gh workflow run release.yml --repo OWNER/REPO --ref main \\
+  -f package=packages/my-package -f dry-run=false
+
+gh run list --repo OWNER/REPO --workflow release.yml --limit 5
+gh run watch RUN_ID --repo OWNER/REPO --exit-status
+```
+
+This copyable caller fixes `version-mode: bump` and `version-bump: patch` internally. To select an exact version by CLI, first expose `version-mode` and `exact-version` as workflow dispatch inputs and pass them through to the reusable workflow.

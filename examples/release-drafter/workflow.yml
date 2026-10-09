@@ -11,3 +11,4 @@ jobs:
       release-name: 'Release v{{VERSION}}'
       target-branch: main
       dry-run: true
+      workspace-tools-source: registry:npm:0.2.0
