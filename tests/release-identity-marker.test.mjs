@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseReleaseMarker, validateReleaseMarker, writeReleaseMarker } from "../actions/release-draft-sync/identity.mjs";
+import { parseReleaseMarker, validateReleaseMarker, writeReleaseMarker } from "../actions/release-draft-sync/identity.ts";
 const identity = {
   package: "@moyarich/workspace-tools",
   version: "0.2.0",
