@@ -343,7 +343,10 @@ jobs:
             version = e.EXACT;
           } else if (e.MODE === 'package-json') {
             version = JSON.parse(readFileSync(join(e.DIRECTORY || '.', 'package.json'), 'utf8')).version;
-          } else if (e.MODE === 'bump') {
+          // Automated push runs have no version-mode input. Resolve their next
+          // patch from the same package-manifest baseline used by explicit bumps,
+          // rather than leaving the draft identity blank after a published release.
+          } else if (e.MODE === 'bump' || (!e.MODE && !e.EXPLICIT)) {
             const kind = e.BUMP || 'patch';
             if (!['major','minor','patch','premajor','preminor','prepatch','prerelease'].includes(kind)) throw Error('Invalid version bump: ' + kind);
             const previous = e.PREVIOUS_TAG && e.PREVIOUS_TAG.startsWith(e.PREFIX) ? e.PREVIOUS_TAG.slice(e.PREFIX.length) : '';
