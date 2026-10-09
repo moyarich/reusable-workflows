@@ -23,7 +23,7 @@ type MarkerParser = (content: string) => ParsedMarker;
 
 function parseV2(content: string): Extract<ParsedMarker, { format: "v2" }> {
   const data: Record<string, string> = {};
-  for (const line of content.trim().split("\\n")) {
+  for (const line of content.trim().split("\n")) {
     const at = line.indexOf("=");
     if (at < 1) throw new Error("Invalid release identity field: " + line);
     const key = line.slice(0, at), value = line.slice(at + 1);
