@@ -83,17 +83,7 @@ on:
       workspace-tools-source:
         description: Workspace Tools source — npm registry, current caller, or Git repository
         required: false
-        default: registry
-        type: string
-      workspace-tools-ref:
-        description: moyarich/workspace-tools Git ref when source is repository
-        required: false
-        default: main
-        type: string
-      workspace-tools-version:
-        description: Published @moyarich/workspace-tools version when source is registry
-        required: false
-        default: "0.1.1"
+        default: registry:npm:0.1.1
         type: string
       node-version:
         description: Advanced — Node.js version
@@ -275,9 +265,7 @@ jobs:
         id: workspace-tools
         uses: moyarich/reusable-workflows/actions/setup-workspace-tools@main
         with:
-          source: ${{ inputs.workspace-tools-source || steps.typed.outputs.workspace-tools-source || 'registry' }}
-          version: ${{ inputs.workspace-tools-version || steps.typed.outputs.workspace-tools-version || '0.1.1' }}
-          ref: ${{ inputs.workspace-tools-ref || steps.typed.outputs.workspace-tools-ref || 'main' }}
+          source: ${{ inputs.workspace-tools-source || 'registry:npm:0.1.1' }}
 
       - name: Export workspace tools CLI path
         shell: bash
