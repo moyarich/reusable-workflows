@@ -14,3 +14,15 @@ import reusableWorkflow from "../../.github/workflows/reusable_reset-release.yml
     { name: "reusable_reset-release.yml", source: reusableWorkflow, language: "yaml" },
   ]}
 />
+
+## Preview with GitHub CLI
+
+After copying `workflow.yml` to `.github/workflows/reset-release.yml` in your repository:
+
+```sh
+gh workflow run reset-release.yml --repo OWNER/REPO --ref main \\
+  -f package=. -f match-mode=exact \\
+  -f exact-tag='@scope/package@0.2.0' -f dry-run=true
+```
+
+Published package versions are reported as **blocked** in a successful dry-run. No reset operations execute.
