@@ -14,9 +14,9 @@ on:
         default: bump:patch
         type: string
       workspace-tools:
-        description: "CLI source: registry:0.1.0, repository:main, or workspace"
+        description: "CLI source: registry:0.1.1, repository:main, or workspace"
         required: true
-        default: registry:0.1.0
+        default: registry:0.1.1
         type: string
       target-branch:
         description: Optional target branch
@@ -93,7 +93,7 @@ on:
       workspace-tools-version:
         description: Published @moyarich/workspace-tools version when source is registry
         required: false
-        default: "0.1.0"
+        default: "0.1.1"
         type: string
       node-version:
         description: Advanced — Node.js version
@@ -276,7 +276,7 @@ jobs:
         uses: moyarich/reusable-workflows/actions/setup-workspace-tools@main
         with:
           source: ${{ inputs.workspace-tools-source || steps.typed.outputs.workspace-tools-source || 'registry' }}
-          version: ${{ inputs.workspace-tools-version || steps.typed.outputs.workspace-tools-version || '0.1.0' }}
+          version: ${{ inputs.workspace-tools-version || steps.typed.outputs.workspace-tools-version || '0.1.1' }}
           ref: ${{ inputs.workspace-tools-ref || steps.typed.outputs.workspace-tools-ref || 'main' }}
 
       - name: Export workspace tools CLI path
