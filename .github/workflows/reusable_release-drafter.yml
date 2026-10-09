@@ -657,7 +657,7 @@ jobs:
       - name: Create or update persistent draft
         id: write
         env:
-          EXISTING_ID: ${{ steps.match.outputs.existing-id }}
+          EXISTING_ID: ${{ steps.match.outputs.existing-id }}\n          EXISTING_TAG: ${{ steps.match.outputs.existing-tag }}
           EXISTING_URL: ${{ steps.match.outputs.existing-url }}
           RELEASE_TAG: ${{ steps.identity.outputs.tag }}
           RELEASE_NAME: ${{ steps.identity.outputs.name }}
@@ -673,6 +673,12 @@ jobs:
             echo "url=$EXISTING_URL" >> "$GITHUB_OUTPUT"
             echo "action=previewed" >> "$GITHUB_OUTPUT"
             exit 0
+          fi
+
+          # Never repurpose an existing release for a different tag.
+          if [ -n "$EXISTING_ID" ] && [ "$EXISTING_TAG" != "$RELEASE_TAG" ]; then
+            echo "::error::Existing draft tag $EXISTING_TAG differs from requested $RELEASE_TAG."
+            exit 1
           fi
 
           if [ -n "$EXISTING_ID" ]; then
