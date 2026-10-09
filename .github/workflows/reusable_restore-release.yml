@@ -467,6 +467,18 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
+
+      - name: Validate selected release marker before recovery
+        uses: moyarich/reusable-workflows/actions/validate-release-identity@main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          release-tag: ${{ steps.package.outputs.tag }}
+          version: ${{ steps.package.outputs.package-version }}
+          package-name: ${{ steps.package.outputs.name }}
+          target: ${{ steps.package.outputs.directory }}
+
+
   delete-release:
     name: "stage: Delete current release + tag"
     needs: resolve

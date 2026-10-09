@@ -15,6 +15,12 @@ inputs:
     description: Changelog used only when seeding a missing draft.
     required: false
     default: CHANGELOG.md
+  tag:
+    description: Exact canonical GitHub Release tag.
+    required: true
+  package-name:
+    description: Canonical package identity.
+    required: true
   version:
     description: Release version being reconciled.
     required: false

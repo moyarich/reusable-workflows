@@ -630,6 +630,8 @@ jobs:
           output-file: ${{ steps.reconcile-inputs.outputs.result-file }}
           changelog-path: ${{ inputs.changelog-path }}
           version: ${{ steps.identity.outputs.version }}
+          tag: ${{ steps.identity.outputs.tag }}
+          package-name: ${{ inputs.package-name || steps.history.outputs.target-key }}
           target-key: ${{ steps.history.outputs.target-key }}
           seed-sha: ${{ steps.reconcile-inputs.outputs.seed-sha }}
           target-path: ${{ inputs.package-directory }}

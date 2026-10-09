@@ -6,6 +6,8 @@ on:
       - ".github/workflows/reusable_release-drafter.yml"
       - ".github/workflows/release-draft-self-test.yml"
       - "actions/release-draft-sync/**"
+      - "actions/validate-release-identity/**"
+      - "tests/release-identity-marker.test.mjs"
       - ".github/release-drafter-template.yml"
       - "CHANGELOG.md"
   workflow_dispatch:
@@ -28,3 +30,13 @@ jobs:
       template-path: .github/release-drafter-template.yml
       target-key: release-drafter-self-test
       dry-run: true
+
+  identity-markers:
+    name: Release marker contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - run: node --test tests/release-identity-marker.test.mjs

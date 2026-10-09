@@ -1,3 +1,4 @@
+import { writeReleaseMarker } from "./identity.mjs";
 import { existsSync, readFileSync, writeFileSync, appendFileSync } from "node:fs";
 import process from "node:process";
 import { execFileSync } from "node:child_process";
@@ -247,6 +248,8 @@ function runAction() {
   const targetKey = input("target-key") || "root";
   const seedSha = input("seed-sha");
   const targetPath = input("target-path");
+  const tag = input("tag");
+  const packageName = input("package-name");
   const result = reconcileReleaseBody({
     existingBody: existsSync(existingBodyFile) ? readFileSync(existingBodyFile, "utf8") : "",
     generatedBody: existsSync(generatedBodyFile) ? readFileSync(generatedBodyFile, "utf8") : "",
