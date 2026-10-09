@@ -1,0 +1,20 @@
+name: Dispatch input summary contract test
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/reusable_dispatch-input-summary.yml
+      - .github/workflows/dispatch-input-summary-self-test.yml
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  summary:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/reusable_dispatch-input-summary.yml
+    with:
+      parameters-json: '{"package":"example","dry-run":true,"token":"should-be-hidden"}'
+      exclude-inputs: '["excluded"]'
+      heading: Contract test · Workflow inputs
