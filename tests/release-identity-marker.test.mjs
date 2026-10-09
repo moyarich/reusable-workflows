@@ -37,3 +37,15 @@ test("malformed and duplicate identity markers are rejected", () => {
   assert.throws(() => parseReleaseMarker(body + "\n" + body), /Multiple/);
   assert.throws(() => parseReleaseMarker(body.replace("tag=" + identity.tag, "tag=")), /Invalid or duplicate/);
 });
+
+test("dispatches legacy and v2 markers independently", () => {
+  const legacy = "<!-- release-draft-sync:target=@moyarich/workspace-tools -->";
+  assert.equal(parseReleaseMarker(legacy)?.format, "legacy");
+  const v2 = writeReleaseMarker("Notes", identity);
+  assert.equal(parseReleaseMarker(v2)?.format, "v2");
+});
+test("rejects unsupported future marker versions without legacy fallback", () => {
+  const unknown = "<!-- release-draft-sync:v3\npackage=test\n-->";
+  assert.throws(() => parseReleaseMarker(unknown), /Unsupported release identity marker version: v3/);
+  assert.throws(() => parseReleaseMarker(unknown + "\n<!-- release-draft-sync:target=legacy -->"), /Unsupported/);
+});

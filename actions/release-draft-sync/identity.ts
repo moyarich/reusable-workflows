@@ -13,28 +13,53 @@ export type ReleaseMarker =
   | { format: "legacy"; target?: string; "seed-sha"?: string; source?: string }
   | { format: "none" };
 
-const markerPattern = /<!-- release-draft-sync:v2\n([\s\S]*?)\n-->/g;
+const versionedMarker = /<!--\s*release-draft-sync:(v\d+)\b([\s\S]*?)-->/g;
 const legacyTarget = /<!--\s*release-draft-sync:target=([^\s>]+)\s*-->/;
 const legacySeed = /<!--\s*release-draft-sync:seed-sha=([^\s>]+)(?:\s+source=([^\s>]+))?\s*-->/;
 const fields = ["package", "version", "tag", "target", "seed-sha", "source"];
-export function parseReleaseMarker(body: string = ""): Exclude<ReleaseMarker, { format: "none" }> | null {
-  const matches = [...body.matchAll(markerPattern)];
-  if (matches.length > 1) throw new Error("Multiple release identity markers found.");
-  if (matches.length === 1) {
-    const data: Record<string, string> = {};
-    for (const line of matches[0][1].split("\n")) {
-      const at = line.indexOf("=");
-      if (at < 1) throw new Error("Invalid release identity field: " + line);
-      const key = line.slice(0, at), value = line.slice(at + 1);
-      if (!fields.includes(key) || key in data || !value) throw new Error("Invalid or duplicate identity field: " + key);
-      data[key] = value;
+
+type ParsedMarker = Exclude<ReleaseMarker, { format: "none" }>;
+type MarkerParser = (content: string) => ParsedMarker;
+
+function parseV2(content: string): Extract<ParsedMarker, { format: "v2" }> {
+  const data: Record<string, string> = {};
+  for (const line of content.trim().split("\n")) {
+    const at = line.indexOf("=");
+    if (at < 1) throw new Error("Invalid release identity field: " + line);
+    const key = line.slice(0, at), value = line.slice(at + 1);
+    if (!fields.includes(key) || key in data || !value) {
+      throw new Error("Invalid or duplicate identity field: " + key);
     }
-    for (const key of fields.slice(0, 4)) if (!data[key]) throw new Error("Missing release identity field: " + key);
-    return { format: "v2", ...data } as { format: "v2" } & ReleaseIdentity;
+    data[key] = value;
   }
+  for (const key of fields.slice(0, 4)) {
+    if (!data[key]) throw new Error("Missing release identity field: " + key);
+  }
+  return { format: "v2", ...data } as Extract<ParsedMarker, { format: "v2" }>;
+}
+
+function parseLegacy(body: string): Extract<ParsedMarker, { format: "legacy" }> | null {
   const target = body.match(legacyTarget)?.[1];
   const seed = body.match(legacySeed);
-  return target || seed ? { format: "legacy", target, "seed-sha": seed?.[1], source: seed?.[2] } : null;
+  return target || seed
+    ? { format: "legacy", target, "seed-sha": seed?.[1], source: seed?.[2] }
+    : null;
+}
+
+const parsers: Record<string, MarkerParser> = {
+  v2: parseV2,
+};
+
+export function parseReleaseMarker(body: string = ""): ParsedMarker | null {
+  const matches = [...body.matchAll(versionedMarker)];
+  if (matches.length > 1) throw new Error("Multiple release identity markers found.");
+  if (matches.length === 1) {
+    const [, version, content] = matches[0];
+    const parser = parsers[version];
+    if (!parser) throw new Error("Unsupported release identity marker version: " + version);
+    return parser(content);
+  }
+  return parseLegacy(body);
 }
 export function validateReleaseMarker(body: string, expected: Partial<ReleaseIdentity>): ReleaseMarker {
   const marker = parseReleaseMarker(body);
@@ -59,6 +84,6 @@ export function writeReleaseMarker(body: string, expected: ReleaseIdentity): str
   };
   for (const key of fields.slice(0, 4)) if (!data[key]) throw new Error("Missing expected release identity: " + key);
   const marker = "<!-- release-draft-sync:v2\n" + fields.filter(k => data[k]).map(k => k + "=" + data[k]).join("\n") + "\n-->";
-  const clean = body.replace(markerPattern, "").replace(/<!--\s*release-draft-sync:target=[^>]*-->\s*/g, "").replace(/<!--\s*release-draft-sync:seed-sha=[^>]*-->\s*/g, "").trim();
+  const clean = body.replace(versionedMarker, "").replace(/<!--\s*release-draft-sync:target=[^>]*-->\s*/g, "").replace(/<!--\s*release-draft-sync:seed-sha=[^>]*-->\s*/g, "").trim();
   return marker + "\n\n" + clean;
 }
