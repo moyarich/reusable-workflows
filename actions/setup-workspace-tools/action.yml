@@ -5,7 +5,7 @@ inputs:
   source:
     description: "registry:npm:<version>, checkout:current, or checkout:upstream;branch:<ref> (tag: and sha: also supported)"
     required: false
-    default: registry:npm:0.1.1
+    default: registry:npm:0.2.0
   build-command:
     description: Build command used when source is caller or repository.
     required: false
