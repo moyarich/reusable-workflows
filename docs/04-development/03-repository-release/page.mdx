@@ -1,6 +1,6 @@
 ---
 title: Repository release draft
-description: How moyarich/workspace-tools prepares its release draft through its repository-local caller workflow.
+description: How this repository drafts and publishes GitHub Actions releases independently of npm packages.
 ---
 
 # Repository release draft
@@ -12,7 +12,7 @@ Reusable Workflows keeps its public reusable workflow separate from this reposit
 ├── release-drafter-template.yml        # Release Drafter config template
 └── workflows/
     ├── reusable_release-drafter.yml    # public reusable draft implementation
-    └── release-drafter.yml             # repository-local caller for moyarich/workspace-tools
+    └── release-drafter.yml             # repository-local caller for reusable-workflows
 ```
 
 ## Repository-local caller
@@ -107,7 +107,7 @@ reusable_npm-release.yml      # performs the npm package release lifecycle
 
 `reusable_npm-release.yml` is not deprecated and is not replaced by Release Drafter. Existing callers should continue using it for release operations.
 
-The Release Drafter workflows prepare release-note state only. The npm release workflow remains responsible for versioning, release commits/tags, package publishing, and final release lifecycle behavior.
+The Release Drafter workflows prepare release-note state only. This repository uses `release.yml` to resolve its version, publish its GitHub Release and immutable `vX.Y.Z` tag, and move the `vX` alias. It **does not publish an npm package**. For npm packages in consuming repositories, `reusable_npm-release.yml` handles package release/version/tag preparation; `reusable_npm-publish.yml` publishes the already-released package to registries and can attach artifacts to the matching GitHub Release. The npm publishing workflow does not create Git tags or new GitHub Releases.
 
 ## Persistent draft contract
 

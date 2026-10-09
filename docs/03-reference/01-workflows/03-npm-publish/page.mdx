@@ -5,7 +5,9 @@ description: Publish the exact tagged package to npm or GitHub Packages.
 
 # npm publish workflow
 
-Use `reusable_npm-publish.yml` to publish a root or workspace package. It verifies the matching Git tag and GitHub Release, builds the canonical tagged package artifact, and supports dry-run previews.
+Use `reusable_npm-publish.yml` to **publish an existing package release** from a consuming repository. It checks the matching Git tag and GitHub Release, packs the release artifact, publishes to npm and/or GitHub Packages, and can upload artifacts to the matching GitHub Release. **It does not create a new GitHub Release or Git tag.** Dry-run previews do not publish to a registry.
+
+This workflow is distinct from `reusable_npm-release.yml`, which prepares the package release identity and GitHub draft/tag, and from this repository's own `release.yml`, which distributes reusable GitHub Actions by versioned Git tags without an npm publication.
 
 ## Example caller
 

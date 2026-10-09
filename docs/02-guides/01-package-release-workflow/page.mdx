@@ -1,8 +1,10 @@
 # Package release workflow
 
-The repository release system separates **drafting**, **releasing**, and **publishing** into distinct stages of one package release lifecycle.
+This guide describes **npm package consumers**, not the `moyarich/reusable-workflows` repository's own release process. This repository distributes its GitHub Actions by running `release.yml` to publish versioned GitHub Releases and `vX` aliases, with no npm or GitHub Packages publication.
 
-The draft workflow prepares release notes proactively. The npm release workflow determines the exact package version and creates the package commit/tag, while the generic `reusable_release.yml` layer ensures the matching GitHub Release draft exists. Publishing completes the package release and promotes that same GitHub Release from draft to published.
+For npm packages in consuming repositories, the system separates **drafting**, **releasing**, and **publishing** into distinct stages.
+
+The draft workflow prepares release notes proactively. The npm release workflow determines the exact package version and creates the package commit/tag, while the generic `reusable_release.yml` layer ensures the matching GitHub Release draft exists. Publishing uses the already-created package release identity and can upload package artifacts and finalize that matching GitHub Release; it does not create a new release or Git tag.
 
 ## Release lifecycle
 
