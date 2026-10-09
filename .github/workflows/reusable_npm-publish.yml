@@ -529,7 +529,7 @@ jobs:
 
           (
             cd "$WORKTREE"
-            npm ci --include=optional
+            npm install --include=optional
 
             if [ "$PACKAGE_SELECTOR" = "." ]; then
               npm run typecheck --if-present
