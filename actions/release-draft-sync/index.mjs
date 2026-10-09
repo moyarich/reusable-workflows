@@ -1,4 +1,4 @@
-import { writeReleaseMarker } from "./identity.mjs";
+import { writeReleaseMarker } from "./identity.ts";
 import { existsSync, readFileSync, writeFileSync, appendFileSync } from "node:fs";
 import process from "node:process";
 import { execFileSync } from "node:child_process";
