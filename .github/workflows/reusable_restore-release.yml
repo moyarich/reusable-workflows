@@ -107,7 +107,7 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: "24"
-          registry-url: https://npm.pkg.github.com
+          registry-url: https://registry.npmjs.org
 
       - name: Install release identity CLI
         env:
@@ -115,7 +115,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npm install --global "@moyarich/workspace-tools@${{ inputs.workspace-tools-version }}" --registry=https://npm.pkg.github.com
+          npm install --global "@moyarich/workspace-tools@${{ inputs.workspace-tools-version }}" --registry=https://registry.npmjs.org
           echo "WORKSPACE_RELEASE_IDENTITY=$(command -v workspace-release-identity)" >> "$GITHUB_ENV"
 
       - name: Resolve historical package identity
