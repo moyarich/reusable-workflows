@@ -20,11 +20,15 @@ User-facing changes to the reusable workflows and standalone GitHub Actions are 
 
 ### Workflows and actions
 
+- **Preview protected resets** — Published versions produce an informative blocked Reset dry-run instead of a failed preview; real resets remain prohibited.
+- **Restore tagged releases** — Preview recovery from a historical commit, tag, workflow run, artifact, or supported GitHub URL using Workspace Tools 0.2.0.
+- **Avoid duplicate parameter summaries** — Reusable npm release and publish callers can opt into additional parameter summaries instead of receiving duplicates by default.
+
 - **Test workflows directly** — Manually dispatch reusable release, publish, draft, and input-summary workflows to preview their behavior.
 - **Run configurable browser tests** — Enable browser-based checks through reusable Node.js CI inputs.
 - **Use current or upstream Workspace Tools source** — Test unreleased workspace tooling against a checked-out repository while keeping consumer source isolated.
 
-\n## [0.1.0] - Initial Release
+## [0.1.0] - Initial Release
 
 ### CI and package quality
 
