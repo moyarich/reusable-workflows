@@ -39,23 +39,9 @@ on:
         default: false
         type: boolean
       workspace-tools-source:
-        description: "CLI location: registry (public npm), repository (Git ref), or workspace (local checkout)."
+        description: "CLI location: registry (public npm), repository (Git ref), or caller (local checkout)."
         required: false
-        default: registry
-        type: choice
-        options:
-          - registry
-          - repository
-          - workspace
-      workspace-tools-ref:
-        description: "Workspace Tools Git branch, tag, or commit when source is repository."
-        required: false
-        default: main
-        type: string
-      workspace-tools-version:
-        description: "Workspace Tools version on public npm when source is registry."
-        required: false
-        default: "0.1.1"
+        default: registry:npm:0.2.0
         type: string
 
   workflow_call:
@@ -96,20 +82,11 @@ on:
         default: false
         type: boolean
       workspace-tools-source:
-        description: "CLI location: registry (public npm), repository (Git ref), or workspace (local checkout)."
+        description: "CLI location: registry (public npm), repository (Git ref), or caller (local checkout)."
         required: false
-        default: registry
+        default: registry:npm:0.2.0
         type: string
-      workspace-tools-ref:
-        description: "Workspace Tools Git branch, tag, or commit when source is repository."
-        required: false
-        default: main
-        type: string
-      workspace-tools-version:
-        description: "Workspace Tools version on public npm when source is registry."
-        required: false
-        default: "0.1.1"
-        type: string
+
     outputs:
       packages:
         description: Compact JSON array of discovered packages
@@ -151,7 +128,7 @@ jobs:
           scope: "@moyarich"
 
       - name: Install local Workspace Tools build dependencies
-        if: ${{ inputs.workspace-tools-source == 'workspace' }}
+        if: ${{ inputs.workspace-tools-source == 'checkout:current' }}
         shell: bash
         run: npm ci --ignore-scripts
 
@@ -160,8 +137,6 @@ jobs:
         uses: moyarich/reusable-workflows/actions/setup-workspace-tools@main
         with:
           source: ${{ inputs.workspace-tools-source }}
-          version: ${{ inputs.workspace-tools-version }}
-          ref: ${{ inputs.workspace-tools-ref }}
 
       - id: packages
         name: Discover packages
@@ -170,7 +145,7 @@ jobs:
           BIN_DIR: ${{ steps.workspace-tools.outputs.bin-dir }}
         run: |
           set -euo pipefail
-          args=( "${{ inputs.packages-directory }}" --json )
+          args=( "--directory=${{ inputs.packages-directory }}" --json )
           [ "${{ inputs.use-workspaces }}" = "true" ] && args+=(--workspaces)
           [ "${{ inputs.include-root-package }}" = "true" ] && args+=(--include-root-package)
           [ "${{ inputs.include-private }}" = "true" ] && args+=(--include-private)

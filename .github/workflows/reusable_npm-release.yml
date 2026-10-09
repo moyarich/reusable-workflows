@@ -13,10 +13,10 @@ on:
         required: true
         default: bump:patch
         type: string
-      workspace-tools:
-        description: "CLI source: registry:0.1.1, repository:main, or workspace"
+      workspace-tools-source:
+        description: "registry:npm:0.2.0, checkout:current, or checkout:upstream;branch:main"
         required: true
-        default: registry:0.1.1
+        default: registry:npm:0.2.0
         type: string
       target-branch:
         description: Optional target branch
@@ -81,19 +81,9 @@ on:
         type: string
 
       workspace-tools-source:
-        description: Workspace Tools source — npm registry, current workspace, or Git repository
+        description: Workspace Tools source — npm registry, current caller, or Git repository
         required: false
-        default: registry
-        type: string
-      workspace-tools-ref:
-        description: moyarich/workspace-tools Git ref when source is repository
-        required: false
-        default: main
-        type: string
-      workspace-tools-version:
-        description: Published @moyarich/workspace-tools version when source is registry
-        required: false
-        default: "0.1.1"
+        default: registry:npm:0.2.0
         type: string
       node-version:
         description: Advanced — Node.js version
@@ -269,15 +259,12 @@ jobs:
         uses: moyarich/reusable-workflows/actions/parse-typed-inputs@main
         with:
           version: ${{ inputs.version }}
-          workspace-tools: ${{ inputs.workspace-tools }}
 
       - name: Resolve workspace tools CLI
         id: workspace-tools
         uses: moyarich/reusable-workflows/actions/setup-workspace-tools@main
         with:
-          source: ${{ inputs.workspace-tools-source || steps.typed.outputs.workspace-tools-source || 'registry' }}
-          version: ${{ inputs.workspace-tools-version || steps.typed.outputs.workspace-tools-version || '0.1.1' }}
-          ref: ${{ inputs.workspace-tools-ref || steps.typed.outputs.workspace-tools-ref || 'main' }}
+          source: ${{ inputs.workspace-tools-source || 'registry:npm:0.2.0' }}
 
       - name: Export workspace tools CLI path
         shell: bash
@@ -398,14 +385,13 @@ jobs:
           set -euo pipefail
 
           RELEASE_ARGS=(
-            "${{ inputs.package }}"
+            "--package=${{ inputs.package }}"
             "--mode=$VERSION_MODE"
             "--json"
             "--dry-run"
           )
 
           if [ "$VERSION_MODE" != "package-json" ]; then
-            RELEASE_ARGS[0]="${{ inputs.package }}=$VERSION_REQUEST"
             RELEASE_ARGS+=("--version=$VERSION_REQUEST")
           fi
 
@@ -604,13 +590,12 @@ jobs:
           set -euo pipefail
 
           RELEASE_ARGS=(
-            "${{ inputs.package }}"
+            "--package=${{ inputs.package }}"
             "--mode=$VERSION_MODE"
             "--json"
           )
 
           if [ "$VERSION_MODE" != "package-json" ]; then
-            RELEASE_ARGS[0]="${{ inputs.package }}=$VERSION_REQUEST"
             RELEASE_ARGS+=("--version=$VERSION_REQUEST")
           fi
 

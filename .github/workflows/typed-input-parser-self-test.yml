@@ -21,18 +21,16 @@ jobs:
           version: ""
           target: ""
           release: ""
-          workspace-tools: ""
+          workspace-tools-source: ""
       - name: Verify defaults
         shell: bash
         env:
           VERSION: ${{ steps.defaults.outputs.version-mode }}
           SOURCE: ${{ steps.defaults.outputs.workspace-tools-source }}
-          PACKAGE_VERSION: ${{ steps.defaults.outputs.workspace-tools-version }}
         run: |
           set -euo pipefail
           test "$VERSION" = auto
-          test "$SOURCE" = registry
-          test "$PACKAGE_VERSION" = 0.1.1
+          test "$SOURCE" = registry:npm:0.2.0
       - name: Parse explicit overrides
         id: overrides
         uses: ./actions/parse-typed-inputs
@@ -40,7 +38,7 @@ jobs:
           version: bump:minor
           target: package:example
           release: tag:v1.2.3
-          workspace-tools: repository:main
+          workspace-tools-source: checkout:upstream;branch:main
       - name: Verify overrides
         shell: bash
         env:
@@ -49,12 +47,10 @@ jobs:
           PACKAGE: ${{ steps.overrides.outputs.package-name }}
           TAG: ${{ steps.overrides.outputs.release-tag }}
           SOURCE: ${{ steps.overrides.outputs.workspace-tools-source }}
-          REF: ${{ steps.overrides.outputs.workspace-tools-ref }}
         run: |
           set -euo pipefail
           test "$MODE" = bump
           test "$BUMP" = minor
           test "$PACKAGE" = example
           test "$TAG" = v1.2.3
-          test "$SOURCE" = repository
-          test "$REF" = main
+          test "$SOURCE" = 'checkout:upstream;branch:main'
