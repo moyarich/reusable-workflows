@@ -6,6 +6,8 @@ User-facing changes to the reusable workflows and standalone GitHub Actions are 
 
 ## [0.2.1]
 
+- Fix automatic Release Drafter version selection to use the latest published GitHub Release rather than double-incrementing an unpublished `package.json` version. Retain explicit manifest, bump, and exact selection modes.
+
 ### Repository workflows
 
 - Separate repository GitHub Releases from consumer npm publishing; this private repository does not publish an npm package.
