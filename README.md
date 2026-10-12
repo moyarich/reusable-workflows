@@ -30,6 +30,10 @@ Standalone actions use the same release line:
 
 See [Release Drafter manual dispatch and version selection](docs/release-drafter-dispatch.md) for the version-mode reference table and planned compact dispatch inputs.
 
+## Release draft version selection
+
+`auto` calculates the next patch version from the latest **published** GitHub Release; neither `package.json` nor existing drafts are used as the increment baseline. If no published release exists, it uses `initial-version`. `package-json` reads the manifest version unchanged, `bump` increments the manifest explicitly, and `exact` accepts a specified version. Automatic drafts reuse an exact-tag draft rather than creating an additional version. See [version selection](docs/release-drafter-dispatch.md) and the [release-drafter example](examples/release-drafter/page.mdx).
+
 ## Versioning
 
 - `v0.1.0` and `v0.2.0` are versioned GitHub Release tags; `v0.2.1` is the planned next release.
