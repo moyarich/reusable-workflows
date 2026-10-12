@@ -45,7 +45,7 @@ jobs:
       npm-token: ${{ secrets.NPM_TOKEN }}
 ```
 
-Use `version-mode: exact` and `exact-version: 0.2.0` to publish the specific version already tagged. `registry: all` targets both registries. Leave `tag` empty to use the suggested distribution tag, usually `latest` for stable releases.
+Use `version-mode: exact` and `exact-version: 0.2.1` to publish the specific version already tagged. `registry: all` targets both registries. Leave `tag` empty to use the suggested distribution tag, usually `latest` for stable releases.
 
 The `npm-token` secret is required when publishing to npm using token authentication. GitHub Packages uses the caller's `GITHUB_TOKEN` and appropriate `packages: write` permission. Keep `dry-run: true` until you have reviewed the package and matching release identity.
 
