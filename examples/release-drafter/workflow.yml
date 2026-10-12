@@ -10,5 +10,6 @@ jobs:
     with:
       release-name: 'Release v{{VERSION}}'
       target-branch: main
+      # Uses the latest published release, not package.json, as baseline.
+      version-mode: auto
       dry-run: true
-      workspace-tools-source: registry:npm:0.2.0
