@@ -122,7 +122,7 @@ jobs:
             echo
             echo "| Field | Original value |"
             echo "| --- | --- |"
-            printf '| Selector | \`%s\` |\\n' "$PACKAGE_SELECTOR"
+            printf '| Selector | `%s` |\n' "$PACKAGE_SELECTOR"
           } >> "$GITHUB_STEP_SUMMARY"
           MANIFEST=""
           if [ "$PACKAGE_SELECTOR" = "." ]; then
@@ -147,13 +147,13 @@ jobs:
           REF_SHA="$(git rev-parse --verify --quiet "refs/tags/$TAG^{commit}" 2>/dev/null || true)"
           RELEASE="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" 2>/dev/null | jq -c --arg tag "$TAG" '[.[][] | select(.tag_name == $tag)] | first // empty' || true)"
           {
-            printf '| Canonical tag | \`%s\` |\\n' "$TAG"
-            printf '| Tag commit | \`%s\` |\\n' "${REF_SHA:-absent}"
+            printf '| Canonical tag | `%s` |\n' "$TAG"
+            printf '| Tag commit | `%s` |\n' "${REF_SHA:-absent}"
             if [ -n "$RELEASE" ]; then
-              printf '| Release ID | \`%s\` |\\n' "$(jq -r '.id' <<< "$RELEASE")"
-              printf '| Release state | \`%s\` |\\n' "$(jq -r 'if .draft then "draft" else "published" end' <<< "$RELEASE")"
-              printf '| Immutable | \`%s\` |\\n' "$(jq -r '.immutable // false' <<< "$RELEASE")"
-              printf '| Release title | %s |\\n' "$(jq -r '.name // "" | gsub("[\\r\\n|]"; " ")' <<< "$RELEASE")"
+              printf '| Release ID | `%s` |\n' "$(jq -r '.id' <<< "$RELEASE")"
+              printf '| Release state | `%s` |\n' "$(jq -r 'if .draft then "draft" else "published" end' <<< "$RELEASE")"
+              printf '| Immutable | `%s` |\n' "$(jq -r '.immutable // false' <<< "$RELEASE")"
+              printf '| Release title | %s |\n' "$(jq -r '.name // "" | gsub("[\r\n|]"; " ")' <<< "$RELEASE")"
             else
               echo "| Release | absent or unavailable |"
             fi
