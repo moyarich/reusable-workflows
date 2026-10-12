@@ -132,9 +132,18 @@ jobs:
         shell: bash
         run: npm ci --ignore-scripts
 
+      - name: Checkout version-matched reusable workflow actions
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .github/reusable-workflows-runtime
+          persist-credentials: false
+          sparse-checkout: actions
+          sparse-checkout-cone-mode: false
       - name: Resolve workspace tools CLI
         id: workspace-tools
-        uses: moyarich/reusable-workflows/actions/setup-workspace-tools@main
+        uses: ./.github/reusable-workflows-runtime/actions/setup-workspace-tools
         with:
           source: ${{ inputs.workspace-tools-source }}
 
