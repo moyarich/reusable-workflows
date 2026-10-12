@@ -1,11 +1,8 @@
 import type { ComponentType } from "react";
 
-type ContentPageModule = {
+type PageModule = {
   default: ComponentType;
-  meta?: {
-    title?: string;
-    description?: string;
-  };
+  meta?: { title?: string; description?: string };
 };
 
 export type ContentPage = {
@@ -16,61 +13,53 @@ export type ContentPage = {
   Component: ComponentType;
 };
 
-type ContentSection = {
-  id: "docs" | "examples";
+export type ContentSection = {
+  id: string;
   label: string;
   description: string;
   pages: ContentPage[];
 };
 
-function humanize(value: string) {
+const contentSources = [
+  { directory: "docs", label: "Docs", description: "Documentation for reusable workflows." },
+  { directory: "examples", label: "Examples", description: "Copyable workflow examples." },
+] as const;
+
+function humanize(value: string): string {
   return value
-    .replace(/^\d+-/, "")
+    .replace(/^\\d+-/, "")
     .replace(/[-_]+/g, " ")
-    .replace(/\b\w/g, (character) => character.toUpperCase());
+    .replace(/\\b\\w/g, (character) => character.toUpperCase());
 }
 
-function createPages(
-  modules: Record<string, ContentPageModule>,
-): ContentPage[] {
-  return Object.entries(modules)
-    .map(([path, pageModule]) => {
-      const sourcePath = path.replace("../../../", "");
-      const route = `/${sourcePath.replace(/\/page\.mdx$/, "")}`;
-      const routeSegments = route.split("/").filter(Boolean);
+// Discover page files by location. Rendering and navigation do not depend on
+// whether a page belongs to docs, examples, or any other content source.
+const modules = import.meta.glob("../../../{docs,examples}/**/page.mdx", {
+  eager: true,
+}) as Record<string, PageModule>;
 
-      return {
-        route,
-        sourcePath,
-        title:
-          pageModule.meta?.title ??
-          humanize(routeSegments.at(-1) ?? "Overview"),
-        description: pageModule.meta?.description,
-        Component: pageModule.default,
-      };
-    })
-    .sort((a, b) => a.route.localeCompare(b.route));
+function discoverPages(): ContentPage[] {
+  return Object.entries(modules).map(([path, module]) => {
+    const sourcePath = path.replace(/^\\.\\.\\/\\.\\.\\/\\.\\.\\//, "");
+    const directory = sourcePath.replace(/\\/page\\.mdx$/, "");
+    const route = `/${directory}`;
+    const segments = directory.split("/");
+    return {
+      route,
+      sourcePath,
+      title: module.meta?.title ?? humanize(segments.at(-1) ?? "Home"),
+      description: module.meta?.description,
+      Component: module.default,
+    };
+  }).sort((a, b) => a.route.localeCompare(b.route));
 }
 
-const docsModules = import.meta.glob("../../../docs/**/page.mdx", {
-  eager: true,
-}) as Record<string, ContentPageModule>;
+const pages = discoverPages();
 
-const exampleModules = import.meta.glob("../../../examples/**/page.mdx", {
-  eager: true,
-}) as Record<string, ContentPageModule>;
-
-export const CONTENT_SECTIONS: ContentSection[] = [
-  {
-    id: "docs",
-    label: "Docs",
-    description: "Authoritative documentation for the reusable workflows.",
-    pages: createPages(docsModules),
-  },
-  {
-    id: "examples",
-    label: "Real usages",
-    description: "Copyable caller workflows loaded directly from examples.",
-    pages: createPages(exampleModules),
-  },
-];
+export const CONTENT_SECTIONS: ContentSection[] = contentSources.map((source) => ({
+  id: source.directory,
+  label: source.label,
+  description: source.description,
+  pages: pages.filter((page) => page.route === `/${source.directory}` ||
+    page.route.startsWith(`/${source.directory}/`)),
+}));
