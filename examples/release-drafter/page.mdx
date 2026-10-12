@@ -15,6 +15,12 @@ import reusableWorkflow from "../../.github/workflows/reusable_release-drafter.y
   ]}
 />
 
+## Version modes
+
+The reusable workflow's automatic mode (`auto`) derives the next patch from the latest published GitHub Release, **not** from `package.json` and not from draft releases. `package-json` uses the manifest unchanged; `bump` increments the manifest explicitly; `exact` uses the requested version. A draft matching the resolved tag is reused, preserving its existing notes.
+
+For example, if `v0.2.0` is published and the manifest contains `0.2.1`, `auto` still selects `v0.2.1` rather than `v0.2.2`. No published release uses the configured `initial-version`.
+
 ## Run with GitHub CLI
 
 After copying the caller workflow to `.github/workflows/release-drafter.yml`:
