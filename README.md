@@ -28,7 +28,7 @@ Use a published version tag (for example, `@v0.2.0`) to pin a specific release, 
 - [Available workflows](docs/02-workflows/page.mdx) — choose a workflow for your task
 - [Workflow reference](docs/03-reference/01-workflows/page.mdx) — configuration and inputs
 - [Examples](examples/) — copyable workflow examples
-- [Release Drafter guide](docs/release-drafter-dispatch.md) — release draft options
+- [Release Drafter guide](docs/release-drafter-dispatch/page.mdx) — release draft options
 - [CI self-healing example](examples/ci-self-heal/page.mdx) — guided CI recovery
 
 ## More information
