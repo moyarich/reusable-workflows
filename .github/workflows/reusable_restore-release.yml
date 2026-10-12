@@ -89,7 +89,7 @@ jobs:
           MANIFEST_PATH=""
           if [ "$SELECTOR" = "." ]; then
             MANIFEST_PATH=package.json
-          elif [[ "$SELECTOR" == */* ]] || [[ "$SELECTOR" == packages/* ]]; then
+          elif [[ "$SELECTOR" == packages/* ]]; then
             MANIFEST_PATH="${SELECTOR%/}/package.json"
           fi
           if [ -z "$MANIFEST_PATH" ]; then
