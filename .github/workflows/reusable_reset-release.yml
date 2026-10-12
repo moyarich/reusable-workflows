@@ -48,7 +48,7 @@ jobs:
     name: "job: Workflow parameters"
     permissions:
       contents: read
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_dispatch-input-summary.yml@main
+    uses: ./.github/workflows/reusable_dispatch-input-summary.yml
     with:
       parameters-json: ${{ toJSON(inputs) }}
       heading: "Reset release · Workflow inputs"
@@ -294,9 +294,18 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
 
+      - name: Checkout version-matched reusable workflow actions
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .github/reusable-workflows-runtime
+          persist-credentials: false
+          sparse-checkout: actions
+          sparse-checkout-cone-mode: false
       - name: Validate selected release marker before recovery
         if: ${{ steps.package.outputs.blocked != 'true' }}
-        uses: moyarich/reusable-workflows/actions/validate-release-identity@main
+        uses: ./.github/reusable-workflows-runtime/actions/validate-release-identity
         env:
           GH_TOKEN: ${{ github.token }}
         with:
@@ -312,7 +321,7 @@ jobs:
     if: ${{ needs.resolve.outputs.blocked != 'true' }}
     permissions:
       contents: write
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_delete-release-tag.yml@main
+    uses: ./.github/workflows/reusable_delete-release-tag.yml
     with:
       tag: ${{ needs.resolve.outputs.release-tag }}
       dry-run: ${{ inputs.dry-run }}
@@ -325,7 +334,7 @@ jobs:
     if: ${{ needs.resolve.outputs.blocked != 'true' && needs.resolve.result == 'success' && needs.delete-release.result == 'success' }}
     permissions:
       contents: write
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_release-tag-move.yml@main
+    uses: ./.github/workflows/reusable_release-tag-move.yml
     with:
       target-branch: ${{ inputs.target-branch }}
       tag: ${{ needs.resolve.outputs.release-tag }}
@@ -342,7 +351,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: read
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_release-drafter.yml@main
+    uses: ./.github/workflows/reusable_release-drafter.yml
     with:
       show-input-summary: false
       target-branch: ${{ inputs.target-branch }}
