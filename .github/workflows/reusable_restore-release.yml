@@ -40,6 +40,11 @@ on:
         required: false
         default: ""
         type: string
+      skip-finalized:
+        description: Skip existing finalized releases instead of failing; never modifies them
+        required: false
+        default: false
+        type: boolean
       dry-run:
         description: Preview recovery without mutating the release or tag
         required: false
@@ -395,9 +400,9 @@ jobs:
             )"
 
             if [ "$(jq -r '.draft' <<< "$BACKUP_RELEASE")" != "true" ]; then
-              if [ "${{ inputs.dry-run }}" = "true" ]; then
+              if [ "${{ inputs.dry-run }}" = "true" ] || [ "${{ inputs.skip-finalized }}" = "true" ]; then
                 AUDIT_FINALIZED=true
-                echo "::notice::$RELEASE_TAG is finalized; dry-run audit only, no recovery stages will execute."
+                echo "::notice::$RELEASE_TAG is finalized; audit/skip only, no recovery stages will execute."
               else
                 echo "::error::Restore Release will not rewrite a published/finalized release."
                 echo "::error::$RELEASE_TAG is already finalized. Restore is limited to missing or draft release state."
@@ -582,7 +587,7 @@ jobs:
               echo
             fi
             if [ "${{ needs.resolve.outputs.audit-finalized }}" = "true" ]; then
-              echo "> Finalized release audited in dry-run mode. Recovery stages intentionally skipped; live restore remains forbidden."
+              echo "> Finalized release left untouched. Recovery stages intentionally skipped; no published release was rewritten."
             elif [ "${{ inputs.dry-run }}" = "true" ]; then
               echo '> Preview only. Re-run with dry-run=false to restore this historical release identity.'
             else
@@ -590,8 +595,8 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-          if [ "${{ inputs.dry-run }}" = "true" ] &&
-             [ "${{ needs.resolve.outputs.audit-finalized }}" = "true" ] &&
+          if [ "${{ needs.resolve.outputs.audit-finalized }}" = "true" ] &&
+             { [ "${{ inputs.dry-run }}" = "true" ] || [ "${{ inputs.skip-finalized }}" = "true" ]; } &&
              [ "${{ needs.resolve.result }}" = "success" ]; then
             # Finalized releases are audit-only. Skipped mutation stages are expected.
             exit 0
