@@ -313,22 +313,29 @@ jobs:
 
           if [ -n "$EXISTING" ]; then
             RELEASE_ID="$(jq -r '.id' <<< "$EXISTING")"
-
-            gh api \
-              --method PATCH \
-              "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" \
-              -f tag_name="$RELEASE_TAG" \
-              -f name="$RELEASE_NAME" \
-              -f body="$(cat "$NOTES_FILE")" \
-              -F draft=${{ inputs.draft }} >/dev/null
-
-            UPDATED="$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID")"
-            RELEASE_URL="$(jq -r '.html_url' <<< "$UPDATED")"
-
-            if [ "$(jq -r '.draft' <<< "$UPDATED")" = "true" ]; then
-              STATUS="draft"
-            else
+            if [ "$(jq -r '.draft' <<< "$EXISTING")" != "true" ]; then
+              # Published releases are finalized: never rewrite their notes,
+              # tag, title, or draft status as part of release preparation.
+              RELEASE_URL="$(jq -r '.html_url' <<< "$EXISTING")"
               STATUS="published"
+              echo "::notice::Release $RELEASE_TAG is already published; leaving it unchanged."
+            else
+              # Drafts remain editable. draft=false explicitly finalizes one.
+              gh api \
+                --method PATCH \
+                "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" \
+                -f tag_name="$RELEASE_TAG" \
+                -f name="$RELEASE_NAME" \
+                -f body="$(cat "$NOTES_FILE")" \
+                -F draft=${{ inputs.draft }} >/dev/null
+
+              UPDATED="$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID")"
+              RELEASE_URL="$(jq -r '.html_url' <<< "$UPDATED")"
+              if [ "$(jq -r '.draft' <<< "$UPDATED")" = "true" ]; then
+                STATUS="draft"
+              else
+                STATUS="published"
+              fi
             fi
           else
             # Use the create response directly: list endpoints can lag after a
