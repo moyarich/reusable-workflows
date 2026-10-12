@@ -343,17 +343,14 @@ jobs:
             version = e.EXACT;
           } else if (e.MODE === 'package-json') {
             version = JSON.parse(readFileSync(join(e.DIRECTORY || '.', 'package.json'), 'utf8')).version;
-          // Automated push runs have no version-mode input. Resolve their next
-          // patch from the same package-manifest baseline used by explicit bumps,
-          // rather than leaving the draft identity blank after a published release.
-          } else if (e.MODE === 'bump' || (!e.MODE && !e.EXPLICIT)) {
+          // Auto mode uses only the latest published release as its baseline.
+          // Explicit bump mode continues to use package.json when available.
+          } else if (e.MODE === 'auto' || e.MODE === 'bump' || (!e.MODE && !e.EXPLICIT)) {
             const kind = e.BUMP || 'patch';
             if (!['major','minor','patch','premajor','preminor','prepatch','prerelease'].includes(kind)) throw Error('Invalid version bump: ' + kind);
             const previous = e.PREVIOUS_TAG && e.PREVIOUS_TAG.startsWith(e.PREFIX) ? e.PREVIOUS_TAG.slice(e.PREFIX.length) : '';
-            // The npm release CLI bumps package.json, not the last GitHub tag.
-            // Use that same baseline so draft and published versions agree,
-            // including 0.x minor releases. Non-package targets retain the
-            // existing tag/initial-version fallback.
+            // The latest published tag is the auto baseline. The manifest is
+            // only the baseline for an explicitly requested bump.
             const manifestPath = join(e.DIRECTORY || '.', 'package.json');
             let current = '';
             try {
@@ -367,7 +364,7 @@ jobs:
               // release, rather than skipping directly to its next bump.
               version = e.EXPLICIT || e.INITIAL;
             } else {
-              const v = parse(current || previous);
+              const v = parse(e.MODE === 'bump' ? (current || previous) : previous);
               if (kind === 'major' || kind === 'premajor') { v.major++; v.minor=0; v.patch=0; v.pre=''; }
               else if (kind === 'minor' || kind === 'preminor') { v.minor++; v.patch=0; v.pre=''; }
               else if (kind === 'patch' || kind === 'prepatch' || (kind === 'prerelease' && !v.pre)) { v.patch++; v.pre=''; }
