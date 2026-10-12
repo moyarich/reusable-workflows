@@ -84,6 +84,7 @@ jobs:
       restore-source: ${{ steps.package.outputs.restore-source }}
       restore-source-kind: ${{ steps.package.outputs.restore-source-kind }}
       resolved-source-kind: ${{ steps.package.outputs.resolved-source-kind }}
+      audit-finalized: ${{ steps.package.outputs.audit-finalized }}
       backup-release-id: ${{ steps.package.outputs.backup-release-id }}
       backup-body-base64: ${{ steps.package.outputs.backup-body-base64 }}
       backup-updated-at: ${{ steps.package.outputs.backup-updated-at }}
@@ -376,6 +377,7 @@ jobs:
             )"
           fi
 
+          AUDIT_FINALIZED=false
           BACKUP_RELEASE_ID=""
           BACKUP_BODY_BASE64=""
           BACKUP_UPDATED_AT=""
@@ -393,9 +395,14 @@ jobs:
             )"
 
             if [ "$(jq -r '.draft' <<< "$BACKUP_RELEASE")" != "true" ]; then
-              echo "::error::Restore Release will not rewrite a published/finalized release."
-              echo "::error::$RELEASE_TAG is already finalized. Restore is limited to missing or draft release state."
-              exit 1
+              if [ "${{ inputs.dry-run }}" = "true" ]; then
+                AUDIT_FINALIZED=true
+                echo "::notice::$RELEASE_TAG is finalized; dry-run audit only, no recovery stages will execute."
+              else
+                echo "::error::Restore Release will not rewrite a published/finalized release."
+                echo "::error::$RELEASE_TAG is already finalized. Restore is limited to missing or draft release state."
+                exit 1
+              fi
             fi
           fi
 
@@ -413,6 +420,7 @@ jobs:
             echo "restore-source=$RESTORE_SOURCE"
             echo "restore-source-kind=$SOURCE_KIND"
             echo "resolved-source-kind=$RESOLVED_SOURCE_KIND"
+            echo "audit-finalized=$AUDIT_FINALIZED"
             echo "backup-release-id=$BACKUP_RELEASE_ID"
             echo "backup-body-base64=$BACKUP_BODY_BASE64"
             echo "backup-updated-at=$BACKUP_UPDATED_AT"
@@ -440,6 +448,7 @@ jobs:
             printf '| Source value | `%s` |\n' "$SOURCE_VALUE"
             printf '| Resolved restore commit | `%s` |\n' "$RELEASE_COMMIT"
             printf '| Existing release backup | `%s` |\n' "${BACKUP_RELEASE_ID:-none}"
+            printf '| Finalized release (audit only) | `%s` |\n' "$AUDIT_FINALIZED"
             printf '| Existing draft seed SHA | `%s` |\n' "${DRAFT_SEED_SHA:-none}"
             printf '| Suggested manual seed SHA | `%s` |\n' "$SUGGESTED_SEED_SHA"
             printf '| Configured package registry | `%s` |\n' "$PACKAGE_REGISTRY"
@@ -491,6 +500,7 @@ jobs:
   delete-release:
     name: "stage: Delete current release + tag"
     needs: resolve
+    if: ${{ needs.resolve.result == 'success' && needs.resolve.outputs.audit-finalized != 'true' }}
     permissions:
       contents: write
     uses: ./.github/workflows/reusable_delete-release-tag.yml
@@ -571,7 +581,9 @@ jobs:
               echo "> Restore preserves the existing release-draft-sync seed marker. If you want the draft baseline to align with the restored release source, manually change seed-sha to the suggested value."
               echo
             fi
-            if [ "${{ inputs.dry-run }}" = "true" ]; then
+            if [ "${{ needs.resolve.outputs.audit-finalized }}" = "true" ]; then
+              echo "> Finalized release audited in dry-run mode. Recovery stages intentionally skipped; live restore remains forbidden."
+            elif [ "${{ inputs.dry-run }}" = "true" ]; then
               echo '> Preview only. Re-run with dry-run=false to restore this historical release identity.'
             else
               echo "> Recovery completed. The canonical tag and release draft now point to the requested historical commit."
