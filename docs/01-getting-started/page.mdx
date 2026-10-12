@@ -10,10 +10,10 @@ Reusable workflows are called at the job level.
 ```yaml
 jobs:
   ci:
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_node-ci.yml@main
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_node-ci.yml@v0
 ```
 
-Reusable workflows have their own release line. Use `@main` while validating unreleased changes. After the 0.2.0 release is tagged, pin `@v0.2.0` for reproducibility or use the moving `@v0` compatibility alias.
+Reusable workflows have their own GitHub release line. Use `@v0` for the latest compatible v0 release. Once v0.2.1 is published, pin `@v0.2.1` for reproducibility. Use `@main` only when explicitly testing unreleased changes.
 
 Do not use the npm package release tag for reusable workflow callers. Package tags such as `@moyarich/workspace-tools@0.1.0` identify the installable npm package, not the reusable workflow API.
 
@@ -37,8 +37,8 @@ Workflow releases are versioned independently from the npm package:
 
 ```text
 release version
-└─ 0.2.0
-   ├─ v0.2.0   immutable release tag (after publication)
+└─ 0.2.1 (planned)
+   ├─ v0.2.1   immutable release tag (after publication)
    └─ v0       moving major alias
 ```
 
