@@ -258,7 +258,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Create immutable tag
-        if: ${{ !inputs.dry-run && inputs.create-tag && steps.state.outputs.tag-exists != 'true' }}
+        if: ${{ !inputs.dry-run && inputs.create-tag && steps.state.outputs.tag-exists != 'true' && steps.state.outputs.release-draft != 'false' }}
         env:
           RELEASE_TAG: ${{ inputs.release-tag }}
         shell: bash
@@ -268,12 +268,19 @@ jobs:
           git push origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
 
       - name: Update major compatibility tag
-        if: ${{ !inputs.dry-run && inputs.update-major-tag }}
+        if: ${{ !inputs.dry-run && inputs.update-major-tag && steps.state.outputs.release-draft != 'false' }}
         env:
+          GH_TOKEN: ${{ github.token }}
           MAJOR_TAG: ${{ inputs.major-tag }}
         shell: bash
         run: |
           set -euo pipefail
+          # Never force-update an alias that is attached to a finalized release.
+          FINALIZED_ALIAS="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" | jq -r --arg tag "$MAJOR_TAG" '[.[][] | select(.tag_name == $tag and .draft == false)] | length')"
+          if [ "$FINALIZED_ALIAS" -gt 0 ]; then
+            echo "::error::Cannot move $MAJOR_TAG: an existing published GitHub Release uses this tag."
+            exit 1
+          fi
           git tag --force "$MAJOR_TAG" HEAD
           git push --force origin "refs/tags/$MAJOR_TAG:refs/tags/$MAJOR_TAG"
 
