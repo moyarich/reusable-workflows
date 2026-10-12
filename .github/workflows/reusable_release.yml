@@ -258,7 +258,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Create immutable tag
-        if: ${{ !inputs.dry-run && inputs.create-tag && steps.state.outputs.tag-exists != 'true' && steps.state.outputs.release-draft != 'false' }}
+        if: ${{ !inputs.dry-run && inputs.create-tag && steps.state.outputs.tag-exists != 'true' }}
         env:
           RELEASE_TAG: ${{ inputs.release-tag }}
         shell: bash
@@ -268,7 +268,7 @@ jobs:
           git push origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
 
       - name: Update major compatibility tag
-        if: ${{ !inputs.dry-run && inputs.update-major-tag && steps.state.outputs.release-draft != 'false' }}
+        if: ${{ !inputs.dry-run && inputs.update-major-tag }}
         env:
           GH_TOKEN: ${{ github.token }}
           MAJOR_TAG: ${{ inputs.major-tag }}
@@ -320,14 +320,14 @@ jobs:
 
           if [ -n "$EXISTING" ]; then
             RELEASE_ID="$(jq -r '.id' <<< "$EXISTING")"
-            if [ "$(jq -r '.draft' <<< "$EXISTING")" != "true" ]; then
-              # Published releases are finalized: never rewrite their notes,
-              # tag, title, or draft status as part of release preparation.
+            if [ "$(jq -r '.draft' <<< "$EXISTING")" != "true" ] && [ "${{ inputs.draft }}" = "true" ]; then
+              # Never revert a published release to an unpublished draft.
               RELEASE_URL="$(jq -r '.html_url' <<< "$EXISTING")"
               STATUS="published"
-              echo "::notice::Release $RELEASE_TAG is already published; leaving it unchanged."
+              echo "::notice::Release $RELEASE_TAG is already published; draft preparation leaves it published."
             else
-              # Drafts remain editable. draft=false explicitly finalizes one.
+              # GitHub permits title/notes edits on published releases, including immutable ones.
+              # Drafts remain editable; draft=false explicitly finalizes one.
               gh api \
                 --method PATCH \
                 "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" \
