@@ -53,8 +53,97 @@ jobs:
       parameters-json: ${{ toJSON(inputs) }}
       heading: "Reset release · Workflow inputs"
 
+  preflight:
+    name: "job: API-only before-state audit"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      canonical-tag: ${{ steps.snapshot.outputs.canonical-tag }}
+      after-artifact-name: ${{ steps.snapshot.outputs.after-artifact-name }}
+    steps:
+      - name: Capture package release state without checkout
+        id: snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SELECTOR: ${{ inputs.package }}
+          TARGET_BRANCH: ${{ inputs.target-branch }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO="repos/$GITHUB_REPOSITORY"
+          MANIFEST_PATH=""
+          if [ "$SELECTOR" = "." ]; then
+            MANIFEST_PATH=package.json
+          elif [[ "$SELECTOR" == packages/* ]]; then
+            MANIFEST_PATH="${SELECTOR%/}/package.json"
+          fi
+          if [ -z "$MANIFEST_PATH" ]; then
+            TREE="$(gh api "$REPO/git/trees/$TARGET_BRANCH?recursive=1")"
+            mapfile -t FILES < <(jq -r '.tree[] | select(.type == "blob" and (.path == "package.json" or (.path | endswith("/package.json")))) | .path' <<< "$TREE")
+            MATCHES=()
+            for path in "${FILES[@]}"; do
+              CONTENT="$(gh api "$REPO/contents/$path?ref=$TARGET_BRANCH" --jq '.content' | base64 -d)"
+              if [ "$(jq -r '.name // ""' <<< "$CONTENT")" = "$SELECTOR" ]; then
+                MATCHES+=("$path")
+              fi
+            done
+            if [ "${#MATCHES[@]}" -ne 1 ]; then
+              echo "::error::Expected exactly one matching manifest for $SELECTOR, found ${#MATCHES[@]}."
+              exit 1
+            fi
+            MANIFEST_PATH="${MATCHES[0]}"
+          fi
+          MANIFEST="$(gh api "$REPO/contents/$MANIFEST_PATH?ref=$TARGET_BRANCH" --jq '.content' | base64 -d)"
+          VERSION="$(jq -er '.version' <<< "$MANIFEST")"
+          PACKAGE_NAME="$(jq -er '.name' <<< "$MANIFEST")"
+          DIRECTORY="${MANIFEST_PATH%/package.json}"
+          if [ "$MANIFEST_PATH" = package.json ]; then
+            TAG="$PACKAGE_NAME@$VERSION"
+          else
+            TAG="$DIRECTORY@$VERSION"
+          fi
+          RELEASES="$(gh api --paginate --slurp "$REPO/releases?per_page=100")"
+          RELEASE="$(jq -c --arg tag "$TAG" '[.[][] | select(.tag_name == $tag)] | first // empty' <<< "$RELEASES")"
+          TAG_STATE=absent
+          TAG_SHA=""
+          RESPONSE="$(mktemp)"
+          if gh api "$REPO/git/ref/tags/$TAG" > "$RESPONSE" 2>"$RESPONSE.err"; then
+            TAG_STATE=present
+            TAG_SHA="$(jq -r '.object.sha' < "$RESPONSE")"
+          elif grep -q 'HTTP 404' "$RESPONSE.err"; then
+            TAG_STATE=absent
+          else
+            echo "::error::Cannot verify existing tag $TAG; state is unknown."
+            cat "$RESPONSE.err" >&2
+            exit 1
+          fi
+          if [ -n "$RELEASE" ]; then
+            jq -n --arg tag "$TAG" --arg sha "$TAG_SHA" --arg tagState "$TAG_STATE" --argjson release "$RELEASE" '{tag:$tag,tag_state:$tagState,tag_sha:$sha,release:{id:$release.id,name:$release.name,draft:$release.draft,immutable:$release.immutable,prerelease:$release.prerelease,updated_at:$release.updated_at}}' > before.json
+          else
+            jq -n --arg tag "$TAG" --arg sha "$TAG_SHA" --arg tagState "$TAG_STATE" '{tag:$tag,tag_state:$tagState,tag_sha:$sha,release:null}' > before.json
+          fi
+          echo "canonical-tag=$TAG" >> "$GITHUB_OUTPUT"
+          SAFE_SELECTOR="$(printf '%s' "$SELECTOR" | tr '/@:' '---' | tr -cd '[:alnum:]_.-')"
+          echo "artifact-name=reset-before-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$SAFE_SELECTOR" >> "$GITHUB_OUTPUT"
+          echo "after-artifact-name=reset-after-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$SAFE_SELECTOR" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Before recovery (GitHub API)"
+            echo
+            echo '~~~json'
+            jq '.' before.json
+            echo '~~~'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Persist original state
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.snapshot.outputs.artifact-name }}
+          path: before.json
+          retention-days: 30
+          if-no-files-found: error
+
   resolve:
-    needs: dispatch-input-summary
+    needs: [dispatch-input-summary, preflight]
     name: "job: Resolve reset target"
     runs-on: ubuntu-latest
     permissions:
@@ -210,8 +299,8 @@ jobs:
           if [ "${#PUBLISHED_REGISTRIES[@]}" -gt 0 ]; then
             echo "::error::$PACKAGE_NAME@$PACKAGE_VERSION is already published to one or more supported registries:"
             printf '::error::%s\n' "${PUBLISHED_REGISTRIES[@]}"
-            echo "::error::Reset cannot move its canonical tag to different source after any registry publication."
-            echo "::error::Use Restore Release to repair the tag for this version, then release newer source under a new version."
+            echo "::error::Reset cannot unpublish a version already distributed through a package registry."
+            echo "::error::Publish a newer version instead."
             exit 1
           fi
 
@@ -235,9 +324,8 @@ jobs:
             BACKUP_UPDATED_AT="$(jq -r '.updated_at // .created_at // ""' <<< "$BACKUP_RELEASE")"
             BACKUP_BODY_BASE64="$(jq -r '.body // ""' <<< "$BACKUP_RELEASE" | base64 -w 0)"
 
-            if [ "$(jq -r '.draft' <<< "$BACKUP_RELEASE")" != "true" ]; then
-              echo "::error::Reset Release is only allowed while the GitHub Release is a draft."
-              echo "::error::$RELEASE_TAG is already published/finalized. Create a new version instead."
+            if [ "$(jq -r '.immutable // false' <<< "$BACKUP_RELEASE")" = "true" ]; then
+              echo "::error::$RELEASE_TAG is immutable; Reset cannot unpublish it."
               exit 1
             fi
           fi
@@ -290,7 +378,7 @@ jobs:
             printf '| Configured package registry | `%s` |\n' "$PACKAGE_REGISTRY"
             echo "| Registry guard | **passed: version is unpublished in all supported registries** |"
             printf '| Previous tag commit | `%s` |\n' "${PREVIOUS_TAG_COMMIT:-missing}"
-            printf '| New tag commit | `%s` |\n' "$RESET_COMMIT"
+            echo "| Tag action | **preserve existing canonical tag** |"
           } >> "$GITHUB_STEP_SUMMARY"
 
 
@@ -315,71 +403,153 @@ jobs:
           target: ${{ steps.package.outputs.directory }}
 
 
-  delete-release:
-    name: "stage: Delete release + tag"
+  reset-release:
+    name: "stage: Unrelease to draft and delete version tag"
     needs: resolve
-    if: ${{ needs.resolve.outputs.blocked != 'true' }}
+    if: ${{ needs.resolve.result == 'success' && needs.resolve.outputs.blocked != 'true' }}
+    runs-on: ubuntu-latest
     permissions:
       contents: write
-    uses: ./.github/workflows/reusable_delete-release-tag.yml
-    with:
-      tag: ${{ needs.resolve.outputs.release-tag }}
-      dry-run: ${{ inputs.dry-run }}
+    steps:
+      - name: Reset mutable release and remove its canonical tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.resolve.outputs.release-tag }}
+          RELEASE_ID: ${{ needs.resolve.outputs.backup-release-id }}
+          DRY_RUN: ${{ inputs.dry-run }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          RELEASE_REF="repos/$GITHUB_REPOSITORY/git/refs/tags/$RELEASE_TAG"
+          RELEASES_API="repos/$GITHUB_REPOSITORY/releases"
+          if [ -n "$RELEASE_ID" ]; then
+            RELEASE="$(gh api "$RELEASES_API/$RELEASE_ID")"
+            if [ "$(jq -r '.immutable // false' <<< "$RELEASE")" = "true" ]; then
+              echo "::error::$RELEASE_TAG is immutable; Reset cannot delete its associated version tag."
+              exit 1
+            fi
+            IS_DRAFT="$(jq -r '.draft' <<< "$RELEASE")"
+          else
+            IS_DRAFT=missing
+          fi
 
-  move-tag:
-    name: "stage: Move canonical release tag"
-    needs:
-      - resolve
-      - delete-release
-    if: ${{ needs.resolve.outputs.blocked != 'true' && needs.resolve.result == 'success' && needs.delete-release.result == 'success' }}
-    permissions:
-      contents: write
-    uses: ./.github/workflows/reusable_release-tag-move.yml
-    with:
-      target-branch: ${{ inputs.target-branch }}
-      tag: ${{ needs.resolve.outputs.release-tag }}
-      commit: ${{ needs.resolve.outputs.reset-commit }}
-      require-branch-head: true
-      dry-run: ${{ inputs.dry-run }}
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "::notice::Preview: $RELEASE_TAG release state=$IS_DRAFT; ensure a draft and remove its version tag."
+            exit 0
+          fi
 
-  create-draft:
-    name: "stage: Rebuild release draft"
-    needs:
-      - resolve
-      - move-tag
-    if: ${{ needs.resolve.outputs.blocked != 'true' && needs.resolve.result == 'success' && needs.move-tag.result == 'success' }}
-    permissions:
-      contents: write
-      pull-requests: read
-    uses: ./.github/workflows/reusable_release-drafter.yml
-    with:
-      show-input-summary: false
-      target-branch: ${{ inputs.target-branch }}
-      version: ${{ needs.resolve.outputs.package-version }}
-      initial-version: "0.1.0"
-      release-tag: ${{ needs.resolve.outputs.release-tag }}
-      tag-prefix: ${{ needs.resolve.outputs.tag-prefix }}
-      package-name: ${{ needs.resolve.outputs.package-name }}
-      package-directory: ${{ needs.resolve.outputs.package-directory }}
-      release-name: ${{ needs.resolve.outputs.release-name }}
-      changelog-path: ${{ needs.resolve.outputs.changelog-path }}
-      template-path: ${{ inputs.draft-template-path }}
-      seed-body-base64: ${{ needs.resolve.outputs.backup-body-base64 }}
-      seed-updated-at: ${{ needs.resolve.outputs.backup-updated-at }}
-      dry-run: ${{ inputs.dry-run }}
+          if [ "$IS_DRAFT" = "false" ]; then
+            # GitHub has no direct published -> draft transition. Recreate
+            # the mutable release, retaining its title and notes.
+            ORIGINAL_NAME="$(jq -r '.name // ""' <<< "$RELEASE")"
+            ORIGINAL_BODY="$(jq -r '.body // ""' <<< "$RELEASE")"
+            ORIGINAL_PRERELEASE="$(jq -r '.prerelease' <<< "$RELEASE")"
+            gh api --method DELETE "$RELEASES_API/$RELEASE_ID"
+            gh api --method POST "$RELEASES_API" \
+              -f tag_name="$RELEASE_TAG" \
+              -f name="$ORIGINAL_NAME" \
+              -f body="$ORIGINAL_BODY" \
+              -F prerelease="$ORIGINAL_PRERELEASE" \
+              -F draft=true >/dev/null
+          elif [ "$IS_DRAFT" = "missing" ]; then
+            echo "::notice::No existing GitHub Release to unpublish for $RELEASE_TAG."
+          else
+            echo "::notice::$RELEASE_TAG is already a draft."
+          fi
+
+          # Reset deliberately removes the package's version tag, unlike
+          # Restore which moves that tag to a selected historical commit.
+          if gh api "$RELEASE_REF" >/dev/null 2>&1; then
+            gh api --method DELETE "$RELEASE_REF"
+          fi
+          if gh api "$RELEASE_REF" >/dev/null 2>&1; then
+            echo "::error::Version tag $RELEASE_TAG still exists after Reset."
+            exit 1
+          fi
+          echo "::notice::Reset complete: release is draft (when present), and $RELEASE_TAG is absent."
 
   summary:
     name: "job: Reset summary"
-    needs:
-      - resolve
-      - delete-release
-      - move-tag
-      - create-draft
+    needs: [preflight, resolve, reset-release]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
+      - name: Verify after-state and summarize changes
+        if: ${{ always() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.resolve.outputs.release-tag }}
+          DRY_RUN: ${{ inputs.dry-run }}
+          RESOLVE_RESULT: ${{ needs.resolve.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "## After recovery"
+            echo
+            if [ -z "$RELEASE_TAG" ]; then
+              echo "Recovery target was not resolved; no after-state can be verified."
+              jq -n '{tag:null,tag_state:"unknown",release_state:"unknown",release:null}' > after.json
+              exit 0
+            fi
+            RELEASE_STATUS=unknown
+            RELEASE=""
+            if gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RUNNER_TEMP/after-releases.json"; then
+              RELEASE="$(jq -c --arg tag "$RELEASE_TAG" '[.[][] | select(.tag_name == $tag)] | first // empty' "$RUNNER_TEMP/after-releases.json")"
+              RELEASE_STATUS="$([ -n "$RELEASE" ] && echo present || echo absent)"
+            else
+              echo "::warning::Unable to fetch after-state releases."
+            fi
+            TAG_STATUS=unknown
+            TAG_SHA=""
+            if gh api -i "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" > "$RUNNER_TEMP/after-tag-response" 2>&1; then
+              TAG_STATUS=present
+              TAG_SHA="$(sed -n '/^{/,$p' "$RUNNER_TEMP/after-tag-response" | jq -r '.object.sha // empty' 2>/dev/null || true)"
+            elif grep -Eq 'HTTP/[0-9.]+ 404|404 Not Found' "$RUNNER_TEMP/after-tag-response"; then
+              TAG_STATUS=absent
+            else
+              echo "::warning::Unable to fetch after-state tag."
+            fi
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            printf '| Canonical tag | `%s` |\n' "$RELEASE_TAG"
+            printf '| Tag lookup | `%s` |\n' "$TAG_STATUS"
+            printf '| Tag object SHA | `%s` |\n' "${TAG_SHA:-unknown}"
+            if [ -n "$RELEASE" ]; then
+              printf '| Release ID | `%s` |\n' "$(jq -r '.id' <<< "$RELEASE")"
+              printf '| Release state | `%s` |\n' "$(jq -r 'if .draft then "draft" else "published" end' <<< "$RELEASE")"
+              printf '| Immutable | `%s` |\n' "$(jq -r '.immutable // false' <<< "$RELEASE")"
+              printf '| Title | %s |\n' "$(jq -r '.name // "" | gsub("[\\r\\n|]"; " ")' <<< "$RELEASE")"
+            else
+              printf '| Release lookup | `%s` |\n' "$RELEASE_STATUS"
+            fi
+            echo
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "Dry-run: this is an unchanged-state audit, not proof of a recovery mutation."
+            elif [ "$RESOLVE_RESULT" != "success" ]; then
+              echo "Recovery failed during resolution; after-state recorded for diagnosis."
+            else
+              echo "After-state independently queried from GitHub; compare it with Before recovery above."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$RELEASE_TAG" ]; then
+            jq -n --arg tag "$RELEASE_TAG" --arg tagState "${TAG_STATUS:-unknown}" --arg tagSha "${TAG_SHA:-}" --arg releaseState "${RELEASE_STATUS:-unknown}" --argjson release "${RELEASE:-null}" '{tag:$tag,tag_state:$tagState,tag_sha:$tagSha,release_state:$releaseState,release:$release}' > after.json
+          else
+            jq -n '{tag:null,tag_state:"unknown",release_state:"unknown",release:null}' > after.json
+          fi
+          if [ "${TAG_STATUS:-unknown}" = unknown ] || [ "${RELEASE_STATUS:-unknown}" = unknown ]; then
+            echo "::warning::After-state is not fully verifiable using GitHub API."
+          fi
+      - name: Upload after-state audit artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ needs.preflight.outputs.after-artifact-name }}
+          path: after.json
+          retention-days: 30
+          if-no-files-found: warn
       - name: Reset result
         shell: bash
         run: |
@@ -388,28 +558,17 @@ jobs:
             echo
             echo "| Stage | Result |"
             echo "| --- | --- |"
-            echo "| Resolve target | **${{ needs.resolve.result }}** |"
-            echo "| Published package guard | **${{ needs.resolve.outputs.blocked == 'true' && 'blocked (preview only)' || 'clear' }}** |"
-            echo "| Delete release + tag | **${{ needs.delete-release.result }}** |"
-            echo "| Move canonical tag | **${{ needs.move-tag.result }}** |"
-            echo "| Rebuild release draft | **${{ needs.create-draft.result }}** |"
+            echo "| Resolve package and registry state | **${{ needs.resolve.result }}** |"
+            echo "| Unrelease to draft and delete version tag | **${{ needs.reset-release.result }}** |"
             echo
-            if [ "${{ needs.resolve.outputs.blocked }}" = "true" ]; then
-              echo "> Blocked: published package. No reset stages ran and no state was changed."
-            elif [ "${{ inputs.dry-run }}" = "true" ]; then
-              echo '> Preview only. Re-run with `dry-run=false` to move the tag to the current target branch and rebuild the draft.'
-            else
-              echo "> Reset completed. The canonical tag now points at the current target branch source and the draft was rebuilt."
-            fi
+            echo "Reset deletes the canonical version tag. Restore recreates or repositions it at a selected historical commit."
           } >> "$GITHUB_STEP_SUMMARY"
-
-          if [ "${{ inputs.dry-run }}" = "true" ] && [ "${{ needs.resolve.outputs.blocked }}" = "true" ] && [ "${{ needs.resolve.result }}" = "success" ]; then
+          if [ "${{ inputs.dry-run }}" = "true" ] &&
+             [ "${{ needs.resolve.outputs.blocked }}" = "true" ] &&
+             [ "${{ needs.resolve.result }}" = "success" ]; then
             exit 0
           fi
-
           if [ "${{ needs.resolve.result }}" != "success" ] ||
-             [ "${{ needs.delete-release.result }}" != "success" ] ||
-             [ "${{ needs.move-tag.result }}" != "success" ] ||
-             [ "${{ needs.create-draft.result }}" != "success" ]; then
+             [ "${{ needs.reset-release.result }}" != "success" ]; then
             exit 1
           fi
