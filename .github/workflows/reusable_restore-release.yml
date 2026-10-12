@@ -399,13 +399,12 @@ jobs:
                 head -n 1
             )"
 
-            if [ "$(jq -r '.draft' <<< "$BACKUP_RELEASE")" != "true" ]; then
+            if [ "$(jq -r '.immutable // false' <<< "$BACKUP_RELEASE")" = "true" ]; then
               if [ "${{ inputs.dry-run }}" = "true" ] || [ "${{ inputs.skip-finalized }}" = "true" ]; then
                 AUDIT_FINALIZED=true
-                echo "::notice::$RELEASE_TAG is finalized; audit/skip only, no recovery stages will execute."
+                echo "::notice::$RELEASE_TAG is immutable; audit/skip only, no release assets or tags will be changed."
               else
-                echo "::error::Restore Release will not rewrite a published/finalized release."
-                echo "::error::$RELEASE_TAG is already finalized. Restore is limited to missing or draft release state."
+                echo "::error::$RELEASE_TAG is immutable. Restore cannot delete or move its release assets or tag."
                 exit 1
               fi
             fi
