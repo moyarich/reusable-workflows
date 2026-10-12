@@ -32,6 +32,14 @@ The repository-local caller delegates draft mechanics to:
 uses: ./.github/workflows/reusable_release-drafter.yml
 ```
 
+## Version selection
+
+The repository caller defaults to `auto`, which calculates the next patch version from the latest **published** GitHub Release tag. Existing drafts and `package.json` do not advance that baseline. For example, published `v0.2.0` yields draft `v0.2.1` whether `package.json` says `0.2.0` or `0.2.1`. The matching draft is reused on subsequent pushes.
+
+Use `package-json` to draft the exact manifest version, `bump` to increment the manifest version explicitly, or `exact` to specify a version. Without a published release, automatic drafting starts at `initial-version`.
+
+These draft modes do not themselves publish releases or update the manifest. The separate repository release workflow resolves its version independently; ensure the selected published-release version matches the intended draft.
+
 ## Dry run
 
 The repository-local workflow defaults to `dry-run: true`.
