@@ -60,6 +60,7 @@ jobs:
       contents: read
     outputs:
       canonical-tag: ${{ steps.snapshot.outputs.canonical-tag }}
+      after-artifact-name: ${{ steps.snapshot.outputs.after-artifact-name }}
     steps:
       - name: Capture package release state without checkout
         id: snapshot
@@ -125,6 +126,7 @@ jobs:
           echo "canonical-tag=$TAG" >> "$GITHUB_OUTPUT"
           SAFE_SELECTOR="$(printf '%s' "$SELECTOR" | tr '/@:' '---' | tr -cd '[:alnum:]_.-')"
           echo "artifact-name=reset-before-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$SAFE_SELECTOR" >> "$GITHUB_OUTPUT"
+          echo "after-artifact-name=reset-after-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$SAFE_SELECTOR" >> "$GITHUB_OUTPUT"
           {
             echo "## Before recovery (GitHub API)"
             echo
@@ -468,7 +470,7 @@ jobs:
 
   summary:
     name: "job: Reset summary"
-    needs: [resolve, reset-release]
+    needs: [preflight, resolve, reset-release]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     permissions:
@@ -544,7 +546,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: reset-after-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+          name: ${{ needs.preflight.outputs.after-artifact-name }}
           path: after.json
           retention-days: 30
           if-no-files-found: warn
