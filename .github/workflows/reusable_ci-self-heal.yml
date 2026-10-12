@@ -57,9 +57,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: moyarich/reusable-workflows
-          # Keep the recovery script aligned with the reusable workflow implementation.
-          # Switch to a released immutable ref when this feature is published.
-          ref: feat/ci-self-heal
+          # Pin the helper to a reviewed repository commit, not a mutable feature branch.
+          ref: 01e79f52844ff36bd6d694d68547dbcbeeccebb1
           path: .ci-recovery-tools
           persist-credentials: false
       - uses: actions/setup-node@v4
