@@ -6,7 +6,7 @@ Workflows provide reusable CI, package discovery, release drafting, GitHub Relea
 
 ## Usage
 
-Use `@v0` for the latest compatible v0 release. Once v0.2.1 is published, pin `@v0.2.1` for that immutable release. Reserve `@main` for testing unreleased changes.
+Use the compatible major tag (for example, `@v0`) to receive updates within that release line, or pin an immutable release tag such as `@v0.2.0` for reproducible builds. Reserve `@main` for testing unreleased changes.
 
 ```yaml
 jobs:
@@ -14,13 +14,7 @@ jobs:
     uses: moyarich/reusable-workflows/.github/workflows/reusable_node-ci.yml@v0
 ```
 
-Or follow the latest compatible `0.x` release:
-
-```yaml
-jobs:
-  ci:
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_node-ci.yml@v0
-```
+For reproducible builds, pin the workflow to a specific published tag (for example, `@v0.2.0`) instead of the moving major alias.
 
 Standalone actions use the same release line:
 
@@ -28,19 +22,19 @@ Standalone actions use the same release line:
 - uses: moyarich/reusable-workflows/actions/discover-packages@v0
 ```
 
-See [Release Drafter manual dispatch and version selection](docs/release-drafter-dispatch.md) for the version-mode reference table and planned compact dispatch inputs.
+See [Release Drafter manual dispatch and version selection](docs/release-drafter-dispatch.md) for the version-mode reference table and supported compact dispatch inputs.
 
 ## Versioning
 
-- `v0.1.0` and `v0.2.0` are versioned GitHub Release tags; `v0.2.1` is the planned next release.
-- `v0` is the moving compatible major alias.
+- `vX.Y.Z` tags identify immutable GitHub Actions releases.
+- `vX` tags are moving compatible major aliases.
 - `CHANGELOG.md` covers only user-facing workflow and action capabilities.
 
 ## Repository releases versus npm package publishing
 
 **This repository ships GitHub Actions workflows and standalone actions, not an npm package.** Its root `package.json` is private and exists only for repository development, version tracking, and the playground.
 
-To release reusable workflows, run [`.github/workflows/release.yml`](.github/workflows/release.yml) using **Actions → Release → Run workflow**. For v0.2.1, use version mode `package-json` (the root version is already `0.2.1`); do not apply another patch bump. A non-dry-run release publishes the immutable `vX.Y.Z` GitHub Release/tag, and advances the compatible `vX` alias if selected. Consumers use `@v0` or a pinned version such as `@v0.2.1` (once published); no npm or GitHub Packages publication is involved.
+To release reusable workflows, run [`.github/workflows/release.yml`](.github/workflows/release.yml) using **Actions → Release → Run workflow**. Select `package-json` to release the manifest version unchanged, `auto` to calculate the next patch from the latest published release, or an explicit `bump`/`exact` version as appropriate. Verify the resolved version with `dry-run: true` before publishing. A non-dry-run release publishes the immutable `vX.Y.Z` GitHub Release/tag, and advances the compatible `vX` alias if selected. Consumers use a compatible major alias or a pinned published release tag; no npm or GitHub Packages publication is involved.
 
 The `reusable_npm-prepare-release.yml`, `reusable_npm-release.yml`, and `reusable_npm-publish.yml` workflows exist **for other repositories to call** via `workflow_call`. They are not part of this repository's release pipeline. The npm workflows are **separate, explicitly initiated operations**: they are not triggered by `.github/workflows/release.yml`. If you later decide to distribute an npm package from this repository, first make its intended package publishable (including reviewing `private`, package contents, registry, and authentication), then deliberately run the appropriate npm workflow. Keep `dry-run: true` until its checks pass.
 
@@ -220,10 +214,10 @@ It does not invoke autofix.ci or fetch an unpinned Prettier version.
 
 ## Guarded CI self-healing
 
-The reusable `reusable_ci-self-heal.yml` accepts a failed default-branch CI run, applies recognized repair recipes, and pushes a candidate branch. Its verification job invokes **`reusable_node-ci.yml@v0.2.1`** to validate the candidate before opening a reviewable pull request. It never automatically merges.
+The reusable `reusable_ci-self-heal.yml` accepts a failed default-branch CI run, applies recognized repair recipes, and pushes a candidate branch. Its verification job invokes the versioned reusable Node CI workflow to validate the candidate before opening a reviewable pull request. It never automatically merges.
 
-For automatic monitoring, copy [the workflow_run caller](examples/ci-self-heal/workflow.yml) to your consumer repository once `v0.2.1` is published. Match the CI workflow name and default branch to your repository. See the [guide](examples/ci-self-heal/page.mdx).
+For automatic monitoring, copy [the workflow_run caller](examples/ci-self-heal/workflow.yml) to your consumer repository, using a published workflow version that includes the self-healing feature. Match the CI workflow name and default branch to your repository. See the [guide](examples/ci-self-heal/page.mdx).
 
 Supported automatic repairs currently cover npm audit fixes; unrecognized failures do not generate a PR. Workflow definition files are excluded from automatic repair commits. Callers need `actions: read`, `contents: write`, `pull-requests: write`, and `packages: read`. If the default GitHub token cannot create pull requests, pass a `recovery-token` secret.
 
-**Release status:** The implementation is on `main`, but `v0.2.1` is currently a GitHub Release draft, not a published tag. The example caller and the verification job reference `@v0.2.1`; they will be usable once that tag is created by the repository Release workflow. Until then, this feature is not available through the versioned release.
+Pin the caller to a compatible published tag and ensure that the verification workflow it references is available at that tag. Consult [releases](https://github.com/moyarich/reusable-workflows/releases) for available versions and the [changelog](CHANGELOG.md) for feature history.
