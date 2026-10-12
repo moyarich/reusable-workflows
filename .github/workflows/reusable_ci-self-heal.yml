@@ -7,7 +7,7 @@ on:
         description: Failed CI workflow run ID on the caller's default branch
         required: true
         type: number
-       node-version:
+      node-version:
         type: string
         default: "24"
       browser-tests:
@@ -72,19 +72,8 @@ jobs:
           import { spawnSync } from "node:child_process";
 
           const log = readFileSync(process.argv[2], "utf8");
-          const file = ".github/workflows/ci.yml";
-          const marker = "Cannot find module '@vitest/browser-playwright'";
-          const old = "const require = createRequire(import.meta.url);";
-          const repaired = 'const require = createRequire(join(process.cwd(), "apps/playground/package.json"));';
-
-          if (log.includes(marker) && existsSync(file)) {
-            const source = readFileSync(file, "utf8");
-            if (source.includes(old) && source.includes('require.resolve("@vitest/browser-playwright")')) {
-              writeFileSync(file, source.replace(old, repaired));
-              console.log("Repaired playground-scoped Playwright provider lookup");
-              process.exit(0);
-            }
-          }
+          // Workflow-file changes require additional GitHub permissions and are
+          // not automatically proposed by this constrained recovery pipeline.
           if (/npm audit|vulnerabilities|security vulnerabilities/i.test(log)) {
             const audit = spawnSync("npm", ["audit", "fix"], { stdio: "inherit" });
             if (audit.status !== 0) {
@@ -96,7 +85,7 @@ jobs:
           }
           console.log("Unrecognized CI failure; leaving repository unchanged");
           SELF_HEAL
-          if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
+          if [[ -n "$(git status --porcelain --untracked-files=no -- . ':!.github/workflows/**')" ]]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
       - name: Publish candidate repair branch
@@ -124,7 +113,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_node-ci.yml@v0
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_node-ci.yml@v0.2.1
     with:
       checkout-ref: automation/ci-self-heal
       package-directory: ${{ inputs.package-directory }}
