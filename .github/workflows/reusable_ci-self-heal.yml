@@ -65,7 +65,7 @@ jobs:
         run: |
           # Keep repair recipes inside the called workflow so that @vX.Y.Z
           # always runs the recipes shipped in that exact workflow revision.
-          node --input-type=module /dev/stdin /tmp/failed-ci.log <<'SELF_HEAL'
+          node --input-type=module - /tmp/failed-ci.log <<'SELF_HEAL'
           import { readFileSync, writeFileSync, existsSync } from "node:fs";
           import { spawnSync } from "node:child_process";
 
