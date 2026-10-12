@@ -8,18 +8,18 @@ The proposed compact dispatch syntax groups related version settings into one `v
 
 | Proposed `version` value | Meaning | Example with latest release `v1.2.3` |
 | --- | --- | --- |
-| `auto` (default) | Let Release Drafter resolve the next version using its configured PR labels and versioning rules | `1.3.0` if a minor change is detected |
+| `auto` (default) | Compute the next patch version from the latest **published GitHub Release** (ignore drafts and `package.json`) | `1.2.4` |
 | `bump:patch` | Request a patch increment | `1.2.4` |
 | `bump:minor` | Request a minor increment | `1.3.0` |
 | `bump:major` | Request a major increment | `2.0.0` |
 | `exact:1.5.0` | Use the specified semantic version | `1.5.0` |
 | `package-json` | Read the selected package's version from its `package.json` | Depends on the package |
 
-The examples assume an ordinary stable release history; actual automatic results depend on the Release Drafter configuration, available PR labels, and the selected target. When no relevant release exists, `initial-version` (currently `0.1.0`) supplies the starting version.
+For `auto`, the latest published GitHub Release tag is the version baseline. Drafts and `package.json` do not advance it; an existing exact-tag draft is reused. A patch increment is the default, including automatic push-triggered drafts. For a different increment, explicitly choose `bump:<increment>`. When no published release exists, `initial-version` (currently `0.1.0`) supplies the starting version. The `package-json` selection reads the manifest without bumping it. Explicit `bump` uses the manifest as its baseline.
 
 ## Proposed compact dispatch input table
 
-GitHub limits `workflow_dispatch` to 10 top-level inputs. The manual workflow now has seven inputs. The exact field names are shown below.
+GitHub limits `workflow_dispatch` to 10 top-level inputs. The manual workflow has seven inputs. The exact field names are shown below.
 
 | Input | Default | Accepted values / purpose |
 | --- | --- | --- |
