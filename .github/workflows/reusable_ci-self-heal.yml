@@ -7,15 +7,15 @@ on:
         description: Failed CI workflow run ID on the caller's default branch
         required: true
         type: number
-      verify-command:
-        description: Commands to verify a repaired checkout
-        required: true
-        type: string
-      node-version:
+       node-version:
         type: string
         default: "24"
+      browser-tests:
+        description: Enable Chromium checks in reusable Node CI
+        type: boolean
+        default: false
       package-directory:
-        description: Workspace used by browser tests
+        description: Workspace passed to reusable Node CI
         type: string
         default: "."
     secrets:
@@ -27,6 +27,8 @@ permissions:
 
 jobs:
   repair:
+    outputs:
+      changed: ${{ steps.patch.outputs.changed }}
     if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     runs-on: ubuntu-latest
     permissions:
@@ -97,33 +99,57 @@ jobs:
           if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
-      - name: Verify proposed repair
-        if: steps.patch.outputs.changed == 'true'
-        env:
-          VERIFY_COMMAND: ${{ inputs.verify-command }}
-        run: |
-          npm ci --include=optional
-          bash -euo pipefail -c "$VERIFY_COMMAND"
-      - name: Open or update repair PR
+      - name: Publish candidate repair branch
         if: steps.patch.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ secrets.recovery-token || github.token }}
-          RUN_ID: ${{ inputs.failed-run-id }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           branch="automation/ci-self-heal"
           git switch -c "$branch"
-          git add -u
+          # Do not let automation modify workflow definitions.
+          git add -u -- . ':!.github/workflows/**'
+          if git diff --cached --quiet; then
+            echo "No permitted repair changes"
+            exit 1
+          fi
           git commit -m "fix(ci): automatically repair recognized CI failure"
           auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
-          git -c http.extraheader="AUTHORIZATION: basic $auth" fetch origin "+refs/heads/$branch:refs/remotes/origin/$branch" 2>/dev/null || true
           git -c http.extraheader="AUTHORIZATION: basic $auth" push --force-with-lease origin "HEAD:refs/heads/$branch"
-          existing=$(gh pr list --head "$branch" --base "$GITHUB_REF_NAME" --state open --json number --jq '.[0].number // empty')
+
+  verify:
+    needs: repair
+    if: needs.repair.outputs.changed == 'true'
+    permissions:
+      contents: read
+      packages: read
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_node-ci.yml@v0
+    with:
+      checkout-ref: automation/ci-self-heal
+      package-directory: ${{ inputs.package-directory }}
+      node-version: ${{ inputs.node-version }}
+      browser-tests: ${{ inputs.browser-tests }}
+
+  propose:
+    needs: [repair, verify]
+    if: needs.repair.outputs.changed == 'true' && needs.verify.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Open or update reviewed repair PR
+        env:
+          GH_TOKEN: ${{ secrets.recovery-token || github.token }}
+          RUN_ID: ${{ inputs.failed-run-id }}
+        run: |
+          branch="automation/ci-self-heal"
+          existing=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$branch" --base "$GITHUB_REF_NAME" --state open --json number --jq '.[0].number // empty')
           if [[ -z "$existing" ]]; then
-            gh pr create --head "$branch" --base "$GITHUB_REF_NAME" \
+            gh pr create --repo "$GITHUB_REPOSITORY" --head "$branch" --base "$GITHUB_REF_NAME" \
               --title "fix(ci): self-heal recognized CI failure" \
-              --body "Automated, verified repair for failed [CI run](https://github.com/$GITHUB_REPOSITORY/actions/runs/$RUN_ID). Review required; no automatic merge."
+              --body "Automated repair for failed [CI run](https://github.com/$GITHUB_REPOSITORY/actions/runs/$RUN_ID), verified by reusable Node CI. Review required; no automatic merge."
           else
-            gh pr comment "$existing" --body "Updated verified repair for [CI run](https://github.com/$GITHUB_REPOSITORY/actions/runs/$RUN_ID)."
+            gh pr comment "$existing" --repo "$GITHUB_REPOSITORY" --body "Updated repair verified by reusable Node CI for [CI run](https://github.com/$GITHUB_REPOSITORY/actions/runs/$RUN_ID)."
           fi
