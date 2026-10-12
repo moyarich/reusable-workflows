@@ -6,7 +6,7 @@ Workflows provide reusable CI, package discovery, release drafting, GitHub Relea
 
 ## Usage
 
-Use `@v0` for the latest compatible v0 release or pin `@v0.2.0` for an immutable reference. Reserve `@main` for testing unreleased changes.
+Use `@v0` for the latest compatible v0 release or pin `@v0.2.1` for a specific immutable release tag. Reserve `@main` for testing unreleased changes.
 
 ```yaml
 jobs:
@@ -32,7 +32,7 @@ See [Release Drafter manual dispatch and version selection](docs/release-drafter
 
 ## Versioning
 
-- `v0.1.0` and `v0.2.0` are immutable GitHub Release tags.
+- `v0.1.0`, `v0.2.0`, and the planned `v0.2.1` are versioned GitHub Release tags.
 - `v0` is the moving compatible major alias.
 - `CHANGELOG.md` covers only user-facing workflow and action capabilities.
 
@@ -217,3 +217,7 @@ Use `mode: check` for a read-only CI formatting gate and `mode: fix` to run
 `commit: true`. The workflow installs dependencies with `npm ci --ignore-scripts`
 and invokes the consumer's lockfile-resolved `node_modules/.bin/prettier`.
 It does not invoke autofix.ci or fetch an unpinned Prettier version.
+
+## Guarded CI self-healing (v0.2.1)
+
+The reusable `reusable_ci-self-heal.yml` workflow examines failed CI runs on the caller's default branch, runs recognized repair recipes, verifies changes, and opens a reviewable pull request. It never automatically merges a repair. Callers must grant `actions: read`, `contents: write`, and `pull-requests: write`, and can provide a dedicated `recovery-token` when their GitHub Actions token cannot open pull requests. Pin consumers to `@v0.2.1` after release rather than referencing feature branches.
