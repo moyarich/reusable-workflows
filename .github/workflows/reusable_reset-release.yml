@@ -79,7 +79,7 @@ jobs:
           fi
           if [ -z "$MANIFEST_PATH" ]; then
             TREE="$(gh api "$REPO/git/trees/$TARGET_BRANCH?recursive=1")"
-            mapfile -t FILES < <(jq -r '.tree[] | select(.type == "blob" and (.path | endswith("/package.json") or . == "package.json")) | .path' <<< "$TREE")
+            mapfile -t FILES < <(jq -r '.tree[] | select(.type == "blob" and (.path == "package.json" or (.path | endswith("/package.json")))) | .path' <<< "$TREE")
             MATCHES=()
             for path in "${FILES[@]}"; do
               CONTENT="$(gh api "$REPO/contents/$path?ref=$TARGET_BRANCH" --jq '.content' | base64 -d)"
@@ -123,6 +123,8 @@ jobs:
             jq -n --arg tag "$TAG" --arg sha "$TAG_SHA" --arg tagState "$TAG_STATE" '{tag:$tag,tag_state:$tagState,tag_sha:$sha,release:null}' > before.json
           fi
           echo "canonical-tag=$TAG" >> "$GITHUB_OUTPUT"
+          SAFE_SELECTOR="$(printf '%s' "$SELECTOR" | tr '/@:' '---' | tr -cd '[:alnum:]_.-')"
+          echo "artifact-name=reset-before-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$SAFE_SELECTOR" >> "$GITHUB_OUTPUT"
           {
             echo "## Before recovery (GitHub API)"
             echo
@@ -133,7 +135,7 @@ jobs:
       - name: Persist original state
         uses: actions/upload-artifact@v4
         with:
-          name: reset-before-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.package }}
+          name: ${{ steps.snapshot.outputs.artifact-name }}
           path: before.json
           retention-days: 30
           if-no-files-found: error
