@@ -144,18 +144,39 @@ jobs:
           else
             TAG="$DIRECTORY@$VERSION"
           fi
-          REF_SHA="$(git rev-parse --verify --quiet "refs/tags/$TAG^{commit}" 2>/dev/null || true)"
-          RELEASE="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" 2>/dev/null | jq -c --arg tag "$TAG" '[.[][] | select(.tag_name == $tag)] | first // empty' || true)"
+          # Both states come from the GitHub API, not the local checkout.
+          TAG_STATUS=unknown
+          REF_SHA=""
+          REF_FILE="$RUNNER_TEMP/preflight-tag.json"
+          HTTP="$(gh api -i "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" > "$REF_FILE" 2>&1 && echo 200 || echo error)"
+          if [ "$HTTP" = "200" ]; then
+            TAG_STATUS=present
+            REF_SHA="$(sed -n '/^{/,$p' "$REF_FILE" | jq -r '.object.sha // empty' 2>/dev/null || true)"
+          elif grep -Eq 'HTTP/[0-9.]+ 404|404 Not Found' "$REF_FILE"; then
+            TAG_STATUS=absent
+          else
+            echo "::warning::Unable to query original Git tag $TAG; status unknown."
+          fi
+          RELEASE_STATUS=unknown
+          RELEASE=""
+          RELEASES_FILE="$RUNNER_TEMP/preflight-releases.json"
+          if gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RELEASES_FILE"; then
+            RELEASE="$(jq -c --arg tag "$TAG" '[.[][] | select(.tag_name == $tag)] | first // empty' "$RELEASES_FILE")"
+            RELEASE_STATUS="$([ -n "$RELEASE" ] && echo present || echo absent)"
+          else
+            echo "::warning::Unable to query original releases; status unknown."
+          fi
           {
             printf '| Canonical tag | `%s` |\n' "$TAG"
-            printf '| Tag commit | `%s` |\n' "${REF_SHA:-absent}"
+            printf '| Tag lookup | `%s` |\n' "$TAG_STATUS"
+            printf '| Tag object SHA | `%s` |\n' "${REF_SHA:-unknown}"
             if [ -n "$RELEASE" ]; then
               printf '| Release ID | `%s` |\n' "$(jq -r '.id' <<< "$RELEASE")"
               printf '| Release state | `%s` |\n' "$(jq -r 'if .draft then "draft" else "published" end' <<< "$RELEASE")"
               printf '| Immutable | `%s` |\n' "$(jq -r '.immutable // false' <<< "$RELEASE")"
               printf '| Release title | %s |\n' "$(jq -r '.name // "" | gsub("[\r\n|]"; " ")' <<< "$RELEASE")"
             else
-              echo "| Release | absent or unavailable |"
+              printf '| Release lookup | `%s` |\n' "$RELEASE_STATUS"
             fi
             echo
           } >> "$GITHUB_STEP_SUMMARY"
@@ -633,19 +654,36 @@ jobs:
               echo "Recovery target was not resolved; no after-state can be verified."
               exit 0
             fi
-            RELEASE="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" | jq -c --arg tag "$RELEASE_TAG" '[.[][] | select(.tag_name == $tag)] | first // empty')" || RELEASE=""
-            TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" --jq '.object.sha' 2>/dev/null || true)"
+            RELEASE_STATUS=unknown
+            RELEASE=""
+            if gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RUNNER_TEMP/after-releases.json"; then
+              RELEASE="$(jq -c --arg tag "$RELEASE_TAG" '[.[][] | select(.tag_name == $tag)] | first // empty' "$RUNNER_TEMP/after-releases.json")"
+              RELEASE_STATUS="$([ -n "$RELEASE" ] && echo present || echo absent)"
+            else
+              echo "::warning::Unable to fetch after-state releases."
+            fi
+            TAG_STATUS=unknown
+            TAG_SHA=""
+            if gh api -i "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" > "$RUNNER_TEMP/after-tag-response" 2>&1; then
+              TAG_STATUS=present
+              TAG_SHA="$(sed -n '/^{/,$p' "$RUNNER_TEMP/after-tag-response" | jq -r '.object.sha // empty' 2>/dev/null || true)"
+            elif grep -Eq 'HTTP/[0-9.]+ 404|404 Not Found' "$RUNNER_TEMP/after-tag-response"; then
+              TAG_STATUS=absent
+            else
+              echo "::warning::Unable to fetch after-state tag."
+            fi
             echo "| Field | Value |"
             echo "| --- | --- |"
             printf '| Canonical tag | `%s` |\\n' "$RELEASE_TAG"
-            printf '| Tag object SHA | `%s` |\\n' "${TAG_SHA:-absent}"
+            printf '| Tag lookup | `%s` |\n' "$TAG_STATUS"
+            printf '| Tag object SHA | `%s` |\n' "${TAG_SHA:-unknown}"
             if [ -n "$RELEASE" ]; then
               printf '| Release ID | `%s` |\\n' "$(jq -r '.id' <<< "$RELEASE")"
               printf '| Release state | `%s` |\\n' "$(jq -r 'if .draft then "draft" else "published" end' <<< "$RELEASE")"
               printf '| Immutable | `%s` |\\n' "$(jq -r '.immutable // false' <<< "$RELEASE")"
               printf '| Title | %s |\\n' "$(jq -r '.name // "" | gsub("[\\r\\n|]"; " ")' <<< "$RELEASE")"
             else
-              echo "| Release | absent |"
+              printf '| Release lookup | `%s` |\n' "$RELEASE_STATUS"
             fi
             echo
             if [ "$DRY_RUN" = "true" ]; then
