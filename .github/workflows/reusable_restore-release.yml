@@ -590,6 +590,12 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
+          if [ "${{ inputs.dry-run }}" = "true" ] &&
+             [ "${{ needs.resolve.outputs.audit-finalized }}" = "true" ] &&
+             [ "${{ needs.resolve.result }}" = "success" ]; then
+            # Finalized releases are audit-only. Skipped mutation stages are expected.
+            exit 0
+          fi
           if [ "${{ needs.resolve.result }}" != "success" ] ||
              [ "${{ needs.delete-release.result }}" != "success" ] ||
              [ "${{ needs.restore-tag.result }}" != "success" ] ||
