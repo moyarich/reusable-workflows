@@ -244,16 +244,6 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Checkout version-matched reusable workflow actions
-        uses: actions/checkout@v7
-        with:
-          repository: ${{ job.workflow_repository }}
-          ref: ${{ job.workflow_sha }}
-          path: .github/reusable-workflows-runtime
-          persist-credentials: false
-          sparse-checkout: actions/release-draft-sync
-          sparse-checkout-cone-mode: false
-
       - name: Load version-matched draft template
         id: assets
         env:
