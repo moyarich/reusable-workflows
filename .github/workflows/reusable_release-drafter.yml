@@ -198,6 +198,13 @@ jobs:
       SEED_UPDATED_AT: ${{ inputs.seed-updated-at }}
 
     steps:
+      - name: Checkout caller repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.target-branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
       - name: Checkout version-matched reusable workflow actions
         uses: actions/checkout@v7
         with:
@@ -231,13 +238,6 @@ jobs:
             echo "RELEASE_TAG_INPUT=$RELEASE_TAG"
             echo "RELEASE_NAME_INPUT=${RELEASE_NAME:-Release {{VERSION}}}"
           } >> "$GITHUB_ENV"
-
-      - name: Checkout caller repository
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ inputs.target-branch }}
-          fetch-depth: 0
-          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
