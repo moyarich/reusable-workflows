@@ -119,7 +119,7 @@ jobs:
     if: ${{ inputs.show-input-summary }}
     permissions:
       contents: read
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_dispatch-input-summary.yml@main
+    uses: ./.github/workflows/reusable_dispatch-input-summary.yml
     with:
       parameters-json: ${{ toJSON(inputs) }}
       exclude-inputs: '["show-input-summary"]'
@@ -277,8 +277,17 @@ jobs:
           git tag --force "$MAJOR_TAG" HEAD
           git push --force origin "refs/tags/$MAJOR_TAG:refs/tags/$MAJOR_TAG"
 
+      - name: Checkout version-matched reusable workflow actions
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .github/reusable-workflows-runtime
+          persist-credentials: false
+          sparse-checkout: actions
+          sparse-checkout-cone-mode: false
       - name: Validate existing release identity marker
-        uses: moyarich/reusable-workflows/actions/validate-release-identity@main
+        uses: ./.github/reusable-workflows-runtime/actions/validate-release-identity
         env:
           GH_TOKEN: ${{ github.token }}
         with:
