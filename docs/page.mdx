@@ -18,18 +18,15 @@ Reusable Workflows is the shared automation repository for Node.js projects, npm
 
 Start with [Getting started](./01-getting-started/page.mdx), browse the [workflow catalog](./02-workflows/page.mdx), or see [Development](./04-development/page.mdx) for repository structure and maintainer guidance.
 
-## Independent release lines
+## Release and versioning
 
-Reusable Workflows has two public version lines:
+This repository distributes reusable GitHub Actions workflows and standalone actions, **not an npm package**. Its releases use immutable `vX.Y.Z` tags (the next planned release is `v0.2.1`) and a moving `v0` major-compatible alias.
 
-| Surface                        | Version source          | Release tag                           | Changelog                |
-| ------------------------------ | ----------------------- | ------------------------------------- | ------------------------ |
-| npm package                    | `package.json`          | `@moyarich/workspace-tools@<version>` | `CHANGELOG.md`           |
-| Reusable workflows and actions | `release version` | `workflows-v<version>`                | `CHANGELOG.md` |
+Callers can pin a published version with `@v0.2.1` after release or use `@v0` to follow compatible updates. Use `@main` only to test unreleased changes.
 
-Reusable workflow consumers should pin `workflows-v<version>` or the compatible moving major alias `workflows-v<major>`.
+The separately maintained `@moyarich/workspace-tools` npm package provides CLIs consumed by some workflows. Its npm versions are independent of the reusable-workflows GitHub release version.
 
-Both release paths use the generic `reusable_release.yml` GitHub Release layer. Release preparation leaves the matching GitHub Release as a draft until the corresponding publish/finalization step completes.
+See [Getting started](./01-getting-started/page.mdx) and [Repository release](./04-development/03-repository-release/page.mdx) for the release process.
 
 ## Copyable examples
 

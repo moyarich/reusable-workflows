@@ -20,6 +20,11 @@ on:
         type: string
   workflow_call:
     inputs:
+      checkout-ref:
+        description: Optional git ref to validate instead of the caller event ref
+        required: false
+        type: string
+        default: ""
       browser-tests:
         description: Install Chromium dependencies for browser-based tests
         required: false
@@ -62,6 +67,8 @@ jobs:
             echo
           } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@v7 # v7
+        with:
+          ref: ${{ inputs.checkout-ref || github.sha }}
       - uses: actions/setup-node@v7 # v7
         with:
           node-version: ${{ inputs.node-version }}

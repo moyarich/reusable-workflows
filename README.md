@@ -6,12 +6,12 @@ Workflows provide reusable CI, package discovery, release drafting, GitHub Relea
 
 ## Usage
 
-Use `@v0` for the latest compatible v0 release or pin `@v0.2.0` for an immutable reference. Reserve `@main` for testing unreleased changes.
+Use `@v0` for the latest compatible v0 release. Once v0.2.1 is published, pin `@v0.2.1` for that immutable release. Reserve `@main` for testing unreleased changes.
 
 ```yaml
 jobs:
   ci:
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_node-ci.yml@main
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_node-ci.yml@v0
 ```
 
 Or follow the latest compatible `0.x` release:
@@ -32,7 +32,7 @@ See [Release Drafter manual dispatch and version selection](docs/release-drafter
 
 ## Versioning
 
-- `v0.1.0` and `v0.2.0` are immutable GitHub Release tags.
+- `v0.1.0` and `v0.2.0` are versioned GitHub Release tags; `v0.2.1` is the planned next release.
 - `v0` is the moving compatible major alias.
 - `CHANGELOG.md` covers only user-facing workflow and action capabilities.
 
@@ -40,7 +40,7 @@ See [Release Drafter manual dispatch and version selection](docs/release-drafter
 
 **This repository ships GitHub Actions workflows and standalone actions, not an npm package.** Its root `package.json` is private and exists only for repository development, version tracking, and the playground.
 
-To release reusable workflows, run [`.github/workflows/release.yml`](.github/workflows/release.yml) using **Actions → Release → Run workflow**. A non-dry-run release updates the root version, publishes the immutable `vX.Y.Z` GitHub Release/tag, and advances the compatible `vX` alias if selected. Consumers use `@v0` or a pinned version such as `@v0.2.0`; no npm or GitHub Packages publication is involved.
+To release reusable workflows, run [`.github/workflows/release.yml`](.github/workflows/release.yml) using **Actions → Release → Run workflow**. A non-dry-run release updates the root version, publishes the immutable `vX.Y.Z` GitHub Release/tag, and advances the compatible `vX` alias if selected. Consumers use `@v0` or a pinned version such as `@v0.2.1` (once published); no npm or GitHub Packages publication is involved.
 
 The `reusable_npm-prepare-release.yml`, `reusable_npm-release.yml`, and `reusable_npm-publish.yml` workflows exist **for other repositories to call** via `workflow_call`. They are not part of this repository's release pipeline. The npm workflows are **separate, explicitly initiated operations**: they are not triggered by `.github/workflows/release.yml`. If you later decide to distribute an npm package from this repository, first make its intended package publishable (including reviewing `private`, package contents, registry, and authentication), then deliberately run the appropriate npm workflow. Keep `dry-run: true` until its checks pass.
 
@@ -129,7 +129,7 @@ jobs:
       contents: write
       packages: read
       pull-requests: read
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_reset-release.yml@main
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_reset-release.yml@v0
     with:
       package: .
       target-branch: main
@@ -145,7 +145,7 @@ jobs:
       contents: write
       packages: read
       pull-requests: read
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_restore-release.yml@main
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_restore-release.yml@v0
     with:
       package: .
       target-branch: main
@@ -200,7 +200,7 @@ jobs:
   formatting:
     permissions:
       contents: write
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_prettier.yml@main
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_prettier.yml@v0
     with:
       mode: check
       prettier-config: reusable-workflows
@@ -217,3 +217,13 @@ Use `mode: check` for a read-only CI formatting gate and `mode: fix` to run
 `commit: true`. The workflow installs dependencies with `npm ci --ignore-scripts`
 and invokes the consumer's lockfile-resolved `node_modules/.bin/prettier`.
 It does not invoke autofix.ci or fetch an unpinned Prettier version.
+
+## Guarded CI self-healing (planned for v0.2.1)
+
+The reusable `reusable_ci-self-heal.yml` accepts a failed default-branch CI run, applies recognized repair recipes, and pushes a candidate branch. It then invokes **`reusable_node-ci.yml@v0.2.1`** to validate the candidate before opening a reviewable pull request. It never automatically merges.
+
+For automatic monitoring, copy [the workflow_run caller](examples/ci-self-heal/workflow.yml) to your consumer repository after v0.2.1 is released. Match the CI workflow name and default branch to your repository. See the [guide](examples/ci-self-heal/page.mdx).
+
+Supported automatic repairs currently cover npm audit fixes; unrecognized failures do not generate a PR. Workflow definition files are excluded from automatic repair commits. Callers need `actions: read`, `contents: write`, `pull-requests: write`, and `packages: read`. If the default GitHub token cannot create pull requests, pass a `recovery-token` secret.
+
+The reusable workflow and its CI verification use matching immutable v0.2.1 references. Neither reference can be used by consumers until the tag is published.
