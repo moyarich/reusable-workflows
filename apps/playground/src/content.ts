@@ -2,7 +2,7 @@ import type { ComponentType } from "react";
 
 type PageModule = {
   default: ComponentType;
-  meta?: { title?: string; description?: string };
+  meta?: { title?: string; description?: string; order?: number };
 };
 
 export type ContentPage = {
@@ -10,6 +10,7 @@ export type ContentPage = {
   sourcePath: string;
   title: string;
   description?: string;
+  order?: number;
   Component: ComponentType;
 };
 
@@ -26,32 +27,50 @@ const contentSources = [
 ] as const;
 
 function humanize(value: string): string {
-  return value
-    .replace(/^\\d+-/, "")
-    .replace(/[-_]+/g, " ")
-    .replace(/\\b\\w/g, (character) => character.toUpperCase());
+  return value.replace(/^\d+-/, "").replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
-// Discover page files by location. Rendering and navigation do not depend on
-// whether a page belongs to docs, examples, or any other content source.
+// Sort hierarchically: an index page precedes its children; numbered sibling
+// directories follow their numeric prefixes (01, 02, 10), not ASCII ordering.
+// Optional frontmatter order overrides the final segment's numeric prefix.
+export function comparePages(a: Pick<ContentPage, "route" | "order">, b: Pick<ContentPage, "route" | "order">): number {
+  const left = a.route.split("/").filter(Boolean);
+  const right = b.route.split("/").filter(Boolean);
+  for (let index = 0; index < Math.min(left.length, right.length); index++) {
+    if (left[index] === right[index]) continue;
+    const parseSegment = (segment: string, order?: number) => {
+      const match = /^(\d+)-(.+)$/.exec(segment);
+      return { priority: order ?? (match ? Number(match[1]) : Number.POSITIVE_INFINITY),
+        label: match ? match[2] : segment };
+    };
+    const x = parseSegment(left[index], index === left.length - 1 ? a.order : undefined);
+    const y = parseSegment(right[index], index === right.length - 1 ? b.order : undefined);
+    if (x.priority !== y.priority) return x.priority - y.priority;
+    return x.label.localeCompare(y.label, undefined, { numeric: true });
+  }
+  return left.length - right.length;
+}
+
+// Each page is discovered from its own page.mdx, regardless of source type.
 const modules = import.meta.glob(["../../../**/page.mdx", "!../../../node_modules/**", "!../../../apps/**"], {
   eager: true,
 }) as Record<string, PageModule>;
 
 function discoverPages(): ContentPage[] {
   return Object.entries(modules).map(([path, module]) => {
-    const sourcePath = path.replace(/^\\.\\.\\/\\.\\.\\/\\.\\.\\//, "");
-    const directory = sourcePath.replace(/\\/page\\.mdx$/, "");
-    const route = `/${directory}`;
+    const sourcePath = path.replace(/^\.\.\/\.\.\/\.\.\//, "");
+    const directory = sourcePath.replace(/\/page\.mdx$/, "");
     const segments = directory.split("/");
     return {
-      route,
+      route: `/${directory}`,
       sourcePath,
       title: module.meta?.title ?? humanize(segments.at(-1) ?? "Home"),
       description: module.meta?.description,
+      order: module.meta?.order,
       Component: module.default,
     };
-  }).sort((a, b) => a.route.localeCompare(b.route));
+  }).sort(comparePages);
 }
 
 const pages = discoverPages();
