@@ -218,12 +218,12 @@ Use `mode: check` for a read-only CI formatting gate and `mode: fix` to run
 and invokes the consumer's lockfile-resolved `node_modules/.bin/prettier`.
 It does not invoke autofix.ci or fetch an unpinned Prettier version.
 
-## Guarded CI self-healing (planned for v0.2.1)
+## Guarded CI self-healing
 
-The reusable `reusable_ci-self-heal.yml` accepts a failed default-branch CI run, applies recognized repair recipes, and pushes a candidate branch. It then invokes **`reusable_node-ci.yml@v0.2.1`** to validate the candidate before opening a reviewable pull request. It never automatically merges.
+The reusable `reusable_ci-self-heal.yml` accepts a failed default-branch CI run, applies recognized repair recipes, and pushes a candidate branch. Its verification job invokes **`reusable_node-ci.yml@v0.2.1`** to validate the candidate before opening a reviewable pull request. It never automatically merges.
 
-For automatic monitoring, copy [the workflow_run caller](examples/ci-self-heal/workflow.yml) to your consumer repository after v0.2.1 is released. Match the CI workflow name and default branch to your repository. See the [guide](examples/ci-self-heal/page.mdx).
+For automatic monitoring, copy [the workflow_run caller](examples/ci-self-heal/workflow.yml) to your consumer repository once `v0.2.1` is published. Match the CI workflow name and default branch to your repository. See the [guide](examples/ci-self-heal/page.mdx).
 
 Supported automatic repairs currently cover npm audit fixes; unrecognized failures do not generate a PR. Workflow definition files are excluded from automatic repair commits. Callers need `actions: read`, `contents: write`, `pull-requests: write`, and `packages: read`. If the default GitHub token cannot create pull requests, pass a `recovery-token` secret.
 
-The reusable workflow and its CI verification use matching immutable v0.2.1 references. Neither reference can be used by consumers until the tag is published.
+**Release status:** The implementation is on `main`, but `v0.2.1` is currently a GitHub Release draft, not a published tag. The example caller and the verification job reference `@v0.2.1`; they will be usable once that tag is created by the repository Release workflow. Until then, this feature is not available through the versioned release.
