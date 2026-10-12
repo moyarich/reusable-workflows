@@ -315,60 +315,69 @@ jobs:
 
 
   reset-release:
-    name: "stage: Unrelease to draft (preserve tag)"
+    name: "stage: Unrelease to draft and delete version tag"
     needs: resolve
     if: ${{ needs.resolve.result == 'success' && needs.resolve.outputs.blocked != 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Return mutable release to draft without moving its tag
+      - name: Reset mutable release and remove its canonical tag
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.resolve.outputs.release-tag }}
-          RELEASE_NAME: ${{ needs.resolve.outputs.release-name }}
           RELEASE_ID: ${{ needs.resolve.outputs.backup-release-id }}
-          RELEASE_BODY_BASE64: ${{ needs.resolve.outputs.backup-body-base64 }}
           DRY_RUN: ${{ inputs.dry-run }}
         shell: bash
         run: |
           set -euo pipefail
-          if [ -z "$RELEASE_ID" ]; then
-            echo "::notice::No GitHub Release exists for $RELEASE_TAG; nothing to unrelease."
-            exit 0
+          RELEASE_REF="repos/$GITHUB_REPOSITORY/git/refs/tags/$RELEASE_TAG"
+          RELEASES_API="repos/$GITHUB_REPOSITORY/releases"
+          if [ -n "$RELEASE_ID" ]; then
+            RELEASE="$(gh api "$RELEASES_API/$RELEASE_ID")"
+            if [ "$(jq -r '.immutable // false' <<< "$RELEASE")" = "true" ]; then
+              echo "::error::$RELEASE_TAG is immutable; Reset cannot delete its associated version tag."
+              exit 1
+            fi
+            IS_DRAFT="$(jq -r '.draft' <<< "$RELEASE")"
+          else
+            IS_DRAFT=missing
           fi
 
-          RELEASE="$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID")"
-          if [ "$(jq -r '.immutable // false' <<< "$RELEASE")" = "true" ]; then
-            echo "::error::$RELEASE_TAG is immutable; it cannot be reset."
-            exit 1
-          fi
-          if [ "$(jq -r '.draft' <<< "$RELEASE")" = "true" ]; then
-            echo "::notice::$RELEASE_TAG is already a draft."
-            exit 0
-          fi
           if [ "$DRY_RUN" = "true" ]; then
-            echo "::notice::Preview: recreate the mutable GitHub Release as a draft; canonical tag will remain unchanged."
+            echo "::notice::Preview: $RELEASE_TAG release state=$IS_DRAFT; ensure a draft and remove its version tag."
             exit 0
           fi
 
-          # Preserve the canonical tag exactly. GitHub does not support
-          # unpublishing a published release directly, so recreate the
-          # mutable release as a draft without deleting its Git ref.
-          ORIGINAL_COMMIT="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/${RELEASE_TAG}" --jq '.object.sha')"
-          printf '%s' "$RELEASE_BODY_BASE64" | base64 -d > "$RUNNER_TEMP/reset-release-body.md"
-          gh api --method DELETE "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID"
-          gh api --method POST "repos/$GITHUB_REPOSITORY/releases" \
-            -f tag_name="$RELEASE_TAG" \
-            -f name="$RELEASE_NAME" \
-            -f body="$(cat "$RUNNER_TEMP/reset-release-body.md")" \
-            -F draft=true >/dev/null
-          AFTER_COMMIT="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/${RELEASE_TAG}" --jq '.object.sha')"
-          if [ "$ORIGINAL_COMMIT" != "$AFTER_COMMIT" ]; then
-            echo "::error::Canonical tag changed unexpectedly during Reset: $RELEASE_TAG"
+          if [ "$IS_DRAFT" = "false" ]; then
+            # GitHub has no direct published -> draft transition. Recreate
+            # the mutable release, retaining its title and notes.
+            ORIGINAL_NAME="$(jq -r '.name // ""' <<< "$RELEASE")"
+            ORIGINAL_BODY="$(jq -r '.body // ""' <<< "$RELEASE")"
+            ORIGINAL_PRERELEASE="$(jq -r '.prerelease' <<< "$RELEASE")"
+            gh api --method DELETE "$RELEASES_API/$RELEASE_ID"
+            gh api --method POST "$RELEASES_API" \
+              -f tag_name="$RELEASE_TAG" \
+              -f name="$ORIGINAL_NAME" \
+              -f body="$ORIGINAL_BODY" \
+              -F prerelease="$ORIGINAL_PRERELEASE" \
+              -F draft=true >/dev/null
+          elif [ "$IS_DRAFT" = "missing" ]; then
+            echo "::notice::No existing GitHub Release to unpublish for $RELEASE_TAG."
+          else
+            echo "::notice::$RELEASE_TAG is already a draft."
+          fi
+
+          # Reset deliberately removes the package's version tag, unlike
+          # Restore which moves that tag to a selected historical commit.
+          if gh api "$RELEASE_REF" >/dev/null 2>&1; then
+            gh api --method DELETE "$RELEASE_REF"
+          fi
+          if gh api "$RELEASE_REF" >/dev/null 2>&1; then
+            echo "::error::Version tag $RELEASE_TAG still exists after Reset."
             exit 1
           fi
-          echo "::notice::$RELEASE_TAG is now a draft. Its Git tag remains at $AFTER_COMMIT."
+          echo "::notice::Reset complete: release is draft (when present), and $RELEASE_TAG is absent."
 
   summary:
     name: "job: Reset summary"
@@ -387,9 +396,9 @@ jobs:
             echo "| Stage | Result |"
             echo "| --- | --- |"
             echo "| Resolve package and registry state | **${{ needs.resolve.result }}** |"
-            echo "| Unrelease to draft, preserving tag | **${{ needs.reset-release.result }}** |"
+            echo "| Unrelease to draft and delete version tag | **${{ needs.reset-release.result }}** |"
             echo
-            echo "Reset never moves a package version tag. Use Restore to select a different historical commit."
+            echo "Reset deletes the canonical version tag. Restore recreates or repositions it at a selected historical commit."
           } >> "$GITHUB_STEP_SUMMARY"
           if [ "${{ inputs.dry-run }}" = "true" ] &&
              [ "${{ needs.resolve.outputs.blocked }}" = "true" ] &&
