@@ -270,10 +270,17 @@ jobs:
       - name: Update major compatibility tag
         if: ${{ !inputs.dry-run && inputs.update-major-tag }}
         env:
+          GH_TOKEN: ${{ github.token }}
           MAJOR_TAG: ${{ inputs.major-tag }}
         shell: bash
         run: |
           set -euo pipefail
+          # GitHub protects tags associated with immutable releases.
+          IMMUTABLE_ALIAS="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" | jq -r --arg tag "$MAJOR_TAG" '[.[][] | select(.tag_name == $tag and .immutable == true)] | length')"
+          if [ "$IMMUTABLE_ALIAS" -gt 0 ]; then
+            echo "::error::Cannot move $MAJOR_TAG: an immutable GitHub Release uses this tag."
+            exit 1
+          fi
           git tag --force "$MAJOR_TAG" HEAD
           git push --force origin "refs/tags/$MAJOR_TAG:refs/tags/$MAJOR_TAG"
 
@@ -313,22 +320,29 @@ jobs:
 
           if [ -n "$EXISTING" ]; then
             RELEASE_ID="$(jq -r '.id' <<< "$EXISTING")"
-
-            gh api \
-              --method PATCH \
-              "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" \
-              -f tag_name="$RELEASE_TAG" \
-              -f name="$RELEASE_NAME" \
-              -f body="$(cat "$NOTES_FILE")" \
-              -F draft=${{ inputs.draft }} >/dev/null
-
-            UPDATED="$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID")"
-            RELEASE_URL="$(jq -r '.html_url' <<< "$UPDATED")"
-
-            if [ "$(jq -r '.draft' <<< "$UPDATED")" = "true" ]; then
-              STATUS="draft"
-            else
+            if [ "$(jq -r '.draft' <<< "$EXISTING")" != "true" ] && [ "${{ inputs.draft }}" = "true" ]; then
+              # Never revert a published release to an unpublished draft.
+              RELEASE_URL="$(jq -r '.html_url' <<< "$EXISTING")"
               STATUS="published"
+              echo "::notice::Release $RELEASE_TAG is already published; draft preparation leaves it published."
+            else
+              # GitHub permits title/notes edits on published releases, including immutable ones.
+              # Drafts remain editable; draft=false explicitly finalizes one.
+              gh api \
+                --method PATCH \
+                "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" \
+                -f tag_name="$RELEASE_TAG" \
+                -f name="$RELEASE_NAME" \
+                -f body="$(cat "$NOTES_FILE")" \
+                -F draft=${{ inputs.draft }} >/dev/null
+
+              UPDATED="$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID")"
+              RELEASE_URL="$(jq -r '.html_url' <<< "$UPDATED")"
+              if [ "$(jq -r '.draft' <<< "$UPDATED")" = "true" ]; then
+                STATUS="draft"
+              else
+                STATUS="published"
+              fi
             fi
           else
             # Use the create response directly: list endpoints can lag after a
