@@ -34,7 +34,7 @@ function humanize(value: string): string {
 
 // Discover page files by location. Rendering and navigation do not depend on
 // whether a page belongs to docs, examples, or any other content source.
-const modules = import.meta.glob("../../../{docs,examples}/**/page.mdx", {
+const modules = import.meta.glob(["../../../**/page.mdx", "!../../../node_modules/**", "!../../../apps/**"], {
   eager: true,
 }) as Record<string, PageModule>;
 
