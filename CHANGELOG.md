@@ -10,7 +10,8 @@ User-facing changes to the reusable workflows and standalone GitHub Actions are 
 
 - Separate repository GitHub Releases from consumer npm publishing; this private repository does not publish an npm package.
 - Authenticate GitHub Packages dependency installs in the reusable Pages workflow.
-- Introduce guarded CI self-healing that inspects trusted failed default-branch runs, applies recognized repairs, verifies changes, and proposes pull requests without automatically merging them.
+- Let reusable Node CI check out a supplied candidate ref for recovery verification.
+- Add event-driven, guarded CI recovery: inspect trusted failed default-branch runs, propose supported dependency repairs, validate candidates using reusable Node CI, and open reviewable pull requests only after validation. No automatic merge.
 
 ## [0.2.0]
 
