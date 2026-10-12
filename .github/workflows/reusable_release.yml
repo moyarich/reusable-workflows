@@ -275,10 +275,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Never force-update an alias that is attached to a finalized release.
-          FINALIZED_ALIAS="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" | jq -r --arg tag "$MAJOR_TAG" '[.[][] | select(.tag_name == $tag and .draft == false)] | length')"
-          if [ "$FINALIZED_ALIAS" -gt 0 ]; then
-            echo "::error::Cannot move $MAJOR_TAG: an existing published GitHub Release uses this tag."
+          # GitHub protects tags associated with immutable releases.
+          IMMUTABLE_ALIAS="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" | jq -r --arg tag "$MAJOR_TAG" '[.[][] | select(.tag_name == $tag and .immutable == true)] | length')"
+          if [ "$IMMUTABLE_ALIAS" -gt 0 ]; then
+            echo "::error::Cannot move $MAJOR_TAG: an immutable GitHub Release uses this tag."
             exit 1
           fi
           git tag --force "$MAJOR_TAG" HEAD
