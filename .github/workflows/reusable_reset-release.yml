@@ -226,6 +226,26 @@ jobs:
               '
           )"
 
+          # Capture the pre-mutation GitHub Release and tag state in the job summary.
+          BEFORE_TAG_SHA="$(git rev-parse --verify --quiet "refs/tags/$RELEASE_TAG^{commit}" || true)"
+          {
+            echo "## Before recovery"
+            echo
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            printf '| Canonical tag | `%s` |\\n' "$RELEASE_TAG"
+            printf '| Tag commit | `%s` |\\n' "${BEFORE_TAG_SHA:-absent}"
+            if [ -n "$BACKUP_RELEASE" ]; then
+              printf '| Release ID | `%s` |\\n' "$(jq -r '.id' <<< "$BACKUP_RELEASE")"
+              printf '| Release state | `%s` |\\n' "$(jq -r 'if .draft then "draft" else "published" end' <<< "$BACKUP_RELEASE")"
+              printf '| Immutable | `%s` |\\n' "$(jq -r '.immutable // false' <<< "$BACKUP_RELEASE")"
+              printf '| Title | %s |\\n' "$(jq -r '.name // "" | gsub("[\\r\\n|]"; " ")' <<< "$BACKUP_RELEASE")"
+            else
+              echo "| Release | absent |"
+            fi
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+
           BACKUP_RELEASE_ID=""
           BACKUP_BODY_BASE64=""
           BACKUP_UPDATED_AT=""
@@ -387,6 +407,46 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Verify after-state and summarize changes
+        if: ${{ always() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.resolve.outputs.release-tag }}
+          DRY_RUN: ${{ inputs.dry-run }}
+          RESOLVE_RESULT: ${{ needs.resolve.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "## After recovery"
+            echo
+            if [ -z "$RELEASE_TAG" ]; then
+              echo "Recovery target was not resolved; no after-state can be verified."
+              exit 0
+            fi
+            RELEASE="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" | jq -c --arg tag "$RELEASE_TAG" '[.[][] | select(.tag_name == $tag)] | first // empty')" || RELEASE=""
+            TAG_SHA="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" --jq '.object.sha' 2>/dev/null || true)"
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            printf '| Canonical tag | `%s` |\\n' "$RELEASE_TAG"
+            printf '| Tag object SHA | `%s` |\\n' "${TAG_SHA:-absent}"
+            if [ -n "$RELEASE" ]; then
+              printf '| Release ID | `%s` |\\n' "$(jq -r '.id' <<< "$RELEASE")"
+              printf '| Release state | `%s` |\\n' "$(jq -r 'if .draft then "draft" else "published" end' <<< "$RELEASE")"
+              printf '| Immutable | `%s` |\\n' "$(jq -r '.immutable // false' <<< "$RELEASE")"
+              printf '| Title | %s |\\n' "$(jq -r '.name // "" | gsub("[\\r\\n|]"; " ")' <<< "$RELEASE")"
+            else
+              echo "| Release | absent |"
+            fi
+            echo
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "Dry-run: this is an unchanged-state audit, not proof of a recovery mutation."
+            elif [ "$RESOLVE_RESULT" != "success" ]; then
+              echo "Recovery failed during resolution; after-state recorded for diagnosis."
+            else
+              echo "After-state independently queried from GitHub; compare it with Before recovery above."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Reset result
         shell: bash
         run: |
