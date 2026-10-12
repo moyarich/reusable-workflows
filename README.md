@@ -220,4 +220,10 @@ It does not invoke autofix.ci or fetch an unpinned Prettier version.
 
 ## Guarded CI self-healing (planned for v0.2.1)
 
-The reusable `reusable_ci-self-heal.yml` workflow bundles its repair recipes directly in the versioned workflow (no separate helper-repository checkout), examines failed CI runs on the caller's default branch, runs recognized repair recipes, verifies changes, and opens a reviewable pull request. It never automatically merges a repair. Callers must grant `actions: read`, `contents: write`, and `pull-requests: write`, and can provide a dedicated `recovery-token` when their GitHub Actions token cannot open pull requests. Pin consumers to `@v0.2.1` after release rather than referencing feature branches.
+The reusable `reusable_ci-self-heal.yml` accepts a failed default-branch CI run, applies recognized repair recipes, and pushes a candidate branch. It then invokes **`reusable_node-ci.yml@v0.2.1`** to validate the candidate before opening a reviewable pull request. It never automatically merges.
+
+For automatic monitoring, copy [the workflow_run caller](examples/ci-self-heal/workflow.yml) to your consumer repository after v0.2.1 is released. Match the CI workflow name and default branch to your repository. See the [guide](examples/ci-self-heal/page.mdx).
+
+Supported automatic repairs currently cover npm audit fixes; unrecognized failures do not generate a PR. Workflow definition files are excluded from automatic repair commits. Callers need `actions: read`, `contents: write`, `pull-requests: write`, and `packages: read`. If the default GitHub token cannot create pull requests, pass a `recovery-token` secret.
+
+The reusable workflow and its CI verification use matching immutable v0.2.1 references. Neither reference can be used by consumers until the tag is published.
