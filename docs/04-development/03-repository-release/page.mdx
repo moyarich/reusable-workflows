@@ -32,6 +32,10 @@ The repository-local caller delegates draft mechanics to:
 uses: ./.github/workflows/reusable_release-drafter.yml
 ```
 
+## Publishing a repository release
+
+The local [Release workflow](../../../.github/workflows/release.yml) supports `auto`, `package-json`, `bump`, and `exact`. `auto` uses the latest **published** stable GitHub Release as its patch baseline; it ignores `package.json` and drafts, and uses the configurable `initial-version` for the first release. `package-json` uses the manifest unchanged and remains the Release workflow's default. `bump` explicitly increments the manifest; `exact` selects a specified version. A non-dry-run release updates `package.json` if the selected version differs, before creating the immutable tag and publishing the GitHub Release. No npm package is published from this repository.
+
 ## Dry run
 
 The repository-local workflow defaults to `dry-run: true`.
