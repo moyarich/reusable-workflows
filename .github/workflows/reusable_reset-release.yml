@@ -83,6 +83,57 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Capture initial release and tag state
+        if: ${{ always() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE_SELECTOR: ${{ inputs.package }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          {
+            echo "## Before recovery (pre-validation snapshot)"
+            echo
+            echo "| Field | Original value |"
+            echo "| --- | --- |"
+            printf '| Selector | \`%s\` |\\n' "$PACKAGE_SELECTOR"
+          } >> "$GITHUB_STEP_SUMMARY"
+          MANIFEST=""
+          if [ "$PACKAGE_SELECTOR" = "." ]; then
+            MANIFEST=package.json
+          elif [ -f "$PACKAGE_SELECTOR/package.json" ]; then
+            MANIFEST="$PACKAGE_SELECTOR/package.json"
+          elif [ -d packages ]; then
+            MANIFEST="$(find packages -name package.json -not -path '*/node_modules/*' -print0 | xargs -0 -r jq -r --arg name "$PACKAGE_SELECTOR" 'select(.name == $name) | input_filename' | head -n 1)"
+          fi
+          if [ -z "$MANIFEST" ] || [ ! -f "$MANIFEST" ]; then
+            echo "Package manifest unavailable; initial snapshot could not identify a canonical tag." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          VERSION="$(jq -r '.version // empty' "$MANIFEST")"
+          DIRECTORY="$(dirname "$MANIFEST")"
+          if [ "$DIRECTORY" = "." ]; then
+            PACKAGE_NAME="$(jq -r '.name' "$MANIFEST")"
+            TAG="$PACKAGE_NAME@$VERSION"
+          else
+            TAG="$DIRECTORY@$VERSION"
+          fi
+          REF_SHA="$(git rev-parse --verify --quiet "refs/tags/$TAG^{commit}" 2>/dev/null || true)"
+          RELEASE="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" 2>/dev/null | jq -c --arg tag "$TAG" '[.[][] | select(.tag_name == $tag)] | first // empty' || true)"
+          {
+            printf '| Canonical tag | \`%s\` |\\n' "$TAG"
+            printf '| Tag commit | \`%s\` |\\n' "${REF_SHA:-absent}"
+            if [ -n "$RELEASE" ]; then
+              printf '| Release ID | \`%s\` |\\n' "$(jq -r '.id' <<< "$RELEASE")"
+              printf '| Release state | \`%s\` |\\n' "$(jq -r 'if .draft then "draft" else "published" end' <<< "$RELEASE")"
+              printf '| Immutable | \`%s\` |\\n' "$(jq -r '.immutable // false' <<< "$RELEASE")"
+              printf '| Release title | %s |\\n' "$(jq -r '.name // "" | gsub("[\\r\\n|]"; " ")' <<< "$RELEASE")"
+            else
+              echo "| Release | absent or unavailable |"
+            fi
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Resolve package identity
         id: package
         env:
@@ -225,26 +276,6 @@ jobs:
                 | last // empty
               '
           )"
-
-          # Capture the pre-mutation GitHub Release and tag state in the job summary.
-          BEFORE_TAG_SHA="$(git rev-parse --verify --quiet "refs/tags/$RELEASE_TAG^{commit}" || true)"
-          {
-            echo "## Before recovery"
-            echo
-            echo "| Field | Value |"
-            echo "| --- | --- |"
-            printf '| Canonical tag | `%s` |\\n' "$RELEASE_TAG"
-            printf '| Tag commit | `%s` |\\n' "${BEFORE_TAG_SHA:-absent}"
-            if [ -n "$BACKUP_RELEASE" ]; then
-              printf '| Release ID | `%s` |\\n' "$(jq -r '.id' <<< "$BACKUP_RELEASE")"
-              printf '| Release state | `%s` |\\n' "$(jq -r 'if .draft then "draft" else "published" end' <<< "$BACKUP_RELEASE")"
-              printf '| Immutable | `%s` |\\n' "$(jq -r '.immutable // false' <<< "$BACKUP_RELEASE")"
-              printf '| Title | %s |\\n' "$(jq -r '.name // "" | gsub("[\\r\\n|]"; " ")' <<< "$BACKUP_RELEASE")"
-            else
-              echo "| Release | absent |"
-            fi
-            echo
-          } >> "$GITHUB_STEP_SUMMARY"
 
           BACKUP_RELEASE_ID=""
           BACKUP_BODY_BASE64=""
