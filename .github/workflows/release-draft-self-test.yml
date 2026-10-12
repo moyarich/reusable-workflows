@@ -8,6 +8,8 @@ on:
       - "actions/release-draft-sync/**"
       - "actions/validate-release-identity/**"
       - "tests/release-identity-marker.test.mjs"
+      - "tests/release-draft-auto-version.test.mjs"
+      - ".github/workflows/release-draft.yml"
       - ".github/release-drafter-template.yml"
       - "CHANGELOG.md"
   workflow_dispatch:
@@ -31,12 +33,12 @@ jobs:
       target-key: release-drafter-self-test
       dry-run: true
 
-  identity-markers:
-    name: Release marker contract
+  release-contracts:
+    name: Release marker and version contracts
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
-      - run: node --test tests/release-identity-marker.test.mjs
+      - run: node --test tests/release-identity-marker.test.mjs tests/release-draft-auto-version.test.mjs
