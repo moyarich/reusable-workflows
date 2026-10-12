@@ -40,11 +40,11 @@ See [Release Drafter manual dispatch and version selection](docs/release-drafter
 
 **This repository ships GitHub Actions workflows and standalone actions, not an npm package.** Its root `package.json` is private and exists only for repository development, version tracking, and the playground.
 
-To release reusable workflows, run [`.github/workflows/release.yml`](.github/workflows/release.yml) using **Actions → Release → Run workflow**. A non-dry-run release updates the root version, publishes the immutable `vX.Y.Z` GitHub Release/tag, and advances the compatible `vX` alias if selected. Consumers use `@v0` or a pinned version such as `@v0.2.1` (once published); no npm or GitHub Packages publication is involved.
+To release reusable workflows, run [`.github/workflows/release.yml`](.github/workflows/release.yml) using **Actions → Release → Run workflow**. For v0.2.1, use version mode `package-json` (the root version is already `0.2.1`); do not apply another patch bump. A non-dry-run release publishes the immutable `vX.Y.Z` GitHub Release/tag, and advances the compatible `vX` alias if selected. Consumers use `@v0` or a pinned version such as `@v0.2.1` (once published); no npm or GitHub Packages publication is involved.
 
 The `reusable_npm-prepare-release.yml`, `reusable_npm-release.yml`, and `reusable_npm-publish.yml` workflows exist **for other repositories to call** via `workflow_call`. They are not part of this repository's release pipeline. The npm workflows are **separate, explicitly initiated operations**: they are not triggered by `.github/workflows/release.yml`. If you later decide to distribute an npm package from this repository, first make its intended package publishable (including reviewing `private`, package contents, registry, and authentication), then deliberately run the appropriate npm workflow. Keep `dry-run: true` until its checks pass.
 
-The npm/CLI implementation is released separately as `@moyarich/workspace-tools`.
+The npm/CLI implementation is released separately as `@moyarich/workspace-tools`. The `0.2.0` reference below is the Workspace Tools CLI version, not the reusable-workflows release version.
 
 
 ## Workspace Tools source
