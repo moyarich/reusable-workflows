@@ -12,6 +12,7 @@ on:
         default: package-json
         type: choice
         options:
+          - auto
           - bump
           - package-json
           - exact
@@ -69,6 +70,8 @@ jobs:
           VERSION_MODE: ${{ inputs.version-mode }}
           VERSION_BUMP: ${{ inputs.version-bump }}
           EXACT_VERSION: ${{ inputs.exact-version }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
 
@@ -80,6 +83,16 @@ jobs:
           fi
 
           case "$VERSION_MODE" in
+            auto)
+              # Draft and release auto modes share the same baseline:
+              # the latest published release, ignoring drafts and package.json.
+              PREVIOUS="$(gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100" | jq -r '[.[][] | select(.draft == false and (.tag_name | test("^v[0-9]+[.][0-9]+[.][0-9]+$")))] | sort_by(.published_at // .created_at) | last | .tag_name // empty')"
+              if [ -z "$PREVIOUS" ]; then
+                VERSION="0.1.0"
+              else
+                VERSION="$(node -e 'const v=process.argv[1].slice(1).split(".").map(Number); console.log(`${v[0]}.${v[1]}.${v[2]+1}`)' "$PREVIOUS")"
+              fi
+              ;;
             package-json)
               VERSION="$CURRENT_VERSION"
               ;;
@@ -148,7 +161,7 @@ jobs:
               )"
               ;;
             *)
-              echo "::error::Version mode must be bump, package-json, or exact."
+              echo "::error::Version mode must be auto, bump, package-json, or exact."
               exit 1
               ;;
           esac
