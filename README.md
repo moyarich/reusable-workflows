@@ -1,12 +1,21 @@
 # Reusable Workflows
 
-Reusable GitHub Actions workflows and actions for CI, releases, publishing, and repository automation.
+Reusable GitHub Actions workflows for building, testing, releasing, publishing, and maintaining projects across repositories.
 
-Configure common development and release tasks once and reuse them across repositories. Features include Node.js CI, GitHub Pages deployment, release drafting, package publishing, automated maintenance, and release recovery.
+**Standardize your automation without duplicating configuration.** Use ready-made workflows for continuous integration, GitHub Pages deployment, release management, package publishing, and automated CI recovery.
 
-## Quick start
+## Features
 
-Call a reusable workflow from your repository's `.github/workflows/` directory:
+- **Continuous Integration** — Run builds, tests, linting, and type checks with reusable Node.js CI workflows.
+- **GitHub Pages** — Build and deploy documentation, playgrounds, and static sites.
+- **Release Management** — Prepare release drafts, manage versioned releases, and coordinate release workflows.
+- **Package Publishing** — Publish packages to supported npm registries, including multi-package workspaces.
+- **CI Recovery** — Detect eligible workflow failures and support guarded, automated remediation.
+- **Repository Automation** — Reuse common maintenance and development workflows across projects.
+
+## Quick Start
+
+Add a workflow to your repository's `.github/workflows/` directory:
 
 ```yaml
 name: CI
@@ -20,17 +29,33 @@ jobs:
     uses: moyarich/reusable-workflows/.github/workflows/reusable_node-ci.yml@v0
 ```
 
-Use a published version tag (for example, `@v0.2.0`) to pin a specific release, or the `@v0` major tag to receive compatible updates.
+This example runs the shared Node.js CI workflow on pushes and pull requests.
 
-## Explore
+### Versioning
 
-- [Getting started](docs/01-getting-started/page.mdx) — setup and first workflow
-- [Available workflows](docs/02-workflows/page.mdx) — choose a workflow for your task
-- [Workflow reference](docs/03-reference/01-workflows/page.mdx) — configuration and inputs
-- [Examples](examples/) — copyable workflow examples
-- [Release Drafter guide](docs/release-drafter-dispatch/page.mdx) — release draft options
-- [CI self-healing example](examples/ci-self-heal/page.mdx) — guided CI recovery
+Choose how your repository receives workflow updates:
 
-## More information
+- `@v0` — Follow compatible updates within the v0 release series.
+- `@v0.2.1` — Pin to a specific published release.
+- `@<commit-sha>` — Pin to an immutable commit for maximum reproducibility.
 
-See the [changelog](CHANGELOG.md) and [GitHub Releases](https://github.com/moyarich/reusable-workflows/releases) for version history. Repository maintenance and advanced workflow configuration are documented in [maintainer notes](docs/04-development/04-maintainer-and-advanced-workflows/page.mdx).
+For additional configuration, permissions, and workflow inputs, see the [Getting Started guide](docs/01-getting-started/page.mdx).
+
+## Documentation
+
+**[Explore the documentation](https://moyarich.github.io/reusable-workflows/)**
+
+| Resource | Description |
+|---|---|
+| [Getting Started](docs/01-getting-started/page.mdx) | Set up your first reusable workflow. |
+| [Available Workflows](docs/02-workflows/page.mdx) | Discover workflows by purpose and capability. |
+| [Workflow Reference](docs/03-reference/01-workflows/page.mdx) | Explore supported inputs, secrets, permissions, and outputs. |
+| [Examples](examples/) | Browse practical, copyable workflow configurations. |
+| [Release Drafter](docs/release-drafter-dispatch/page.mdx) | Configure release drafting and synchronization. |
+| [CI Self-Healing](examples/ci-self-heal/page.mdx) | Explore automated CI recovery and safeguards. |
+
+## Releases
+
+See the [Changelog](CHANGELOG.md) for changes between versions or browse [GitHub Releases](https://github.com/moyarich/reusable-workflows/releases) for published releases.
+
+For contributor guidance and advanced repository configuration, see the [Maintainer Documentation](docs/04-development/04-maintainer-and-advanced-workflows/page.mdx).
