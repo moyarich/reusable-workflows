@@ -67,8 +67,93 @@ jobs:
       parameters-json: ${{ toJSON(inputs) }}
       heading: "Restore release · Workflow inputs"
 
+  preflight:
+    name: "job: API-only before-state audit"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      canonical-tag: ${{ steps.snapshot.outputs.canonical-tag }}
+    steps:
+      - name: Capture package release state without checkout
+        id: snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SELECTOR: ${{ inputs.package }}
+          TARGET_BRANCH: ${{ inputs.target-branch }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO="repos/$GITHUB_REPOSITORY"
+          MANIFEST_PATH=""
+          if [ "$SELECTOR" = "." ]; then
+            MANIFEST_PATH=package.json
+          elif [[ "$SELECTOR" == */* ]] || [[ "$SELECTOR" == packages/* ]]; then
+            MANIFEST_PATH="${SELECTOR%/}/package.json"
+          fi
+          if [ -z "$MANIFEST_PATH" ]; then
+            TREE="$(gh api "$REPO/git/trees/$TARGET_BRANCH?recursive=1")"
+            mapfile -t FILES < <(jq -r '.tree[] | select(.type == "blob" and (.path | endswith("/package.json") or . == "package.json")) | .path' <<< "$TREE")
+            MATCHES=()
+            for path in "${FILES[@]}"; do
+              CONTENT="$(gh api "$REPO/contents/$path?ref=$TARGET_BRANCH" --jq '.content' | base64 -d)"
+              if [ "$(jq -r '.name // ""' <<< "$CONTENT")" = "$SELECTOR" ]; then
+                MATCHES+=("$path")
+              fi
+            done
+            if [ "${#MATCHES[@]}" -ne 1 ]; then
+              echo "::error::Expected exactly one matching manifest for $SELECTOR, found ${#MATCHES[@]}."
+              exit 1
+            fi
+            MANIFEST_PATH="${MATCHES[0]}"
+          fi
+          MANIFEST="$(gh api "$REPO/contents/$MANIFEST_PATH?ref=$TARGET_BRANCH" --jq '.content' | base64 -d)"
+          VERSION="$(jq -er '.version' <<< "$MANIFEST")"
+          PACKAGE_NAME="$(jq -er '.name' <<< "$MANIFEST")"
+          DIRECTORY="${MANIFEST_PATH%/package.json}"
+          if [ "$MANIFEST_PATH" = package.json ]; then
+            TAG="$PACKAGE_NAME@$VERSION"
+          else
+            TAG="$DIRECTORY@$VERSION"
+          fi
+          RELEASES="$(gh api --paginate --slurp "$REPO/releases?per_page=100")"
+          RELEASE="$(jq -c --arg tag "$TAG" '[.[][] | select(.tag_name == $tag)] | first // empty' <<< "$RELEASES")"
+          TAG_STATE=absent
+          TAG_SHA=""
+          RESPONSE="$(mktemp)"
+          if gh api "$REPO/git/ref/tags/$TAG" > "$RESPONSE" 2>"$RESPONSE.err"; then
+            TAG_STATE=present
+            TAG_SHA="$(jq -r '.object.sha' < "$RESPONSE")"
+          elif grep -q 'HTTP 404' "$RESPONSE.err"; then
+            TAG_STATE=absent
+          else
+            echo "::error::Cannot verify existing tag $TAG; state is unknown."
+            cat "$RESPONSE.err" >&2
+            exit 1
+          fi
+          if [ -n "$RELEASE" ]; then
+            jq -n --arg tag "$TAG" --arg sha "$TAG_SHA" --arg tagState "$TAG_STATE" --argjson release "$RELEASE" '{tag:$tag,tag_state:$tagState,tag_sha:$sha,release:{id:$release.id,name:$release.name,draft:$release.draft,immutable:$release.immutable,prerelease:$release.prerelease,updated_at:$release.updated_at}}' > before.json
+          else
+            jq -n --arg tag "$TAG" --arg sha "$TAG_SHA" --arg tagState "$TAG_STATE" '{tag:$tag,tag_state:$tagState,tag_sha:$sha,release:null}' > before.json
+          fi
+          echo "canonical-tag=$TAG" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Before recovery (GitHub API)"
+            echo
+            echo '~~~json'
+            jq '.' before.json
+            echo '~~~'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Persist original state
+        uses: actions/upload-artifact@v4
+        with:
+          name: restore-before-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.package }}
+          path: before.json
+          retention-days: 30
+          if-no-files-found: error
+
   resolve:
-    needs: dispatch-input-summary
+    needs: [dispatch-input-summary, preflight]
     name: "job: Resolve recovery target"
     runs-on: ubuntu-latest
     permissions:
@@ -108,78 +193,6 @@ jobs:
           ref: ${{ inputs.target-branch }}
           fetch-depth: 0
           persist-credentials: false
-
-      - name: Capture initial release and tag state
-        if: ${{ always() }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PACKAGE_SELECTOR: ${{ inputs.package }}
-        shell: bash
-        run: |
-          set -uo pipefail
-          {
-            echo "## Before recovery (pre-validation snapshot)"
-            echo
-            echo "| Field | Original value |"
-            echo "| --- | --- |"
-            printf '| Selector | `%s` |\n' "$PACKAGE_SELECTOR"
-          } >> "$GITHUB_STEP_SUMMARY"
-          MANIFEST=""
-          if [ "$PACKAGE_SELECTOR" = "." ]; then
-            MANIFEST=package.json
-          elif [ -f "$PACKAGE_SELECTOR/package.json" ]; then
-            MANIFEST="$PACKAGE_SELECTOR/package.json"
-          elif [ -d packages ]; then
-            MANIFEST="$(find packages -name package.json -not -path '*/node_modules/*' -print0 | xargs -0 -r jq -r --arg name "$PACKAGE_SELECTOR" 'select(.name == $name) | input_filename' | head -n 1)"
-          fi
-          if [ -z "$MANIFEST" ] || [ ! -f "$MANIFEST" ]; then
-            echo "Package manifest unavailable; initial snapshot could not identify a canonical tag." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-          VERSION="$(jq -r '.version // empty' "$MANIFEST")"
-          DIRECTORY="$(dirname "$MANIFEST")"
-          if [ "$DIRECTORY" = "." ]; then
-            PACKAGE_NAME="$(jq -r '.name' "$MANIFEST")"
-            TAG="$PACKAGE_NAME@$VERSION"
-          else
-            TAG="$DIRECTORY@$VERSION"
-          fi
-          # Both states come from the GitHub API, not the local checkout.
-          TAG_STATUS=unknown
-          REF_SHA=""
-          REF_FILE="$RUNNER_TEMP/preflight-tag.json"
-          HTTP="$(gh api -i "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" > "$REF_FILE" 2>&1 && echo 200 || echo error)"
-          if [ "$HTTP" = "200" ]; then
-            TAG_STATUS=present
-            REF_SHA="$(sed -n '/^{/,$p' "$REF_FILE" | jq -r '.object.sha // empty' 2>/dev/null || true)"
-          elif grep -Eq 'HTTP/[0-9.]+ 404|404 Not Found' "$REF_FILE"; then
-            TAG_STATUS=absent
-          else
-            echo "::warning::Unable to query original Git tag $TAG; status unknown."
-          fi
-          RELEASE_STATUS=unknown
-          RELEASE=""
-          RELEASES_FILE="$RUNNER_TEMP/preflight-releases.json"
-          if gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RELEASES_FILE"; then
-            RELEASE="$(jq -c --arg tag "$TAG" '[.[][] | select(.tag_name == $tag)] | first // empty' "$RELEASES_FILE")"
-            RELEASE_STATUS="$([ -n "$RELEASE" ] && echo present || echo absent)"
-          else
-            echo "::warning::Unable to query original releases; status unknown."
-          fi
-          {
-            printf '| Canonical tag | `%s` |\n' "$TAG"
-            printf '| Tag lookup | `%s` |\n' "$TAG_STATUS"
-            printf '| Tag object SHA | `%s` |\n' "${REF_SHA:-unknown}"
-            if [ -n "$RELEASE" ]; then
-              printf '| Release ID | `%s` |\n' "$(jq -r '.id' <<< "$RELEASE")"
-              printf '| Release state | `%s` |\n' "$(jq -r 'if .draft then "draft" else "published" end' <<< "$RELEASE")"
-              printf '| Immutable | `%s` |\n' "$(jq -r '.immutable // false' <<< "$RELEASE")"
-              printf '| Release title | %s |\n' "$(jq -r '.name // "" | gsub("[\r\n|]"; " ")' <<< "$RELEASE")"
-            else
-              printf '| Release lookup | `%s` |\n' "$RELEASE_STATUS"
-            fi
-            echo
-          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
