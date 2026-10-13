@@ -45,6 +45,12 @@ on:
           - github
           - npm
           - all
+          - custom
+      registry-url:
+        description: HTTPS registry URL when registry=custom
+        type: string
+        required: false
+        default: ""
       tag:
         description: Distribution tag; leave empty to use the suggested tag.
         required: false
@@ -101,6 +107,11 @@ on:
         required: false
         default: github
         type: string
+      registry-url:
+        description: HTTPS registry URL when registry=custom
+        type: string
+        required: false
+        default: ""
       tag:
         description: npm distribution tag; leave empty to use the suggested tag.
         required: false
@@ -138,6 +149,8 @@ on:
         value: ${{ jobs.publish-package.outputs.result-json }}
     secrets:
       npm-token:
+        required: false
+      custom-registry-token:
         required: false
 
 permissions: {}
@@ -221,6 +234,79 @@ jobs:
             exit 1
           fi
 
+      - name: Checkout shared registry defaults
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .github/reusable-registry-config
+          persist-credentials: false
+          sparse-checkout: config/registries.yml
+          sparse-checkout-cone-mode: false
+
+      - name: Resolve registry configuration
+        shell: bash
+        env:
+          SELECTED_REGISTRY: ${{ inputs.registry }}
+          OVERRIDE_URL: ${{ inputs.registry-url }}
+        run: |
+          set -euo pipefail
+          ruby -ryaml -ruri <<'RUBY'
+          base = YAML.safe_load_file('.github/reusable-registry-config/config/registries.yml')
+          override = File.exist?('.github/registries.yml') ? YAML.safe_load_file('.github/registries.yml') : {}
+          defaults = base.fetch('registries')
+          configured = override.fetch('registries', {})
+          abort 'Registry override must be a mapping' unless configured.is_a?(Hash)
+          names = (defaults.keys + configured.keys).uniq
+          entries = names.to_h do |name|
+            value = (defaults[name] || {}).merge(configured[name] || {})
+            abort "Invalid registry #{name}" unless value.is_a?(Hash)
+            [name, value]
+          end
+          selection = ENV.fetch('SELECTED_REGISTRY')
+          # Backwards compatibility: all continues to mean npm and github.
+          selected = selection == 'all' ? %w[npm github] : [selection]
+          selected.each do |name|
+            entry = entries.fetch(name) { abort "Unknown registry: #{name}" }
+            abort "Registry disabled: #{name}" if entry['enabled'] == false && ENV.fetch('OVERRIDE_URL','').empty?
+            url = ENV.fetch('OVERRIDE_URL', '').empty? ? entry['url'].to_s : ENV.fetch('OVERRIDE_URL')
+            uri = URI.parse(url)
+            abort "Invalid HTTPS registry URL for #{name}" unless uri.is_a?(URI::HTTPS) && uri.userinfo.nil? && uri.query.nil? && uri.fragment.nil? && uri.host
+            abort "Invalid publish mode for #{name}" unless %w[staged direct].include?(entry['publish-mode'])
+            if name == 'npm' || name == 'github'
+              standard = name == 'npm' ? 'https://registry.npmjs.org' : 'https://npm.pkg.github.com'
+              abort "Built-in registry URL cannot change: #{name}; use custom" unless url == standard
+            end
+          end
+          abort "Custom registry selection requires a single registry" if selected.size > 1 && selected.include?('custom')
+          effective = selection == 'all' ? 'all' : (%w[npm github].include?(selection) ? selection : 'custom')
+          selected_url = selection == 'all' ? '' : (ENV.fetch('OVERRIDE_URL','').empty? ? entries.fetch(selection)['url'].to_s : ENV.fetch('OVERRIDE_URL'))
+          File.open(ENV.fetch('GITHUB_ENV'),'a') do |f|
+            f.puts "EFFECTIVE_REGISTRY=#{effective}"
+            f.puts "EFFECTIVE_REGISTRY_URL=#{selected_url}"
+          end
+          RUBY
+
+      - name: Validate custom registry inputs
+        if: env.EFFECTIVE_REGISTRY == 'custom'
+        env:
+          URL_VALUE: ${{ env.EFFECTIVE_REGISTRY_URL }}
+          HAS_TOKEN: ${{ secrets.custom-registry-token != '' }}
+          DRY_RUN: ${{ inputs.dry-run }}
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const value = process.env.URL_VALUE;
+          let url;
+          try { url = new URL(value); } catch { throw new Error('Custom registry URL is invalid.'); }
+          if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) {
+            throw new Error('Custom registry must be HTTPS without embedded credentials, query, or fragment.');
+          }
+          if (process.env.DRY_RUN !== 'true' && process.env.HAS_TOKEN !== 'true') {
+            throw new Error('A custom registry token secret is required for live publishing.');
+          }
+          NODE
+
       - name: Install workspace dependencies
         env:
           NODE_AUTH_TOKEN: ${{ github.token }}
@@ -252,6 +338,8 @@ jobs:
         id: plan
         env:
           PACKAGE_SELECTOR: ${{ inputs.package-directory }}
+          CUSTOM_REGISTRY_URL: ${{ env.EFFECTIVE_REGISTRY_URL }}
+          _CUSTOM_REGISTRY_TOKEN: ${{ secrets.custom-registry-token }}
           VERSION_MODE: ${{ inputs.version-mode }}
           EXACT_VERSION: ${{ inputs.exact-version }}
           NODE_AUTH_TOKEN: ${{ github.token }}
@@ -280,11 +368,12 @@ jobs:
 
           PLAN_ARGS=(
             "--package=$PACKAGE_SELECTOR"
-            --registry="${{ inputs.registry }}"
+            --registry="$EFFECTIVE_REGISTRY"
             --list
             --json
           )
 
+          if [ "$EFFECTIVE_REGISTRY" = custom ]; then PLAN_ARGS+=(--registry-url="$CUSTOM_REGISTRY_URL"); fi
           if [ -n "${{ inputs.tag }}" ]; then
             PLAN_ARGS+=(--tag="${{ inputs.tag }}")
           fi
@@ -732,6 +821,8 @@ jobs:
           PACKAGE_SELECTOR: ${{ inputs.package-directory }}
           _GITHUB_TOKEN: ${{ github.token }}
           _NPM_TOKEN: ${{ secrets.npm-token }}
+          _CUSTOM_REGISTRY_TOKEN: ${{ secrets.custom-registry-token }}
+          CUSTOM_REGISTRY_URL: ${{ inputs.registry-url }}
           CANONICAL_ARTIFACT_PATH: ${{ steps.canonical-artifact.outputs.path }}
         run: |
           set -euo pipefail
@@ -741,11 +832,12 @@ jobs:
 
           PUBLISH_ARGS=(
             "--package=$PACKAGE_SELECTOR"
-            --registry="${{ inputs.registry }}"
+            --registry="$EFFECTIVE_REGISTRY"
             --artifact-directory="$ARTIFACT_DIRECTORY"
             --json
           )
 
+          if [ "$EFFECTIVE_REGISTRY" = custom ]; then PUBLISH_ARGS+=(--registry-url="$CUSTOM_REGISTRY_URL"); fi
           if [ -n "${{ steps.plan.outputs.distribution-tag }}" ]; then
             PUBLISH_ARGS+=(--tag="${{ steps.plan.outputs.distribution-tag }}")
           fi
