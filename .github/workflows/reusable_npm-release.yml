@@ -369,6 +369,18 @@ jobs:
 
           echo "VERSION_REQUEST=$VERSION_REQUEST" >> "$GITHUB_ENV"
 
+      - name: Exclude temporary action checkout from Git status
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The workflow's version-matched action checkout is not caller content.
+          # Git's local exclude makes the same safe distinction for Workspace Tools.
+          EXCLUDE_FILE="$(git rev-parse --git-path info/exclude)"
+          mkdir -p "$(dirname "$EXCLUDE_FILE")"
+          if ! grep -Fxq '/.github/reusable-workflows-runtime/' "$EXCLUDE_FILE" 2>/dev/null; then
+            printf '\n/.github/reusable-workflows-runtime/\n' >> "$EXCLUDE_FILE"
+          fi
+
       - name: Verify clean working tree
         shell: bash
         run: |
