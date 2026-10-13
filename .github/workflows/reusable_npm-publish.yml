@@ -45,6 +45,12 @@ on:
           - github
           - npm
           - all
+          - custom
+      registry-url:
+        description: HTTPS registry URL when registry=custom
+        type: string
+        required: false
+        default: ""
       tag:
         description: Distribution tag; leave empty to use the suggested tag.
         required: false
@@ -101,6 +107,11 @@ on:
         required: false
         default: github
         type: string
+      registry-url:
+        description: HTTPS registry URL when registry=custom
+        type: string
+        required: false
+        default: ""
       tag:
         description: npm distribution tag; leave empty to use the suggested tag.
         required: false
@@ -138,6 +149,8 @@ on:
         value: ${{ jobs.publish-package.outputs.result-json }}
     secrets:
       npm-token:
+        required: false
+      custom-registry-token:
         required: false
 
 permissions: {}
@@ -221,6 +234,26 @@ jobs:
             exit 1
           fi
 
+      - name: Validate custom registry inputs
+        if: inputs.registry == 'custom'
+        env:
+          URL_VALUE: ${{ inputs.registry-url }}
+          HAS_TOKEN: ${{ secrets.custom-registry-token != '' }}
+          DRY_RUN: ${{ inputs.dry-run }}
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const value = process.env.URL_VALUE;
+          let url;
+          try { url = new URL(value); } catch { throw new Error('Custom registry URL is invalid.'); }
+          if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) {
+            throw new Error('Custom registry must be HTTPS without embedded credentials, query, or fragment.');
+          }
+          if (process.env.DRY_RUN !== 'true' && process.env.HAS_TOKEN !== 'true') {
+            throw new Error('A custom registry token secret is required for live publishing.');
+          }
+          NODE
+
       - name: Install workspace dependencies
         env:
           NODE_AUTH_TOKEN: ${{ github.token }}
@@ -252,6 +285,8 @@ jobs:
         id: plan
         env:
           PACKAGE_SELECTOR: ${{ inputs.package-directory }}
+          CUSTOM_REGISTRY_URL: ${{ inputs.registry-url }}
+          _CUSTOM_REGISTRY_TOKEN: ${{ secrets.custom-registry-token }}
           VERSION_MODE: ${{ inputs.version-mode }}
           EXACT_VERSION: ${{ inputs.exact-version }}
           NODE_AUTH_TOKEN: ${{ github.token }}
@@ -285,6 +320,7 @@ jobs:
             --json
           )
 
+          if [ "${{ inputs.registry }}" = custom ]; then PLAN_ARGS+=(--registry-url="$CUSTOM_REGISTRY_URL"); fi
           if [ -n "${{ inputs.tag }}" ]; then
             PLAN_ARGS+=(--tag="${{ inputs.tag }}")
           fi
@@ -732,6 +768,8 @@ jobs:
           PACKAGE_SELECTOR: ${{ inputs.package-directory }}
           _GITHUB_TOKEN: ${{ github.token }}
           _NPM_TOKEN: ${{ secrets.npm-token }}
+          _CUSTOM_REGISTRY_TOKEN: ${{ secrets.custom-registry-token }}
+          CUSTOM_REGISTRY_URL: ${{ inputs.registry-url }}
           CANONICAL_ARTIFACT_PATH: ${{ steps.canonical-artifact.outputs.path }}
         run: |
           set -euo pipefail
@@ -746,6 +784,7 @@ jobs:
             --json
           )
 
+          if [ "${{ inputs.registry }}" = custom ]; then PUBLISH_ARGS+=(--registry-url="$CUSTOM_REGISTRY_URL"); fi
           if [ -n "${{ steps.plan.outputs.distribution-tag }}" ]; then
             PUBLISH_ARGS+=(--tag="${{ steps.plan.outputs.distribution-tag }}")
           fi
