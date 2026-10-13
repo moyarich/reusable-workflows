@@ -1,0 +1,100 @@
+name: "Reusable · Bulk restore release"
+on:
+  workflow_call:
+    inputs:
+      package:
+        description: "Package selector: all, package name, or directory"
+        required: true
+        default: all
+        type: string
+      target-branch:
+        description: Branch used to resolve the package path and changelog
+        required: true
+        default: main
+        type: string
+      restore-source:
+        description: "Historical source: commit:<sha>, tag:<tag>, run:<id>, artifact:<id>, or github-url:<supported GitHub URL>"
+        required: true
+        type: string
+      match-mode:
+        description: Find release by package version or exact tag
+        required: true
+        default: package-json
+        type: string
+      exact-tag:
+        description: Existing release tag to match when match-mode is exact
+        required: false
+        default: ""
+        type: string
+      skip-finalized:
+        description: Skip finalized releases without modifying them (for bulk live recovery)
+        required: true
+        default: false
+        type: boolean
+      dry-run:
+        description: Preview recovery without mutating the release or tag
+        required: true
+        default: true
+        type: boolean
+
+permissions: {}
+jobs:
+  select:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/reusable_select-recovery-packages.yml
+    with:
+      package: ${{ inputs.package }}
+      match-mode: ${{ inputs.match-mode }}
+      exact-tag: ${{ inputs.exact-tag }}
+      restore-source: ${{ inputs.restore-source }}
+      operation: restore
+      dry-run: ${{ inputs.dry-run }}
+
+  restore:
+    name: "Restore · ${{ matrix.name }}"
+    needs: select
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJSON(needs.select.outputs.matrix) }}
+    permissions:
+      actions: read
+      contents: write
+      packages: read
+      pull-requests: read
+    uses: ./.github/workflows/reusable_restore-release.yml
+    with:
+      draft-template-path: .github/release-drafter-template.yml
+      package: ${{ matrix.directory }}
+      target-branch: ${{ inputs.target-branch }}
+      match-mode: exact
+      exact-tag: ${{ inputs.match-mode == 'exact' && inputs.exact-tag != '' && inputs.package != 'all' && inputs.exact-tag || format('{0}@{1}', matrix.directory, matrix.version) }}
+      restore-source: ${{ inputs.restore-source }}
+      skip-finalized: ${{ inputs.skip-finalized }}
+      dry-run: ${{ inputs.dry-run }}
+
+  coverage:
+    name: "job: Bulk restore coverage"
+    if: ${{ always() }}
+    needs: [select, restore]
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Report package coverage
+        env:
+          COUNT: ${{ needs.select.outputs.count }}
+          SELECTION_RESULT: ${{ needs.select.result }}
+          MATRIX_RESULT: ${{ needs.restore.result }}
+        shell: bash
+        run: |
+          {
+            echo "## Bulk restore coverage"
+            echo
+            echo "| Field | Result |"
+            echo "| --- | --- |"
+            echo "| Selected packages | ${COUNT:-unknown} |"
+            echo "| Selection | $SELECTION_RESULT |"
+            echo "| Package matrix | $MATRIX_RESULT |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          [ "$SELECTION_RESULT" = success ] && [ "$MATRIX_RESULT" = success ]
