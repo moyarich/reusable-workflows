@@ -1,0 +1,92 @@
+name: "Reusable · Bulk reset release"
+on:
+  workflow_call:
+    inputs:
+      package:
+        description: "Package selector: all, package name, or directory"
+        required: true
+        default: all
+        type: string
+      target-branch:
+        description: Release target branch
+        required: true
+        default: main
+        type: string
+      match-mode:
+        description: Find release by package version or exact tag
+        required: true
+        default: package-json
+        type: string
+      exact-tag:
+        description: Existing canonical release tag when match-mode is exact
+        required: false
+        default: ""
+        type: string
+      dry-run:
+        description: Preview the reset without mutating the release or tag
+        required: true
+        default: true
+        type: boolean
+
+permissions: {}
+jobs:
+  select:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/reusable_select-release-packages.yml
+    with:
+      package: ${{ inputs.package }}
+      match-mode: ${{ inputs.match-mode }}
+      exact-tag: ${{ inputs.exact-tag }}
+      # Reset does not require a historical source
+      operation: reset
+      dry-run: ${{ inputs.dry-run }}
+
+  reset:
+    name: "Reset · ${{ matrix.name }}"
+    needs: select
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJSON(needs.select.outputs.matrix) }}
+    concurrency:
+      group: reset-release-${{ github.repository }}-${{ matrix.directory }}
+      cancel-in-progress: false
+    permissions:
+      actions: read
+      contents: write
+      packages: read
+      pull-requests: read
+    uses: ./.github/workflows/reusable_reset-release.yml
+    with:
+      draft-template-path: .github/release-drafter-template.yml
+      package: ${{ matrix.directory }}
+      target-branch: ${{ inputs.target-branch }}
+      match-mode: exact
+      exact-tag: ${{ inputs.match-mode == 'exact' && inputs.exact-tag != '' && inputs.package != 'all' && inputs.exact-tag || format('{0}@{1}', matrix.directory, matrix.version) }}
+      dry-run: ${{ inputs.dry-run }}
+
+  coverage:
+    name: "job: Bulk reset coverage"
+    if: ${{ always() }}
+    needs: [select, reset]
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Report package coverage
+        env:
+          COUNT: ${{ needs.select.outputs.count }}
+          SELECTION_RESULT: ${{ needs.select.result }}
+          MATRIX_RESULT: ${{ needs.reset.result }}
+        shell: bash
+        run: |
+          {
+            echo "## Bulk reset coverage"
+            echo
+            echo "| Field | Result |"
+            echo "| --- | --- |"
+            echo "| Selected packages | ${COUNT:-unknown} |"
+            echo "| Selection | $SELECTION_RESULT |"
+            echo "| Package matrix | $MATRIX_RESULT |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          [ "$SELECTION_RESULT" = success ] && [ "$MATRIX_RESULT" = success ]
