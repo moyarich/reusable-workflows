@@ -1,0 +1,18 @@
+# Default registry definitions. Caller repositories may override at .github/registries.yml.
+# Secret names are documentation; callers must explicitly pass credentials.
+registries:
+  npm:
+    url: https://registry.npmjs.org
+    token-secret: NPM_TOKEN
+    publish-mode: staged
+    enabled: true
+  github:
+    url: https://npm.pkg.github.com
+    token-secret: GITHUB_TOKEN
+    publish-mode: direct
+    enabled: true
+  custom:
+    url: ""
+    token-secret: CUSTOM_REGISTRY_TOKEN
+    publish-mode: direct
+    enabled: false
