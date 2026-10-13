@@ -1130,15 +1130,15 @@ jobs:
             if [ -z "$CHANGELOG_VERSION" ]; then
               echo '> Package version was unresolved; cannot select changelog entries.'
             elif [ ! -f "$CHANGELOG_PATH" ]; then
-              printf '> No changelog found at \`%s\`.\\n' "$CHANGELOG_PATH"
+              printf '> No changelog found at `%s`.\n' "$CHANGELOG_PATH"
             else
               CHANGELOG_SECTION="$(
                 awk -v version="$CHANGELOG_VERSION" '
                   /^##[[:space:]]/ {
                     heading = $0
                     sub(/^##[[:space:]]+/, "", heading)
-                    sub(/^\\[/, "", heading)
-                    sub(/\\].*$/, "", heading)
+                    sub(/^\[/, "", heading)
+                    sub(/\].*$/, "", heading)
                     sub(/^v/, "", heading)
                     sub(/[[:space:]].*$/, "", heading)
                     if (in_section) exit
@@ -1149,9 +1149,9 @@ jobs:
               )"
 
               if [ -n "$CHANGELOG_SECTION" ]; then
-                printf '%s\\n' "$CHANGELOG_SECTION"
+                printf '%s\n' "$CHANGELOG_SECTION"
               else
-                printf '> No matching entry for version \`%s\` in \`%s\`.\\n' "$CHANGELOG_VERSION" "$CHANGELOG_PATH"
+                printf '> No matching entry for version `%s` in `%s`.\n' "$CHANGELOG_VERSION" "$CHANGELOG_PATH"
               fi
             fi
 
