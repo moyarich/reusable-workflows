@@ -119,16 +119,16 @@ jobs:
           const depth = Math.max(...levels.values()) + 1;
           if (depth > 8) throw new Error('Dependency graph has ' + depth + ' levels; bulk workflow supports 8. Extend staged jobs before publishing.');
           const output = fs.createWriteStream(process.env.GITHUB_OUTPUT, {flags:'a'});
-          output.write('count=' + selected.size + '\\n');
-          output.write('depth=' + depth + '\\n');
+          output.write('count=' + selected.size + '\n');
+          output.write('depth=' + depth + '\n');
           for (let i=0; i<8; i++) {
             const entries = [...selected.values()].filter(p => levels.get(p.name) === i).sort((a,b)=>a.name.localeCompare(b.name));
-            output.write('level-' + i + '=' + JSON.stringify({include: entries}) + '\\n');
+            output.write('level-' + i + '=' + JSON.stringify({include: entries}) + '\n');
           }
           output.end();
           const summary = fs.createWriteStream(process.env.GITHUB_STEP_SUMMARY, {flags:'a'});
-          summary.write('# npm publish dependency plan\\n\\nSelected ' + selected.size + ' package(s) in ' + depth + ' stage(s).\\n\\n');
-          for (let i=0; i<depth; i++) summary.write('Stage ' + (i+1) + ': ' + [...selected.values()].filter(p=>levels.get(p.name)===i).map(p=>p.name).join(', ') + '\\n\\n');
+          summary.write('# npm publish dependency plan\n\nSelected ' + selected.size + ' package(s) in ' + depth + ' stage(s).\n\n');
+          for (let i=0; i<depth; i++) summary.write('Stage ' + (i+1) + ': ' + [...selected.values()].filter(p=>levels.get(p.name)===i).map(p=>p.name).join(', ') + '\n\n');
           summary.end();
           NODE
   stage-0:
@@ -154,7 +154,7 @@ jobs:
       verify-git-tag: ${{ inputs.verify-git-tag }}
       node-version: ${{ inputs.node-version }}
     secrets:
-      npm-token: ${{ secrets.npm-token }}
+      npm-token: ${{ secrets['npm-token'] }}
   stage-1:
     name: "Stage 2 · ${{ matrix.name }}"
     needs: [plan, stage-0]
@@ -341,6 +341,6 @@ jobs:
           import fs from 'node:fs';
           const needs=JSON.parse(process.env.RESULTS), depth=Number(process.env.DEPTH);
           const valid=process.env.PLAN_RESULT==='success' && Number(process.env.SELECTED)>0 && Array.from({length:8},(_,i)=> i<depth ? needs['stage-'+i]?.result==='success' : needs['stage-'+i]?.result==='skipped').every(Boolean);
-          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, '# npm publish coverage\\n\\nSelected: '+process.env.SELECTED+'\\n\\nStages: '+depth+'\\n\\nResult: '+(valid?'PASS':'FAIL')+'\\n');
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, '# npm publish coverage\n\nSelected: '+process.env.SELECTED+'\n\nStages: '+depth+'\n\nResult: '+(valid?'PASS':'FAIL')+'\n');
           if (!valid) process.exitCode=1;
           NODE
