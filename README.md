@@ -36,7 +36,7 @@ This example runs the shared Node.js CI workflow on pushes and pull requests.
 Choose how your repository receives workflow updates:
 
 - `@v0` — Follow compatible updates within the v0 release series.
-- `@v0.2.1` — Pin to a specific published release.
+- `@v0.2.2` — Pin to a specific published release.
 - `@<commit-sha>` — Pin to an immutable commit for maximum reproducibility.
 
 For additional configuration, permissions, and workflow inputs, see the [Getting Started guide](docs/01-getting-started/page.mdx).
