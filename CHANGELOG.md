@@ -4,6 +4,21 @@ User-facing changes to the reusable workflows and standalone GitHub Actions are 
 
 ## Unreleased
 
+## [0.2.2]
+
+### Multi-package publishing
+
+- **Dependency-driven publishing** — Discover publishable workspaces and publish them in dependency order, running independent packages concurrently. Remove the assumption that repositories use a fixed core, application, and addon hierarchy.
+- **Configurable registries** — Define destinations in the shared `config/registries.yml` template and override them through a caller's `.github/registries.yml`. Support custom HTTPS registry URLs with explicitly passed authentication secrets.
+- **Publish safeguards** — Validate package selection and dependency cycles, preserve canonical release and Git tag checks, and report publishing-stage coverage. Publishing to `all` continues to target npm and GitHub Packages.
+
+### Release recovery
+
+- **Shared bulk Reset and Restore** — Reuse package discovery, selection, and matrix orchestration for multi-package recovery without duplicating repository-specific workflow code.
+- **Auditable recovery** — Record release states before and after recovery attempts, use GitHub API-backed preflight checks, and preserve protection for finalized or immutable releases.
+- **Safer Restore previews** — Permit dry-run audits of finalized releases, with an explicit option to skip finalized releases during bulk recovery.
+- **Reliable release creation** — Use GitHub's create response when resolving a newly created release to avoid eventual-consistency races.
+
 ## [0.2.1]
 
 ### Repository workflows
