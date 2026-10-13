@@ -234,10 +234,63 @@ jobs:
             exit 1
           fi
 
-      - name: Validate custom registry inputs
-        if: inputs.registry == 'custom'
+      - name: Checkout shared registry defaults
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .github/reusable-registry-config
+          persist-credentials: false
+          sparse-checkout: config/registries.yml
+          sparse-checkout-cone-mode: false
+
+      - name: Resolve registry configuration
+        shell: bash
         env:
-          URL_VALUE: ${{ inputs.registry-url }}
+          SELECTED_REGISTRY: ${{ inputs.registry }}
+          OVERRIDE_URL: ${{ inputs.registry-url }}
+        run: |
+          set -euo pipefail
+          ruby -ryaml -ruri <<'RUBY'
+          base = YAML.safe_load_file('.github/reusable-registry-config/config/registries.yml')
+          override = File.exist?('.github/registries.yml') ? YAML.safe_load_file('.github/registries.yml') : {}
+          defaults = base.fetch('registries')
+          configured = override.fetch('registries', {})
+          abort 'Registry override must be a mapping' unless configured.is_a?(Hash)
+          names = (defaults.keys + configured.keys).uniq
+          entries = names.to_h do |name|
+            value = (defaults[name] || {}).merge(configured[name] || {})
+            abort "Invalid registry #{name}" unless value.is_a?(Hash)
+            [name, value]
+          end
+          selection = ENV.fetch('SELECTED_REGISTRY')
+          # Backwards compatibility: all continues to mean npm and github.
+          selected = selection == 'all' ? %w[npm github] : [selection]
+          selected.each do |name|
+            entry = entries.fetch(name) { abort "Unknown registry: #{name}" }
+            abort "Registry disabled: #{name}" if entry['enabled'] == false && ENV.fetch('OVERRIDE_URL','').empty?
+            url = ENV.fetch('OVERRIDE_URL', '').empty? ? entry['url'].to_s : ENV.fetch('OVERRIDE_URL')
+            uri = URI.parse(url)
+            abort "Invalid HTTPS registry URL for #{name}" unless uri.is_a?(URI::HTTPS) && uri.userinfo.nil? && uri.query.nil? && uri.fragment.nil? && uri.host
+            abort "Invalid publish mode for #{name}" unless %w[staged direct].include?(entry['publish-mode'])
+            if name == 'npm' || name == 'github'
+              standard = name == 'npm' ? 'https://registry.npmjs.org' : 'https://npm.pkg.github.com'
+              abort "Built-in registry URL cannot change: #{name}; use custom" unless url == standard
+            end
+          end
+          abort "Custom registry selection requires a single registry" if selected.size > 1 && selected.include?('custom')
+          effective = selection == 'all' ? 'all' : (%w[npm github].include?(selection) ? selection : 'custom')
+          selected_url = selection == 'all' ? '' : (ENV.fetch('OVERRIDE_URL','').empty? ? entries.fetch(selection)['url'].to_s : ENV.fetch('OVERRIDE_URL'))
+          File.open(ENV.fetch('GITHUB_ENV'),'a') do |f|
+            f.puts "EFFECTIVE_REGISTRY=#{effective}"
+            f.puts "EFFECTIVE_REGISTRY_URL=#{selected_url}"
+          end
+          RUBY
+
+      - name: Validate custom registry inputs
+        if: env.EFFECTIVE_REGISTRY == 'custom'
+        env:
+          URL_VALUE: ${{ env.EFFECTIVE_REGISTRY_URL }}
           HAS_TOKEN: ${{ secrets.custom-registry-token != '' }}
           DRY_RUN: ${{ inputs.dry-run }}
         shell: bash
@@ -285,7 +338,7 @@ jobs:
         id: plan
         env:
           PACKAGE_SELECTOR: ${{ inputs.package-directory }}
-          CUSTOM_REGISTRY_URL: ${{ inputs.registry-url }}
+          CUSTOM_REGISTRY_URL: ${{ env.EFFECTIVE_REGISTRY_URL }}
           _CUSTOM_REGISTRY_TOKEN: ${{ secrets.custom-registry-token }}
           VERSION_MODE: ${{ inputs.version-mode }}
           EXACT_VERSION: ${{ inputs.exact-version }}
@@ -315,12 +368,12 @@ jobs:
 
           PLAN_ARGS=(
             "--package=$PACKAGE_SELECTOR"
-            --registry="${{ inputs.registry }}"
+            --registry="$EFFECTIVE_REGISTRY"
             --list
             --json
           )
 
-          if [ "${{ inputs.registry }}" = custom ]; then PLAN_ARGS+=(--registry-url="$CUSTOM_REGISTRY_URL"); fi
+          if [ "$EFFECTIVE_REGISTRY" = custom ]; then PLAN_ARGS+=(--registry-url="$CUSTOM_REGISTRY_URL"); fi
           if [ -n "${{ inputs.tag }}" ]; then
             PLAN_ARGS+=(--tag="${{ inputs.tag }}")
           fi
@@ -779,12 +832,12 @@ jobs:
 
           PUBLISH_ARGS=(
             "--package=$PACKAGE_SELECTOR"
-            --registry="${{ inputs.registry }}"
+            --registry="$EFFECTIVE_REGISTRY"
             --artifact-directory="$ARTIFACT_DIRECTORY"
             --json
           )
 
-          if [ "${{ inputs.registry }}" = custom ]; then PUBLISH_ARGS+=(--registry-url="$CUSTOM_REGISTRY_URL"); fi
+          if [ "$EFFECTIVE_REGISTRY" = custom ]; then PUBLISH_ARGS+=(--registry-url="$CUSTOM_REGISTRY_URL"); fi
           if [ -n "${{ steps.plan.outputs.distribution-tag }}" ]; then
             PUBLISH_ARGS+=(--tag="${{ steps.plan.outputs.distribution-tag }}")
           fi
