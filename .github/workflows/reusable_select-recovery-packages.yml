@@ -1,0 +1,87 @@
+name: "Reusable · Select Recovery Packages"
+on:
+  workflow_call:
+    inputs:
+      package:
+        type: string
+        default: all
+      match-mode:
+        type: string
+        default: package-json
+      exact-tag:
+        type: string
+        default: ""
+      restore-source:
+        type: string
+        default: ""
+      operation:
+        type: string
+        required: true
+      dry-run:
+        type: boolean
+        default: true
+    outputs:
+      matrix:
+        value: ${{ jobs.select.outputs.matrix }}
+      count:
+        value: ${{ jobs.select.outputs.count }}
+permissions: {}
+jobs:
+  discover:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/reusable_discover-packages.yml
+    with:
+      packages-directory: packages
+      use-workspaces: true
+      require-publish-config: true
+  select:
+    needs: discover
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.packages.outputs.matrix }}
+      count: ${{ steps.packages.outputs.count }}
+    steps:
+      - name: Select packages
+        id: packages
+        env:
+          SELECTOR: ${{ inputs.package }}
+          PACKAGES_JSON: ${{ needs.discover.outputs.packages }}
+          MATCH_MODE: ${{ inputs.match-mode }}
+          EXACT_TAG: ${{ inputs.exact-tag }}
+          RESTORE_SOURCE: ${{ inputs.restore-source }}
+          OPERATION: ${{ inputs.operation }}
+          DRY_RUN: ${{ inputs.dry-run }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$SELECTOR" = all ]; then
+            SELECTED="$PACKAGES_JSON"
+          else
+            SELECTED="$(jq -cn --argjson packages "$PACKAGES_JSON" --arg selector "$SELECTOR" '[ $packages[] | select(.directory == $selector or .name == $selector) ]')"
+          fi
+          COUNT="$(jq 'length' <<< "$SELECTED")"
+          if [ "$COUNT" -eq 0 ]; then
+            echo "::error::Unknown package selector: $SELECTOR"
+            exit 1
+          fi
+          if [ "$MATCH_MODE" = exact ] && [ "$COUNT" -eq 1 ] && [ -z "$EXACT_TAG" ]; then
+            echo "::error::exact-tag is required in exact mode."
+            exit 1
+          fi
+          if [ "$SELECTOR" = all ] && [ -n "$RESTORE_SOURCE" ]; then
+            case "$RESTORE_SOURCE" in
+              commit:*|run:*) ;;
+              *) echo "::error::Bulk restore requires a shared commit:<sha> or run:<id> source."; exit 1 ;;
+            esac
+          fi
+          echo "matrix=$(jq -cn --argjson packages "$SELECTED" '{include: $packages}')" >> "$GITHUB_OUTPUT"
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          {
+            echo "# $OPERATION release selection"
+            echo
+            echo "$COUNT package(s) selected. Dry run: $DRY_RUN."
+            jq -r '.[] | "- " + .name + " (" + .directory + "@" + .version + ")"' <<< "$SELECTED"
+          } >> "$GITHUB_STEP_SUMMARY"
