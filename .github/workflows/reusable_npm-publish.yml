@@ -676,7 +676,7 @@ jobs:
               }
               visit(selected);
               for (const name of ordered) process.stdout.write(name + '\n');
-              NODE
+          NODE
               while IFS= read -r dependency; do
                 echo "::group::Build workspace dependency $dependency"
                 npm run build --workspace "$dependency" --if-present
