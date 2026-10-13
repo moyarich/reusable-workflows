@@ -635,6 +635,53 @@ jobs:
               npm run build --if-present
               npm pack --json --pack-destination "$ARTIFACT_DIRECTORY" > "$RUNNER_TEMP/release-pack.json"
             else
+              # Build transitive local workspace dependencies before checking the selected
+              # package. This runs against the canonical release worktree, not the caller checkout.
+              PACKAGE_NAME="$PACKAGE_NAME" node <<'NODE' > "$RUNNER_TEMP/release-workspace-dependencies"
+              const fs = require('node:fs');
+              const path = require('node:path');
+              const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+              const workspaces = new Map();
+              for (const [directory, entry] of Object.entries(lock.packages ?? {})) {
+                if (!directory || directory.startsWith('node_modules/') || !entry.name) continue;
+                const manifestPath = path.join(directory, 'package.json');
+                if (!fs.existsSync(manifestPath)) continue;
+                const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+                if (manifest.name === entry.name) workspaces.set(entry.name, manifest);
+              }
+              const selected = process.env.PACKAGE_NAME;
+              if (!workspaces.has(selected)) {
+                console.error(`Selected workspace not found in lockfile: ${selected}`);
+                process.exit(1);
+              }
+              const visiting = new Set();
+              const visited = new Set();
+              const ordered = [];
+              function visit(name) {
+                if (visited.has(name)) return;
+                if (visiting.has(name)) throw new Error(`Workspace dependency cycle involving ${name}`);
+                visiting.add(name);
+                const manifest = workspaces.get(name);
+                for (const dependency of Object.keys({
+                  ...manifest.dependencies,
+                  ...manifest.devDependencies,
+                  ...manifest.optionalDependencies,
+                  ...manifest.peerDependencies,
+                }).sort()) {
+                  if (workspaces.has(dependency)) visit(dependency);
+                }
+                visiting.delete(name);
+                visited.add(name);
+                if (name !== selected) ordered.push(name);
+              }
+              visit(selected);
+              for (const name of ordered) process.stdout.write(name + '\n');
+              NODE
+              while IFS= read -r dependency; do
+                echo "::group::Build workspace dependency $dependency"
+                npm run build --workspace "$dependency" --if-present
+                echo "::endgroup::"
+              done < "$RUNNER_TEMP/release-workspace-dependencies"
               npm run typecheck --workspace "$PACKAGE_NAME" --if-present
               npm run test --workspace "$PACKAGE_NAME" --if-present
               npm run build --workspace "$PACKAGE_NAME" --if-present
