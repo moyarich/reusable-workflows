@@ -1,0 +1,346 @@
+name: "Reusable · Bulk npm publish"
+on:
+  workflow_call:
+    inputs:
+      package:
+        description: Package name, directory, or all
+        required: true
+        default: all
+        type: string
+      registry:
+        description: Publish destination
+        required: true
+        default: npm
+        type: string
+      version-mode:
+        description: Publish manifest version or an exact version
+        required: true
+        default: package-json
+        type: string
+      exact-version:
+        description: Version when using exact mode
+        required: false
+        default: ""
+        type: string
+      verify-git-tag:
+        description: Require matching package Git tag before publishing
+        required: true
+        default: true
+        type: boolean
+      node-version:
+        description: Node.js version for publishing
+        required: true
+        default: "24"
+        type: string
+      dry-run:
+        description: Preview publishing without changing the npm registry
+        required: true
+        default: true
+        type: boolean
+      tag:
+        description: npm distribution tag (leave empty to use the resolved default)
+        required: false
+        default: ""
+        type: string
+
+    secrets:
+      npm-token:
+        required: false
+permissions: {}
+jobs:
+  discover:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/reusable_discover-packages.yml
+    with:
+      packages-directory: packages
+      use-workspaces: true
+      require-publish-config: true
+  plan:
+    needs: discover
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      count: ${{ steps.plan.outputs.count }}
+      depth: ${{ steps.plan.outputs.depth }}
+      level-0: ${{ steps.plan.outputs.level-0 }}
+      level-1: ${{ steps.plan.outputs.level-1 }}
+      level-2: ${{ steps.plan.outputs.level-2 }}
+      level-3: ${{ steps.plan.outputs.level-3 }}
+      level-4: ${{ steps.plan.outputs.level-4 }}
+      level-5: ${{ steps.plan.outputs.level-5 }}
+      level-6: ${{ steps.plan.outputs.level-6 }}
+      level-7: ${{ steps.plan.outputs.level-7 }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Plan dependency levels
+        id: plan
+        env:
+          PACKAGES_JSON: ${{ needs.discover.outputs.packages }}
+          SELECTOR: ${{ inputs.package }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const packages = JSON.parse(process.env.PACKAGES_JSON);
+          const byName = new Map(packages.map(pkg => [pkg.name, pkg]));
+          const byDirectory = new Map(packages.map(pkg => [pkg.directory, pkg]));
+          const selector = process.env.SELECTOR;
+          const roots = selector === 'all' ? packages : [byName.get(selector) ?? byDirectory.get(selector)].filter(Boolean);
+          if (!roots.length) throw new Error('Unknown publishable package selector: ' + selector);
+          const selected = new Map();
+          function include(pkg) {
+            if (selected.has(pkg.name)) return;
+            selected.set(pkg.name, pkg);
+            const manifest = JSON.parse(fs.readFileSync(pkg.directory + '/package.json', 'utf8'));
+            for (const name of Object.keys({...manifest.dependencies, ...manifest.optionalDependencies}).sort()) {
+              if (byName.has(name)) include(byName.get(name));
+            }
+          }
+          for (const pkg of roots) include(pkg);
+          const levels = new Map(), visiting = new Set();
+          function level(pkg) {
+            if (levels.has(pkg.name)) return levels.get(pkg.name);
+            if (visiting.has(pkg.name)) throw new Error('Workspace dependency cycle involving ' + pkg.name);
+            visiting.add(pkg.name);
+            const manifest = JSON.parse(fs.readFileSync(pkg.directory + '/package.json', 'utf8'));
+            const dependencyNames = Object.keys({...manifest.dependencies, ...manifest.optionalDependencies});
+            const dependencies = dependencyNames.filter(name => selected.has(name)).map(name => selected.get(name));
+            const depth = dependencies.length ? Math.max(...dependencies.map(level)) + 1 : 0;
+            visiting.delete(pkg.name);
+            levels.set(pkg.name, depth);
+            return depth;
+          }
+          for (const pkg of selected.values()) level(pkg);
+          const depth = Math.max(...levels.values()) + 1;
+          if (depth > 8) throw new Error('Dependency graph has ' + depth + ' levels; bulk workflow supports 8. Extend staged jobs before publishing.');
+          const output = fs.createWriteStream(process.env.GITHUB_OUTPUT, {flags:'a'});
+          output.write('count=' + selected.size + '\\n');
+          output.write('depth=' + depth + '\\n');
+          for (let i=0; i<8; i++) {
+            const entries = [...selected.values()].filter(p => levels.get(p.name) === i).sort((a,b)=>a.name.localeCompare(b.name));
+            output.write('level-' + i + '=' + JSON.stringify({include: entries}) + '\\n');
+          }
+          output.end();
+          const summary = fs.createWriteStream(process.env.GITHUB_STEP_SUMMARY, {flags:'a'});
+          summary.write('# npm publish dependency plan\\n\\nSelected ' + selected.size + ' package(s) in ' + depth + ' stage(s).\\n\\n');
+          for (let i=0; i<depth; i++) summary.write('Stage ' + (i+1) + ': ' + [...selected.values()].filter(p=>levels.get(p.name)===i).map(p=>p.name).join(', ') + '\\n\\n');
+          summary.end();
+          NODE
+  stage-0:
+    name: "Stage 1 · ${{ matrix.name }}"
+    needs: plan
+    if: ${{ github.ref == 'refs/heads/main' && needs.plan.result == 'success' && fromJSON(needs.plan.outputs.level-0).include[0] != null }}
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJSON(needs.plan.outputs.level-0) }}
+    permissions:
+      contents: write
+      packages: write
+    uses: ./.github/workflows/reusable_npm-publish.yml
+    with:
+      target-branch: main
+      package-directory: ${{ matrix.directory }}
+      version-mode: ${{ inputs.version-mode }}
+      exact-version: ${{ inputs.exact-version }}
+      registry: ${{ inputs.registry }}
+      dry-run: ${{ inputs.dry-run }}
+      tag: ${{ inputs.tag }}
+      verify-git-tag: ${{ inputs.verify-git-tag }}
+      node-version: ${{ inputs.node-version }}
+    secrets:
+      npm-token: ${{ secrets.npm-token }}
+  stage-1:
+    name: "Stage 2 · ${{ matrix.name }}"
+    needs: [plan, stage-0]
+    if: ${{ always() && github.ref == 'refs/heads/main' && needs.plan.result == 'success' && (needs.stage-0.result == 'success' || needs.stage-0.result == 'skipped') && fromJSON(needs.plan.outputs.level-1).include[0] != null }}
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJSON(needs.plan.outputs.level-1) }}
+    permissions:
+      contents: write
+      packages: write
+    uses: ./.github/workflows/reusable_npm-publish.yml
+    with:
+      target-branch: main
+      package-directory: ${{ matrix.directory }}
+      version-mode: ${{ inputs.version-mode }}
+      exact-version: ${{ inputs.exact-version }}
+      registry: ${{ inputs.registry }}
+      dry-run: ${{ inputs.dry-run }}
+      tag: ${{ inputs.tag }}
+      verify-git-tag: ${{ inputs.verify-git-tag }}
+      node-version: ${{ inputs.node-version }}
+    secrets:
+      npm-token: ${{ secrets.npm-token }}
+  stage-2:
+    name: "Stage 3 · ${{ matrix.name }}"
+    needs: [plan, stage-1]
+    if: ${{ always() && github.ref == 'refs/heads/main' && needs.plan.result == 'success' && (needs.stage-1.result == 'success' || needs.stage-1.result == 'skipped') && fromJSON(needs.plan.outputs.level-2).include[0] != null }}
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJSON(needs.plan.outputs.level-2) }}
+    permissions:
+      contents: write
+      packages: write
+    uses: ./.github/workflows/reusable_npm-publish.yml
+    with:
+      target-branch: main
+      package-directory: ${{ matrix.directory }}
+      version-mode: ${{ inputs.version-mode }}
+      exact-version: ${{ inputs.exact-version }}
+      registry: ${{ inputs.registry }}
+      dry-run: ${{ inputs.dry-run }}
+      tag: ${{ inputs.tag }}
+      verify-git-tag: ${{ inputs.verify-git-tag }}
+      node-version: ${{ inputs.node-version }}
+    secrets:
+      npm-token: ${{ secrets.npm-token }}
+  stage-3:
+    name: "Stage 4 · ${{ matrix.name }}"
+    needs: [plan, stage-2]
+    if: ${{ always() && github.ref == 'refs/heads/main' && needs.plan.result == 'success' && (needs.stage-2.result == 'success' || needs.stage-2.result == 'skipped') && fromJSON(needs.plan.outputs.level-3).include[0] != null }}
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJSON(needs.plan.outputs.level-3) }}
+    permissions:
+      contents: write
+      packages: write
+    uses: ./.github/workflows/reusable_npm-publish.yml
+    with:
+      target-branch: main
+      package-directory: ${{ matrix.directory }}
+      version-mode: ${{ inputs.version-mode }}
+      exact-version: ${{ inputs.exact-version }}
+      registry: ${{ inputs.registry }}
+      dry-run: ${{ inputs.dry-run }}
+      tag: ${{ inputs.tag }}
+      verify-git-tag: ${{ inputs.verify-git-tag }}
+      node-version: ${{ inputs.node-version }}
+    secrets:
+      npm-token: ${{ secrets.npm-token }}
+  stage-4:
+    name: "Stage 5 · ${{ matrix.name }}"
+    needs: [plan, stage-3]
+    if: ${{ always() && github.ref == 'refs/heads/main' && needs.plan.result == 'success' && (needs.stage-3.result == 'success' || needs.stage-3.result == 'skipped') && fromJSON(needs.plan.outputs.level-4).include[0] != null }}
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJSON(needs.plan.outputs.level-4) }}
+    permissions:
+      contents: write
+      packages: write
+    uses: ./.github/workflows/reusable_npm-publish.yml
+    with:
+      target-branch: main
+      package-directory: ${{ matrix.directory }}
+      version-mode: ${{ inputs.version-mode }}
+      exact-version: ${{ inputs.exact-version }}
+      registry: ${{ inputs.registry }}
+      dry-run: ${{ inputs.dry-run }}
+      tag: ${{ inputs.tag }}
+      verify-git-tag: ${{ inputs.verify-git-tag }}
+      node-version: ${{ inputs.node-version }}
+    secrets:
+      npm-token: ${{ secrets.npm-token }}
+  stage-5:
+    name: "Stage 6 · ${{ matrix.name }}"
+    needs: [plan, stage-4]
+    if: ${{ always() && github.ref == 'refs/heads/main' && needs.plan.result == 'success' && (needs.stage-4.result == 'success' || needs.stage-4.result == 'skipped') && fromJSON(needs.plan.outputs.level-5).include[0] != null }}
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJSON(needs.plan.outputs.level-5) }}
+    permissions:
+      contents: write
+      packages: write
+    uses: ./.github/workflows/reusable_npm-publish.yml
+    with:
+      target-branch: main
+      package-directory: ${{ matrix.directory }}
+      version-mode: ${{ inputs.version-mode }}
+      exact-version: ${{ inputs.exact-version }}
+      registry: ${{ inputs.registry }}
+      dry-run: ${{ inputs.dry-run }}
+      tag: ${{ inputs.tag }}
+      verify-git-tag: ${{ inputs.verify-git-tag }}
+      node-version: ${{ inputs.node-version }}
+    secrets:
+      npm-token: ${{ secrets.npm-token }}
+  stage-6:
+    name: "Stage 7 · ${{ matrix.name }}"
+    needs: [plan, stage-5]
+    if: ${{ always() && github.ref == 'refs/heads/main' && needs.plan.result == 'success' && (needs.stage-5.result == 'success' || needs.stage-5.result == 'skipped') && fromJSON(needs.plan.outputs.level-6).include[0] != null }}
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJSON(needs.plan.outputs.level-6) }}
+    permissions:
+      contents: write
+      packages: write
+    uses: ./.github/workflows/reusable_npm-publish.yml
+    with:
+      target-branch: main
+      package-directory: ${{ matrix.directory }}
+      version-mode: ${{ inputs.version-mode }}
+      exact-version: ${{ inputs.exact-version }}
+      registry: ${{ inputs.registry }}
+      dry-run: ${{ inputs.dry-run }}
+      tag: ${{ inputs.tag }}
+      verify-git-tag: ${{ inputs.verify-git-tag }}
+      node-version: ${{ inputs.node-version }}
+    secrets:
+      npm-token: ${{ secrets.npm-token }}
+  stage-7:
+    name: "Stage 8 · ${{ matrix.name }}"
+    needs: [plan, stage-6]
+    if: ${{ always() && github.ref == 'refs/heads/main' && needs.plan.result == 'success' && (needs.stage-6.result == 'success' || needs.stage-6.result == 'skipped') && fromJSON(needs.plan.outputs.level-7).include[0] != null }}
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJSON(needs.plan.outputs.level-7) }}
+    permissions:
+      contents: write
+      packages: write
+    uses: ./.github/workflows/reusable_npm-publish.yml
+    with:
+      target-branch: main
+      package-directory: ${{ matrix.directory }}
+      version-mode: ${{ inputs.version-mode }}
+      exact-version: ${{ inputs.exact-version }}
+      registry: ${{ inputs.registry }}
+      dry-run: ${{ inputs.dry-run }}
+      tag: ${{ inputs.tag }}
+      verify-git-tag: ${{ inputs.verify-git-tag }}
+      node-version: ${{ inputs.node-version }}
+    secrets:
+      npm-token: ${{ secrets.npm-token }}
+  coverage:
+    needs: [plan, stage-0, stage-1, stage-2, stage-3, stage-4, stage-5, stage-6, stage-7]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Assert complete stage coverage
+        env:
+          SELECTED: ${{ needs.plan.outputs.count }}
+          DEPTH: ${{ needs.plan.outputs.depth }}
+          PLAN_RESULT: ${{ needs.plan.result }}
+          RESULTS: ${{ toJSON(needs) }}
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const needs=JSON.parse(process.env.RESULTS), depth=Number(process.env.DEPTH);
+          const valid=process.env.PLAN_RESULT==='success' && Number(process.env.SELECTED)>0 && Array.from({length:8},(_,i)=> i<depth ? needs['stage-'+i]?.result==='success' : needs['stage-'+i]?.result==='skipped').every(Boolean);
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, '# npm publish coverage\\n\\nSelected: '+process.env.SELECTED+'\\n\\nStages: '+depth+'\\n\\nResult: '+(valid?'PASS':'FAIL')+'\\n');
+          if (!valid) process.exitCode=1;
+          NODE
