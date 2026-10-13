@@ -1121,22 +1121,38 @@ jobs:
             echo
 
             CHANGELOG_VERSION="${{ steps.plan.outputs.version }}"
-            if [ -n "$CHANGELOG_VERSION" ] && [ -f CHANGELOG.md ]; then
+            PACKAGE_DIRECTORY="${{ inputs.package-directory }}"
+            CHANGELOG_PATH="$PACKAGE_DIRECTORY/CHANGELOG.md"
+            if [ "$PACKAGE_DIRECTORY" = "." ]; then
+              CHANGELOG_PATH="CHANGELOG.md"
+            fi
+
+            if [ -z "$CHANGELOG_VERSION" ]; then
+              echo '> Package version was unresolved; cannot select changelog entries.'
+            elif [ ! -f "$CHANGELOG_PATH" ]; then
+              printf '> No changelog found at \`%s\`.\\n' "$CHANGELOG_PATH"
+            else
               CHANGELOG_SECTION="$(
                 awk -v version="$CHANGELOG_VERSION" '
-                  $0 ~ "^## \\[" version "\\]" { in_section=1 }
-                  in_section && /^## / && $0 !~ "^## \\[" version "\\]" { exit }
+                  /^##[[:space:]]/ {
+                    heading = $0
+                    sub(/^##[[:space:]]+/, "", heading)
+                    sub(/^\\[/, "", heading)
+                    sub(/\\].*$/, "", heading)
+                    sub(/^v/, "", heading)
+                    sub(/[[:space:]].*$/, "", heading)
+                    if (in_section) exit
+                    if (heading == version) in_section = 1
+                  }
                   in_section { print }
-                ' CHANGELOG.md
+                ' "$CHANGELOG_PATH"
               )"
 
               if [ -n "$CHANGELOG_SECTION" ]; then
-                printf '%s\n' "$CHANGELOG_SECTION"
+                printf '%s\\n' "$CHANGELOG_SECTION"
               else
-                printf '> No matching `CHANGELOG.md` section found for version `%s`.\n' "$CHANGELOG_VERSION"
+                printf '> No matching entry for version \`%s\` in \`%s\`.\\n' "$CHANGELOG_VERSION" "$CHANGELOG_PATH"
               fi
-            else
-              echo '> `CHANGELOG.md` is unavailable or the package version was unresolved.'
             fi
 
             echo
