@@ -374,7 +374,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          STATUS="$(git status --short)"
+          # The version-matched action checkout is workflow infrastructure, not caller state.
+          STATUS="$(git status --short -- . ':(exclude).github/reusable-workflows-runtime')"
 
           if [ -n "$STATUS" ]; then
             echo "::error::Working tree is not clean before release."
@@ -405,7 +406,7 @@ jobs:
         run: |
           set -euo pipefail
           git rev-parse HEAD > /tmp/release-head-before
-          git status --porcelain=v1 --untracked-files=all > /tmp/release-status-before
+          git status --porcelain=v1 --untracked-files=all -- . ':(exclude).github/reusable-workflows-runtime' > /tmp/release-status-before
           git tag --list | sort > /tmp/release-tags-before
 
       - name: Resolve target release
@@ -677,7 +678,7 @@ jobs:
           set -euo pipefail
 
           git rev-parse HEAD > /tmp/release-head-after
-          git status --porcelain=v1 --untracked-files=all > /tmp/release-status-after
+          git status --porcelain=v1 --untracked-files=all -- . ':(exclude).github/reusable-workflows-runtime' > /tmp/release-status-after
           git tag --list | sort > /tmp/release-tags-after
 
           if ! cmp -s /tmp/release-head-before /tmp/release-head-after || \
@@ -685,7 +686,7 @@ jobs:
              ! cmp -s /tmp/release-tags-before /tmp/release-tags-after; then
             echo "::error::Dry run modified repository state."
             echo "Repository status after dry run:"
-            git status --short
+            git status --short -- . ':(exclude).github/reusable-workflows-runtime'
             exit 1
           fi
 
