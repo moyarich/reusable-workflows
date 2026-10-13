@@ -42,7 +42,7 @@ jobs:
   select:
     permissions:
       contents: read
-    uses: ./.github/workflows/reusable_select-release-packages.yml
+    uses: ./.github/workflows/reusable_select-recovery-packages.yml
     with:
       package: ${{ inputs.package }}
       match-mode: ${{ inputs.match-mode }}
