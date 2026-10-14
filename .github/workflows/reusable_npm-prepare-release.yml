@@ -44,6 +44,16 @@ on:
         required: false
         default: ""
         type: string
+      registries-file:
+        description: Caller registry YAML path, extending default package registries
+        required: false
+        default: ""
+        type: string
+      registry:
+        description: Registry alias to check, or all
+        required: false
+        default: all
+        type: string
       workspace-tools-source:
         description: Workspace Tools source — published package or current caller checkout
         required: true
@@ -80,6 +90,16 @@ on:
         required: false
         default: ""
         type: string
+      registries-file:
+        description: Caller registry YAML path, extending default package registries
+        required: false
+        default: ""
+        type: string
+      registry:
+        description: Registry alias to check, or all
+        required: false
+        default: all
+        type: string
       workspace-tools-source:
         description: Workspace Tools source — published package or current caller checkout
         required: false
@@ -89,6 +109,13 @@ on:
         required: false
         default: "24"
         type: string
+    secrets:
+      npm-token:
+        required: false
+      custom-registry-token:
+        required: false
+      registry-tokens-json:
+        required: false
     outputs:
       pull-request-url:
         description: Created release pull request URL
@@ -277,3 +304,21 @@ jobs:
             echo "| Pull request | ${{ steps.pr.outputs.url || 'not created' }} |"
             echo "| Result | **${{ job.status }}** |"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  registry-status:
+    name: "job: Registry publication status"
+    needs: prepare
+    if: ${{ needs.prepare.result == 'success' }}
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/reusable_registry-publication-check.yml
+    with:
+      package-name: ${{ inputs.package }}
+      package-version: ${{ needs.prepare.outputs.package-version }}
+      registry: ${{ inputs.registry }}
+      registries-file: ${{ inputs.registries-file }}
+    secrets:
+      npm-token: ${{ secrets.npm-token }}
+      custom-registry-token: ${{ secrets.custom-registry-token }}
+      registry-tokens-json: ${{ secrets.registry-tokens-json }}
