@@ -13,6 +13,16 @@ on:
         required: true
         default: bump:patch
         type: string
+      registries-file:
+        description: Caller registry YAML path, extending default package registries
+        required: false
+        default: ""
+        type: string
+      registry:
+        description: Registry alias to check, or all
+        required: false
+        default: all
+        type: string
       workspace-tools-source:
         description: "registry:npm:0.2.0, checkout:current, or checkout:upstream;branch:main"
         required: true
@@ -80,6 +90,16 @@ on:
         default: ""
         type: string
 
+      registries-file:
+        description: Caller registry YAML path, extending default package registries
+        required: false
+        default: ""
+        type: string
+      registry:
+        description: Registry alias to check, or all
+        required: false
+        default: all
+        type: string
       workspace-tools-source:
         description: Workspace Tools source — npm registry, current caller, or Git repository
         required: false
@@ -91,6 +111,13 @@ on:
         default: "24"
         type: string
 
+    secrets:
+      npm-token:
+        required: false
+      custom-registry-token:
+        required: false
+      registry-tokens-json:
+        required: false
     outputs:
       package-name:
         description: Released package name
@@ -757,3 +784,21 @@ jobs:
       dry-run: ${{ inputs.dry-run }}
       create-tag: false
       draft: true
+
+  registry-status:
+    name: "job: Registry publication status"
+    needs: release-package
+    if: ${{ needs.release-package.result == 'success' }}
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/reusable_registry-publication-check.yml
+    with:
+      package-name: ${{ needs.release-package.outputs.package-name }}
+      package-version: ${{ needs.release-package.outputs.package-version }}
+      registry: ${{ inputs.registry }}
+      registries-file: ${{ inputs.registries-file }}
+    secrets:
+      npm-token: ${{ secrets.npm-token }}
+      custom-registry-token: ${{ secrets.custom-registry-token }}
+      registry-tokens-json: ${{ secrets.registry-tokens-json }}
