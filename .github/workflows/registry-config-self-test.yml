@@ -16,6 +16,17 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      - name: Validate changed workflows with actionlint
+        shell: bash
+        run: |
+          set -euo pipefail
+          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.9 -color \\
+            .github/workflows/reusable_npm-publish.yml \\
+            .github/workflows/reusable_bulk-npm-publish.yml \\
+            .github/workflows/reusable_npm-release.yml \\
+            .github/workflows/reusable_npm-prepare-release.yml \\
+            .github/workflows/reusable_registry-publication-check.yml \\
+            .github/workflows/registry-config-self-test.yml
       - name: Validate registry defaults and extension behavior
         shell: bash
         run: |
