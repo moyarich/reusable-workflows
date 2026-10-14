@@ -1,0 +1,293 @@
+name: "Reusable · Publish VS Code extensions"
+
+on:
+  workflow_call:
+    inputs:
+      package-directory:
+        description: Extension workspace directory containing package.json
+        type: string
+        required: true
+      node-version:
+        description: Node.js version
+        type: string
+        default: "24"
+      install-command:
+        description: Dependency installation command executed at repository root
+        type: string
+        default: npm ci --include=optional
+      check-command:
+        description: Repository validation command (empty to skip)
+        type: string
+        default: npm run check
+      package-command:
+        description: Command creating VSIX artifacts (empty if check-command already packages)
+        type: string
+        default: ""
+      artifact-glob:
+        description: Repository-relative path to generated VSIX files
+        type: string
+        required: true
+      artifact-name:
+        description: Uploaded artifact name
+        type: string
+        default: openvsx-vsix
+      registry:
+        description: Configured extension registry alias or all
+        type: string
+        default: openvsx
+      registries-file:
+        description: Optional caller registry YAML path, extending bundled extension registry defaults
+        type: string
+        default: ""
+      dry-run:
+        description: Validate and upload VSIX without publishing
+        type: boolean
+        default: true
+    secrets:
+      ovsx-token:
+        required: false
+      vsce-token:
+        required: false
+      package-token:
+        required: false
+      registry-tokens-json:
+        required: false
+    outputs:
+      publish-status:
+        description: validated, published, or failed
+        value: ${{ jobs.extension.outputs.publish-status }}
+  workflow_dispatch:
+    inputs:
+      package-directory:
+        type: string
+        required: true
+      artifact-glob:
+        type: string
+        required: true
+      registry:
+        type: string
+        default: openvsx
+      registries-file:
+        type: string
+        default: ""
+      dry-run:
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  extension:
+    name: "job: Validate and publish VSIX"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      publish-status: ${{ steps.outcome.outputs.status }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version || '24' }}
+      - name: Validate paths and configuration
+        env:
+          DIRECTORY: ${{ inputs.package-directory }}
+          GLOB: ${{ inputs.artifact-glob }}
+          REGISTRY: ${{ inputs.registry || 'openvsx' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for value in "$DIRECTORY" "$GLOB"; do
+            [ -n "$value" ] || { echo "::error::Package directory and VSIX path are required"; exit 1; }
+            case "$value" in /*|..|../*|*/../*|*/..) echo "::error::Invalid path: $value"; exit 1;; esac
+          done
+          [ -f "$DIRECTORY/package.json" ] || { echo "::error::Missing $DIRECTORY/package.json"; exit 1; }
+          [ -n "$REGISTRY" ] || { echo "::error::Registry selector must not be empty"; exit 1; }
+      - name: Checkout bundled extension registry defaults
+        uses: actions/checkout@v7
+        with:
+          repository: moyarich/reusable-workflows
+          ref: main
+          path: .github/reusable-extension-registry-config
+          persist-credentials: false
+          sparse-checkout: config/vscode-registries.yml
+          sparse-checkout-cone-mode: false
+      - name: Resolve extension registry aliases
+        id: registries
+        shell: bash
+        env:
+          REGISTRIES_FILE: ${{ inputs.registries-file }}
+          REGISTRY_SELECTION: ${{ inputs.registry || 'openvsx' }}
+        run: |
+          set -euo pipefail
+          ruby -ryaml -rjson -ruri <<'RUBY'
+          defaults_file = '.github/reusable-extension-registry-config/config/vscode-registries.yml'
+          abort "Missing bundled extension registry defaults: #{defaults_file}" unless File.file?(defaults_file)
+          requested_file = ENV.fetch('REGISTRIES_FILE', '')
+          abort 'Invalid registries-file path' if requested_file.start_with?('/') || requested_file.split('/').include?('..')
+          base = YAML.safe_load_file(defaults_file).fetch('registries')
+          abort 'Default extension registries must be a mapping' unless base.is_a?(Hash)
+          overrides = if requested_file != '' && File.file?(requested_file)
+            YAML.safe_load_file(requested_file).fetch('registries', {})
+          else
+            {}
+          end
+          abort 'Caller extension registries must be a mapping' unless overrides.is_a?(Hash)
+          configured = base.merge(overrides) do |key, default, override|
+            abort "Registry #{key} must be a mapping" unless default.is_a?(Hash) && override.is_a?(Hash)
+            default.merge(override)
+          end
+          configured.each do |alias_name, entry|
+            abort "Invalid registry alias: #{alias_name}" unless alias_name.match?(/\A[a-z][a-z0-9_-]*\z/)
+            abort "Invalid config for #{alias_name}" unless entry.is_a?(Hash)
+            url = URI.parse(entry.fetch('url'))
+            abort "Invalid HTTPS registry endpoint for #{alias_name}" unless url.is_a?(URI::HTTPS) && url.host && !url.userinfo && !url.query && !url.fragment
+            abort "Invalid enabled flag for #{alias_name}" unless [true, false].include?(entry.fetch('enabled', true))
+            abort "Missing backend for #{alias_name}" unless entry.fetch('backend').is_a?(String)
+            abort "Missing publish command for #{alias_name}" unless entry.fetch('publish-command').is_a?(String)
+            abort "Missing credential source for #{alias_name}" unless entry.fetch('token-source').is_a?(String) && entry.fetch('token-source').match?(/\A[a-z][a-z0-9_-]*\z/)
+            abort "Missing token environment variable for #{alias_name}" unless entry.fetch('token-env').match?(/\A[A-Z][A-Z0-9_]*\z/)
+          end
+          selector = ENV.fetch('REGISTRY_SELECTION')
+          selected = if selector == 'all'
+            configured.select { |_, entry| entry.fetch('enabled', true) }.keys
+          else
+            abort "Unknown extension registry alias: #{selector}" unless configured.key?(selector)
+            abort "Extension registry disabled: #{selector}" unless configured.fetch(selector).fetch('enabled', true)
+            [selector]
+          end
+          abort 'No enabled extension registries selected' if selected.empty?
+          File.open(ENV.fetch('GITHUB_OUTPUT'), 'a') do |out|
+            out.puts "selected=#{selected.join(',')}"
+            out.puts "targets-json=#{JSON.generate(selected.map { |name| { 'alias' => name }.merge(configured.fetch(name)) })}"
+          end
+          File.open(ENV.fetch('GITHUB_STEP_SUMMARY'), 'a') do |out|
+            out.puts "### Resolved extension registries"
+            out.puts
+            out.puts "| Alias | Selected |"
+            out.puts "| --- | --- |"
+            configured.each_key { |name| out.puts "| #{name} | #{selected.include?(name)} |" }
+            out.puts
+            out.puts "Configuration: #{requested_file != '' && File.file?(requested_file) ? requested_file : 'bundled defaults'}"
+          end
+          RUBY
+      - name: Install dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.package-token || github.token }}
+          COMMAND: ${{ inputs.install-command || 'npm ci --include=optional' }}
+        run: bash -euo pipefail -c "$COMMAND"
+      - name: Validate extension
+        if: ${{ inputs.check-command != '' }}
+        env:
+          COMMAND: ${{ inputs.check-command }}
+        run: bash -euo pipefail -c "$COMMAND"
+      - name: Package VSIX
+        if: ${{ inputs.package-command != '' }}
+        env:
+          COMMAND: ${{ inputs.package-command }}
+        run: bash -euo pipefail -c "$COMMAND"
+      - name: Verify VSIX output
+        env:
+          GLOB: ${{ inputs.artifact-glob }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob globstar
+          files=( $GLOB )
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "::error::No VSIX files matched $GLOB"
+            exit 1
+          fi
+          for file in "${files[@]}"; do
+            [ -f "$file" ] && [ -s "$file" ] || { echo "::error::Empty or invalid VSIX: $file"; exit 1; }
+            [[ "$file" == *.vsix ]] || { echo "::error::Expected .vsix artifact: $file"; exit 1; }
+          done
+          [ "${#files[@]}" -eq 1 ] || { echo "::error::Expected one VSIX, found ${#files[@]}"; exit 1; }
+          printf 'Validated %s VSIX file(s)\n' "${#files[@]}"
+      - name: Upload validated VSIX
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact-name || 'open-vsx-vsix' }}
+          path: ${{ inputs.artifact-glob }}
+          if-no-files-found: error
+      - name: Publish configured extension registries
+        if: ${{ !inputs.dry-run }}
+        shell: bash
+        env:
+          TARGETS_JSON: ${{ steps.registries.outputs.targets-json }}
+          GLOB: ${{ inputs.artifact-glob }}
+          OVSX_TOKEN: ${{ secrets.ovsx-token }}
+          VSCE_TOKEN: ${{ secrets.vsce-token }}
+          REGISTRY_TOKENS_JSON: ${{ secrets.registry-tokens-json }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob globstar
+          files=( $GLOB )
+          [ "${#files[@]}" -eq 1 ] || { echo "::error::Expected one VSIX"; exit 1; }
+          VSIX_FILE="$(realpath "${files[0]}")"
+          export VSIX_FILE
+          if [ -n "${REGISTRY_TOKENS_JSON:-}" ]; then
+            jq -e 'type == "object" and all(.[]; type == "string")' <<< "$REGISTRY_TOKENS_JSON" >/dev/null || {
+              echo "::error::registry-tokens-json must be a JSON object containing string tokens"
+              exit 1
+            }
+          fi
+          while IFS= read -r target; do
+            alias="$(jq -r '.alias' <<< "$target")"
+            source="$(jq -r '."token-source"' <<< "$target")"
+            variable="$(jq -r '."token-env"' <<< "$target")"
+            command="$(jq -r '."publish-command"' <<< "$target")"
+            token=""
+            if [ -n "${REGISTRY_TOKENS_JSON:-}" ]; then
+              token="$(jq -r --arg key "$alias" '.[$key] // empty' <<< "$REGISTRY_TOKENS_JSON")"
+            fi
+            if [ -z "$token" ]; then
+              case "$source" in
+                ovsx-token) token="$OVSX_TOKEN" ;;
+                vsce-token) token="$VSCE_TOKEN" ;;
+                *) echo "::error::Unsupported token-source for $alias: $source (supply registry-tokens-json)" >&2; exit 1 ;;
+              esac
+            fi
+            [ -n "$token" ] || { echo "::error::Missing credential for $alias"; exit 1; }
+            [[ "$variable" =~ ^[A-Z][A-Z0-9_]*$ ]] || exit 1
+            export "$variable=$token"
+            echo "::group::Publish extension to $alias"
+            bash -euo pipefail -c "$command"
+            echo "::endgroup::"
+            unset "$variable" token
+          done < <(jq -ce '.[]' <<< "$TARGETS_JSON")
+      - name: Report outcome
+        id: outcome
+        if: ${{ success() }}
+        env:
+          DRY_RUN: ${{ inputs.dry-run }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "status=validated" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=published" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Workflow summary
+        if: ${{ always() }}
+        env:
+          DRY_RUN: ${{ inputs.dry-run }}
+          DIRECTORY: ${{ inputs.package-directory }}
+          VSIX: ${{ inputs.artifact-glob }}
+          REGISTRY: ${{ steps.registries.outputs.selected }}
+          STATUS: ${{ job.status }}
+        run: |
+          {
+            echo "## VS Code extension publishing"
+            echo
+            echo "| Setting | Value |"
+            echo "| --- | --- |"
+            printf '| Package directory | \`%s\` |\n' "$DIRECTORY"
+            printf '| VSIX artifacts | \`%s\` |\n' "$VSIX"
+            printf '| Registry | \`%s\` |\\n' "$REGISTRY"
+            printf '| Dry run | \`%s\` |\n' "$DRY_RUN"
+            printf '| Result | **%s** |\n' "$STATUS"
+          } >> "$GITHUB_STEP_SUMMARY"
