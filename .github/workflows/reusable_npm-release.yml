@@ -116,8 +116,6 @@ on:
         required: false
       custom-registry-token:
         required: false
-      registry-tokens-json:
-        required: false
     outputs:
       package-name:
         description: Released package name
@@ -801,4 +799,3 @@ jobs:
     secrets:
       npm-token: ${{ secrets.npm-token }}
       custom-registry-token: ${{ secrets.custom-registry-token }}
-      registry-tokens-json: ${{ secrets.registry-tokens-json }}
