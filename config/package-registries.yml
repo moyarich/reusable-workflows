@@ -4,6 +4,7 @@ registries:
     url: https://registry.npmjs.org
     backend: npm
     token-secret: NPM_TOKEN
+    token-source: npm-token
     publish-mode: staged
     enabled: true
     publish-github-release: false
@@ -13,6 +14,7 @@ registries:
     url: https://npm.pkg.github.com
     backend: github
     token-secret: GITHUB_TOKEN
+    token-source: github-token
     publish-mode: direct
     enabled: true
     publish-github-release: true
