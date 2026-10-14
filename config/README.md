@@ -19,7 +19,7 @@ registries:
 
 Specify `registry: company` for one target or `registry: all` for every enabled entry, including the built-in destinations. Set `enabled: false` in a caller override to exclude a default destination.
 
-`backend` names the publication adapter expected by the configured version of workspace-tools. `query` describes how package publication should be checked. `token-source` is the logical credential identifier resolved from `registry-tokens-json`. GitHub Actions cannot dynamically evaluate `secrets[<name>]` from YAML at runtime. Never place tokens in this file.
+`backend` names the publication adapter expected by the configured version of workspace-tools. `query` describes how package publication should be checked. `token-source` is the exact secret identifier used by the matrix publishing job through `secrets[matrix.target.tokenSource]`. With `secrets: inherit`, a caller's repository secret such as `_NPM_TOKEN` can be used directly as `token-source: _NPM_TOKEN`. When forwarding an explicit secret (for example `npm-token: ${{ secrets._NPM_TOKEN }}`), use `token-source: npm-token` instead. `token-source: github-token` selects the built-in `github.token`. The current single-job legacy publisher retains its original built-in credential handling. Never place tokens in this file.
 
 `config/vscode-registries.yml` is the extension publication configuration introduced by PR #104, independent of package registries. GitHub Releases and GitHub Pages are not npm package registries.
 
