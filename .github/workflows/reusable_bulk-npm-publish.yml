@@ -7,6 +7,11 @@ on:
         required: true
         default: all
         type: string
+      registries-file:
+        description: Optional caller repository registry YAML location
+        type: string
+        required: false
+        default: ""
       registry-url:
         description: HTTPS URL for custom registry
         required: false
@@ -161,6 +166,7 @@ jobs:
       version-mode: ${{ inputs.version-mode }}
       exact-version: ${{ inputs.exact-version }}
       registry: ${{ inputs.registry }}
+      registries-file: ${{ inputs.registries-file }}
       registry-url: ${{ inputs.registry-url }}
       workspace-tools-source: ${{ inputs.workspace-tools-source }}
       dry-run: ${{ inputs.dry-run }}
@@ -187,6 +193,7 @@ jobs:
       version-mode: ${{ inputs.version-mode }}
       exact-version: ${{ inputs.exact-version }}
       registry: ${{ inputs.registry }}
+      registries-file: ${{ inputs.registries-file }}
       registry-url: ${{ inputs.registry-url }}
       workspace-tools-source: ${{ inputs.workspace-tools-source }}
       dry-run: ${{ inputs.dry-run }}
@@ -214,6 +221,7 @@ jobs:
       version-mode: ${{ inputs.version-mode }}
       exact-version: ${{ inputs.exact-version }}
       registry: ${{ inputs.registry }}
+      registries-file: ${{ inputs.registries-file }}
       registry-url: ${{ inputs.registry-url }}
       workspace-tools-source: ${{ inputs.workspace-tools-source }}
       dry-run: ${{ inputs.dry-run }}
@@ -241,6 +249,7 @@ jobs:
       version-mode: ${{ inputs.version-mode }}
       exact-version: ${{ inputs.exact-version }}
       registry: ${{ inputs.registry }}
+      registries-file: ${{ inputs.registries-file }}
       registry-url: ${{ inputs.registry-url }}
       workspace-tools-source: ${{ inputs.workspace-tools-source }}
       dry-run: ${{ inputs.dry-run }}
@@ -268,6 +277,7 @@ jobs:
       version-mode: ${{ inputs.version-mode }}
       exact-version: ${{ inputs.exact-version }}
       registry: ${{ inputs.registry }}
+      registries-file: ${{ inputs.registries-file }}
       registry-url: ${{ inputs.registry-url }}
       workspace-tools-source: ${{ inputs.workspace-tools-source }}
       dry-run: ${{ inputs.dry-run }}
@@ -295,6 +305,7 @@ jobs:
       version-mode: ${{ inputs.version-mode }}
       exact-version: ${{ inputs.exact-version }}
       registry: ${{ inputs.registry }}
+      registries-file: ${{ inputs.registries-file }}
       registry-url: ${{ inputs.registry-url }}
       workspace-tools-source: ${{ inputs.workspace-tools-source }}
       dry-run: ${{ inputs.dry-run }}
@@ -322,6 +333,7 @@ jobs:
       version-mode: ${{ inputs.version-mode }}
       exact-version: ${{ inputs.exact-version }}
       registry: ${{ inputs.registry }}
+      registries-file: ${{ inputs.registries-file }}
       registry-url: ${{ inputs.registry-url }}
       workspace-tools-source: ${{ inputs.workspace-tools-source }}
       dry-run: ${{ inputs.dry-run }}
@@ -349,6 +361,7 @@ jobs:
       version-mode: ${{ inputs.version-mode }}
       exact-version: ${{ inputs.exact-version }}
       registry: ${{ inputs.registry }}
+      registries-file: ${{ inputs.registries-file }}
       registry-url: ${{ inputs.registry-url }}
       workspace-tools-source: ${{ inputs.workspace-tools-source }}
       dry-run: ${{ inputs.dry-run }}
