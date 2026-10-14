@@ -2,13 +2,11 @@
 # Secret names are documentation; callers must explicitly pass credentials.
 registries:
   npm:
-    alias: npm
     url: https://registry.npmjs.org
     token-secret: NPM_TOKEN
     publish-mode: staged
     enabled: true
   github:
-    alias: github
     url: https://npm.pkg.github.com
     token-secret: GITHUB_TOKEN
     publish-mode: direct
