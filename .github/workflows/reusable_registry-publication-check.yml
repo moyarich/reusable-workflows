@@ -41,8 +41,8 @@ jobs:
           persist-credentials: false
       - uses: actions/checkout@v7
         with:
-          repository: ${{ job.workflow_repository }}
-          ref: ${{ job.workflow_sha }}
+          repository: moyarich/reusable-workflows
+          ref: ${{ github.workflow_sha }}
           path: .github/reusable-registry-config
           persist-credentials: false
           sparse-checkout: config/package-registries.yml
