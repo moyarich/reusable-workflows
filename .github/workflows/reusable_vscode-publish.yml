@@ -39,8 +39,12 @@ on:
         description: Version to validate against package.json (empty uses package.json)
         type: string
         default: ""
+      release-tag-prefix:
+        description: Prefix for default GitHub Release tags (for example packages/colorshower@)
+        type: string
+        default: v
       release-tag:
-        description: Existing GitHub Release tag to attach the VSIX to (empty uses v<version>)
+        description: Existing GitHub Release tag to attach the VSIX to (empty uses release-tag-prefix + version)
         type: string
         default: ""
       attach-release-asset:
@@ -424,11 +428,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           REQUESTED_TAG: ${{ inputs.release-tag }}
+          TAG_PREFIX: ${{ inputs.release-tag-prefix }}
           VERSION: ${{ needs.extension.outputs.extension-version }}
         shell: bash
         run: |
           set -euo pipefail
-          tag="${REQUESTED_TAG:-v$VERSION}"
+          tag="${REQUESTED_TAG:-${TAG_PREFIX}${VERSION}}"
           mapfile -d '' -t files < <(find "$RUNNER_TEMP/vsix" -type f -name '*.vsix' -print0)
           if [ "${#files[@]}" -ne 1 ]; then
             echo "::error::Expected exactly one packaged VSIX"
