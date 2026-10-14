@@ -1302,7 +1302,7 @@ jobs:
         target: ${{ fromJSON(needs.publish-package.outputs.targets-json) }}
     steps:
       - name: Download canonical package artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: npm-package-${{ needs.publish-package.outputs.package-version }}
           path: ${{ runner.temp }}/npm-artifact
@@ -1347,7 +1347,7 @@ jobs:
           npmrc="$(mktemp)"
           trap 'rm -f "$npmrc"' EXIT
           if [ -n "$token" ]; then
-            url_origin="$(node -e 'let u=new URL(process.argv[1]);if(u.protocol!=="https:")process.exit(1);console.log("//"+u.host+u.pathname.replace(/\\/$/,"")+"/")' "$REGISTRY_URL")"
+            url_origin="$(node -e 'let u=new URL(process.argv[1]);if(u.protocol!=="https:")process.exit(1);console.log("//"+u.host+(u.pathname.endsWith("/")?u.pathname.slice(0,-1):u.pathname)+"/")' "$REGISTRY_URL")"
             printf '%s:_authToken=%s\n' "$url_origin" "$token" > "$npmrc"
             chmod 600 "$npmrc"
           fi
