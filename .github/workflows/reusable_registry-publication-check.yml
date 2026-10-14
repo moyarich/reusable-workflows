@@ -17,6 +17,10 @@ on:
         required: false
         default: all
     secrets:
+      npm-token:
+        required: false
+      custom-registry-token:
+        required: false
       registry-tokens-json:
         required: false
     outputs:
@@ -55,6 +59,9 @@ jobs:
           REGISTRY_FILE: ${{ inputs.registries-file }}
           REGISTRY_SELECTION: ${{ inputs.registry }}
           REGISTRY_TOKENS_JSON: ${{ secrets.registry-tokens-json }}
+          NPM_TOKEN: ${{ secrets.npm-token }}
+          CUSTOM_REGISTRY_TOKEN: ${{ secrets.custom-registry-token }}
+          GH_PACKAGE_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           ruby -ryaml -rjson -ruri <<'RUBY'
@@ -76,9 +83,14 @@ jobs:
           selection = ENV.fetch('REGISTRY_SELECTION')
           entries.select! { |name, entry| selection == 'all' ? entry['enabled'] != false : name == selection }
           abort 'No registry selected' if entries.empty?
+          credentials = {
+            'npm-token' => ENV['NPM_TOKEN'],
+            'github-token' => ENV['GH_PACKAGE_TOKEN'],
+            'custom-registry-token' => ENV['CUSTOM_REGISTRY_TOKEN']
+          }
           token_json = ENV.fetch('REGISTRY_TOKENS_JSON', '').strip
           supplied = token_json.empty? ? {} : JSON.parse(token_json)
-          abort 'registry-tokens-json must contain string credentials' unless supplied.is_a?(Hash) && supplied.values.all? { |v| v.is_a?(String) }
+          abort 'registry-tokens-json must be a JSON object' unless supplied.is_a?(Hash)
           results = entries.map do |name, entry|
             abort "Disabled registry: #{name}" if entry['enabled'] == false
             abort "Unsupported query adapter: #{name}" unless entry.fetch('query', {}).fetch('type', 'npm') == 'npm'
@@ -86,7 +98,8 @@ jobs:
             uri = URI.parse(url)
             abort "Invalid HTTPS registry URL: #{name}" unless uri.is_a?(URI::HTTPS) && uri.host && uri.userinfo.nil?
             source = entry.fetch('token-source', 'custom-registry-token')
-            token = supplied[name] || supplied[source]
+            abort "Unknown token-source: #{source}" unless credentials.key?(source)
+            token = supplied[name] || credentials[source]
             published = false
             error = nil
             Dir.mktmpdir('registry-check-') do |directory|

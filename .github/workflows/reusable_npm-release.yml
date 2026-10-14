@@ -112,6 +112,10 @@ on:
         type: string
 
     secrets:
+      npm-token:
+        required: false
+      custom-registry-token:
+        required: false
       registry-tokens-json:
         required: false
     outputs:
@@ -795,4 +799,6 @@ jobs:
       registry: ${{ inputs.registry }}
       registries-file: ${{ inputs.registries-file }}
     secrets:
+      npm-token: ${{ secrets.npm-token }}
+      custom-registry-token: ${{ secrets.custom-registry-token }}
       registry-tokens-json: ${{ secrets.registry-tokens-json }}
