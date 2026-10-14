@@ -439,12 +439,11 @@ jobs:
             echo "::error::Expected exactly one packaged VSIX"
             exit 1
           fi
-          if ! release="$(gh api "repos/$GH_REPO/releases/tags/$tag")"; then
-            echo "::error::No GitHub Release exists for $tag"
-            exit 1
-          fi
-          if [ "$(jq -r '.draft' <<< "$release")" = true ]; then
-            echo "::error::Release $tag is still a draft"
+          # Find drafts as well as published releases by tag.
+          release="$(gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100" |
+            jq -c --arg tag "$tag" '[.[][] | select(.tag_name == $tag)] | first // empty')"
+          if [ -z "$release" ]; then
+            echo "::error::No GitHub Release (draft or published) exists for $tag"
             exit 1
           fi
           filename="$(basename "${files[0]}")"
@@ -454,7 +453,7 @@ jobs:
             exit 0
           fi
           if [ "$(jq -r '.immutable // false' <<< "$release")" = true ]; then
-            echo "::error::Release $tag is immutable; GitHub prevents adding assets after publication"
+            echo "::error::Release $tag is immutable; attach VSIX before finalizing the release"
             exit 1
           fi
           gh release upload "$tag" "${files[0]}" --repo "$GH_REPO"
