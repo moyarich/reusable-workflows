@@ -4,7 +4,7 @@ on:
     inputs:
       package:
         description: Package name, directory, or all
-        required: true
+        required: false
         default: all
         type: string
       registries-file:
@@ -24,12 +24,12 @@ on:
         type: string
       registry:
         description: Publish destination
-        required: true
+        required: false
         default: npm
         type: string
       version-mode:
         description: Publish manifest version or an exact version
-        required: true
+        required: false
         default: package-json
         type: string
       exact-version:
@@ -39,17 +39,17 @@ on:
         type: string
       verify-git-tag:
         description: Require matching package Git tag before publishing
-        required: true
+        required: false
         default: true
         type: boolean
       node-version:
         description: Node.js version for publishing
-        required: true
+        required: false
         default: "24"
         type: string
       dry-run:
         description: Preview publishing without changing the npm registry
-        required: true
+        required: false
         default: true
         type: boolean
       tag:
