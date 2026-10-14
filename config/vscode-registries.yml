@@ -1,0 +1,17 @@
+# Default VS Code extension registry definitions. Caller YAML extends by alias.
+# Credentials are provided through caller workflow secrets; never store tokens here.
+registries:
+  openvsx:
+    url: https://open-vsx.org
+    enabled: true
+    backend: ovsx
+    token-source: ovsx-token
+    token-env: OVSX_PAT
+    publish-command: 'npx --yes ovsx publish "$VSIX_FILE"'
+  marketplace:
+    url: https://marketplace.visualstudio.com
+    enabled: true
+    backend: vsce
+    token-source: vsce-token
+    token-env: VSCE_PAT
+    publish-command: 'npx --yes @vscode/vsce publish --packagePath "$VSIX_FILE"'
