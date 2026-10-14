@@ -161,7 +161,27 @@ jobs:
           fi
           git commit -m "style: format repository"
           TARGET_REF="${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}"
-          git push origin "HEAD:$TARGET_REF"
+
+          # Another commit may reach the branch while Prettier is running.
+          # Preserve those commits; never force-push or overwrite the branch.
+          for attempt in 1 2 3; do
+            git fetch --no-tags origin "refs/heads/$TARGET_REF"
+            if ! git rebase FETCH_HEAD; then
+              git rebase --abort || true
+              echo "::error::Prettier changes conflict with newer commits on $TARGET_REF. Resolve them on the branch and rerun."
+              exit 1
+            fi
+
+            if git push origin "HEAD:refs/heads/$TARGET_REF"; then
+              echo "Prettier changes pushed on attempt $attempt."
+              exit 0
+            fi
+
+            echo "::warning::Branch $TARGET_REF moved during push (attempt $attempt/3); retrying against its latest head."
+          done
+
+          echo "::error::Could not push Prettier changes after 3 attempts because $TARGET_REF keeps moving."
+          exit 1
 
       - name: Format summary
         if: ${{ always() }}
