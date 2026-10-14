@@ -512,6 +512,7 @@ jobs:
 
       - name: Check published versions across configured registries
         id: registry-status
+        if: ${{ !inputs.matrix-publish }}
         shell: bash
         env:
           PACKAGE_NAME: ${{ steps.plan.outputs.name }}
@@ -1118,7 +1119,7 @@ jobs:
           echo "can-publish=$CAN_PUBLISH" >> "$GITHUB_OUTPUT"
 
       - name: Publish summary
-        if: ${{ always() }}
+        if: ${{ always() && !inputs.matrix-publish }}
         env:
           RESULT_JSON: ${{ steps.publish.outputs.result-json }}
           ARTIFACT_ID: ${{ steps.packed-artifact.outputs.artifact-id }}
