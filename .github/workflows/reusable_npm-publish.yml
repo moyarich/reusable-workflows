@@ -13,11 +13,6 @@ on:
         required: true
         default: true
         type: boolean
-      matrix-publish:
-        description: Opt in to per-registry publishing jobs
-        required: false
-        default: false
-        type: boolean
       package-directory:
         description: Workspace path, directory name, or package name
         required: true
