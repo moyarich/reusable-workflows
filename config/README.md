@@ -18,3 +18,12 @@ The built-in `npm` and `github` destinations retain their current URLs, authenti
 URLs must use HTTPS and may not contain credentials, a query string, or a fragment. A custom registry publishes directly; npmjs.org continues to use staged publishing. The `workspace-tools` version configured in the reusable workflow must support `--registry custom --registry-url`.
 
 Console's existing dispatch inputs are unchanged, so its UI continues to offer `npm`, `github`, and `all`. Direct reusable-workflow callers can opt into custom destinations.
+
+
+## Registry configuration
+
+- `package-registries.yml` is the fallback for npm package publishing.
+- `vscodew-registries.yml` lists extension publishing destinations for VS Code workflow integration.
+- `registries.yml` remains a general registry example.
+
+The registry mapping key is the selector: `company:` is selected using `registry: company` without a redundant `alias` field. The `registries-file` input selects a file from the caller's checkout; absent files fall back to the version-matched package defaults. `all` selects every enabled configured entry.
