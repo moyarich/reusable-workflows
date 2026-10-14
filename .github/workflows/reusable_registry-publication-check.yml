@@ -97,7 +97,9 @@ jobs:
             url = entry.fetch('url')
             uri = URI.parse(url)
             abort "Invalid HTTPS registry URL: #{name}" unless uri.is_a?(URI::HTTPS) && uri.host && uri.userinfo.nil?
-            token = supplied[name] || credentials[entry.fetch('token-source', 'custom-registry-token')]
+            source = entry.fetch('token-source', 'custom-registry-token')
+            abort "Unknown token-source: #{source}" unless credentials.key?(source)
+            token = supplied[name] || credentials[source]
             published = false
             error = nil
             Dir.mktmpdir('registry-check-') do |directory|
