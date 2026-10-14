@@ -1,13 +1,20 @@
-# Default npm-compatible package registries.
-# Caller config (registries-file) overrides this entire registry map.
+# Built-in registries. Caller registries-file extends or overrides by key.
 registries:
   npm:
     url: https://registry.npmjs.org
+    backend: npm
     token-secret: NPM_TOKEN
     publish-mode: staged
     enabled: true
+    publish-github-release: false
+    query:
+      type: npm
   github:
     url: https://npm.pkg.github.com
+    backend: github
     token-secret: GITHUB_TOKEN
     publish-mode: direct
     enabled: true
+    publish-github-release: true
+    query:
+      type: npm
