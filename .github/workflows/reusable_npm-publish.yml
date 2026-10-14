@@ -8,10 +8,6 @@ on:
         required: false
         default: true
         type: boolean
-      description: Optional target branch; defaults to the selected workflow run ref
-        required: false
-        default: ""
-        type: string
       dry-run:
         description: Preview publishing without registry mutation
         required: true
@@ -45,10 +41,6 @@ on:
         type: string
         required: false
         default: ""
-      description: Optional URL override for one configured registry
-        type: string
-        required: false
-        default: ""
       tag:
         description: Distribution tag; leave empty to use the suggested tag.
         required: false
@@ -59,10 +51,6 @@ on:
         required: true
         default: true
         type: boolean
-      description: Workspace Tools source — published package or current caller checkout
-        required: true
-        default: registry:npm:0.2.0
-        type: string
       node-version:
         description: Node.js version
         required: true
