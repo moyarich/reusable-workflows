@@ -284,7 +284,7 @@ jobs:
             abort "Invalid publish mode for #{name}" unless %w[staged direct].include?(entry.fetch('publish-mode', 'direct'))
             backend = entry.fetch('backend', 'custom')
             abort "Invalid backend for #{name}" unless backend.is_a?(String) && backend.match?(/^[a-z][a-z0-9_-]*$/)
-            {'alias' => name, 'registry' => backend, 'url' => url, 'publishGithubRelease' => entry.fetch('publish-github-release', false), 'query' => entry.fetch('query', {}), 'tokenSecret' => entry.fetch('token-secret', '')}
+            {'alias' => name, 'registry' => backend, 'url' => url, 'publishGithubRelease' => entry.fetch('publish-github-release', false), 'query' => entry.fetch('query', {}), 'tokenSecret' => entry.fetch('token-secret', ''), 'tokenSource' => entry.fetch('token-source', 'custom-registry-token')}
           end
           File.open(ENV.fetch('GITHUB_ENV'), 'a') do |file|
             file.puts "REGISTRIES_JSON=#{JSON.generate(targets)}"
@@ -497,14 +497,16 @@ jobs:
           const tokens = process.env.REGISTRY_TOKENS_JSON ? JSON.parse(process.env.REGISTRY_TOKENS_JSON) : {};
           const packageName = process.env.PACKAGE_NAME;
           const version = process.env.PACKAGE_VERSION;
+          const credentials = {
+            'npm-token': process.env.NPM_TOKEN,
+            'github-token': process.env.GH_PACKAGE_TOKEN,
+            'custom-registry-token': process.env.CUSTOM_REGISTRY_TOKEN
+          };
           const results = [];
           for (const target of targets) {
             const type = target.query?.type ?? 'npm';
             if (type !== 'npm') throw new Error('Unsupported registry query adapter: ' + type);
-            const token = tokens[target.alias] ??
-              (target.registry === 'npm' ? process.env.NPM_TOKEN :
-               target.registry === 'github' ? process.env.GH_PACKAGE_TOKEN :
-               process.env.CUSTOM_REGISTRY_TOKEN);
+            const token = tokens[target.alias] ?? credentials[target.tokenSource];
             const url = new URL(target.url);
             const tmp = fs.mkdtempSync(require('node:os').tmpdir() + '/registry-query-');
             try {
