@@ -1,4 +1,4 @@
-name: "Reusable · Publish Open VSX extension"
+name: "Reusable · Publish VS Code extension"
 
 on:
   workflow_call:
@@ -31,16 +31,22 @@ on:
         description: Uploaded artifact name
         type: string
         default: open-vsx-vsix
-      publish-command:
-        description: Command executed from package-directory when publishing
+      registry:
+        description: "Publishing destination: open-vsx, vscode, or all"
         type: string
-        default: node scripts/publish-extension.mjs
+        default: open-vsx
+      publish-command:
+        description: Optional Open VSX publishing command (uses ovsx CLI when empty)
+        type: string
+        default: ""
       dry-run:
         description: Validate and upload VSIX without publishing
         type: boolean
         default: true
     secrets:
       ovsx-token:
+        required: false
+      vsce-token:
         required: false
       package-token:
         required: false
@@ -56,9 +62,13 @@ on:
       artifact-glob:
         type: string
         required: true
+      registry:
+        type: choice
+        options: [open-vsx, vscode, all]
+        default: open-vsx
       publish-command:
         type: string
-        default: node scripts/publish-extension.mjs
+        default: ""
       dry-run:
         type: boolean
         default: true
@@ -86,7 +96,7 @@ jobs:
         env:
           DIRECTORY: ${{ inputs.package-directory }}
           GLOB: ${{ inputs.artifact-glob }}
-          PUBLISH_COMMAND: ${{ inputs.publish-command }}
+          REGISTRY: ${{ inputs.registry || 'open-vsx' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -95,7 +105,7 @@ jobs:
             case "$value" in /*|..|../*|*/../*|*/..) echo "::error::Invalid path: $value"; exit 1;; esac
           done
           [ -f "$DIRECTORY/package.json" ] || { echo "::error::Missing $DIRECTORY/package.json"; exit 1; }
-          [ -n "$PUBLISH_COMMAND" ] || { echo "::error::Publish command cannot be empty"; exit 1; }
+          case "$REGISTRY" in open-vsx|vscode|all) ;; *) echo "::error::Unknown extension registry: $REGISTRY"; exit 1;; esac
       - name: Install dependencies
         env:
           NODE_AUTH_TOKEN: ${{ secrets.package-token || github.token }}
@@ -134,22 +144,49 @@ jobs:
           name: ${{ inputs.artifact-name || 'open-vsx-vsix' }}
           path: ${{ inputs.artifact-glob }}
           if-no-files-found: error
-      - name: Check Open VSX credentials
+      - name: Check selected registry credentials
         if: ${{ !inputs.dry-run }}
         env:
+          REGISTRY: ${{ inputs.registry || 'open-vsx' }}
           OVSX_PAT: ${{ secrets.ovsx-token }}
+          VSCE_PAT: ${{ secrets.vsce-token }}
+        shell: bash
         run: |
-          if [ -z "$OVSX_PAT" ]; then
-            echo "::error::Open VSX publishing requires the ovsx-token secret"
-            exit 1
+          set -euo pipefail
+          if [[ "$REGISTRY" == "open-vsx" || "$REGISTRY" == "all" ]]; then
+            [ -n "$OVSX_PAT" ] || { echo "::error::Open VSX requires ovsx-token"; exit 1; }
+          fi
+          if [[ "$REGISTRY" == "vscode" || "$REGISTRY" == "all" ]]; then
+            [ -n "$VSCE_PAT" ] || { echo "::error::VS Code Marketplace requires vsce-token"; exit 1; }
           fi
       - name: Publish to Open VSX
-        if: ${{ !inputs.dry-run }}
-        working-directory: ${{ inputs.package-directory }}
+        if: ${{ !inputs.dry-run && (inputs.registry == 'open-vsx' || inputs.registry == 'all' || inputs.registry == '') }}
         env:
           OVSX_PAT: ${{ secrets.ovsx-token }}
-          COMMAND: ${{ inputs.publish-command || 'node scripts/publish-extension.mjs' }}
-        run: bash -euo pipefail -c "$COMMAND"
+          COMMAND: ${{ inputs.publish-command }}
+          GLOB: ${{ inputs.artifact-glob }}
+          DIRECTORY: ${{ inputs.package-directory }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "$COMMAND" ]; then
+            (cd "$DIRECTORY" && bash -euo pipefail -c "$COMMAND")
+          else
+            shopt -s nullglob globstar
+            files=( $GLOB )
+            npx --yes ovsx publish "${files[0]}"
+          fi
+      - name: Publish to VS Code Marketplace
+        if: ${{ !inputs.dry-run && (inputs.registry == 'vscode' || inputs.registry == 'all') }}
+        env:
+          VSCE_PAT: ${{ secrets.vsce-token }}
+          GLOB: ${{ inputs.artifact-glob }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob globstar
+          files=( $GLOB )
+          npx --yes @vscode/vsce publish --packagePath "${files[0]}"
       - name: Report outcome
         id: outcome
         if: ${{ success() }}
@@ -167,15 +204,17 @@ jobs:
           DRY_RUN: ${{ inputs.dry-run }}
           DIRECTORY: ${{ inputs.package-directory }}
           VSIX: ${{ inputs.artifact-glob }}
+          REGISTRY: ${{ inputs.registry || 'open-vsx' }}
           STATUS: ${{ job.status }}
         run: |
           {
-            echo "## Open VSX publishing"
+            echo "## VS Code extension publishing"
             echo
             echo "| Setting | Value |"
             echo "| --- | --- |"
             printf '| Package directory | \`%s\` |\n' "$DIRECTORY"
             printf '| VSIX artifacts | \`%s\` |\n' "$VSIX"
+            printf '| Registry | \`%s\` |\\n' "$REGISTRY"
             printf '| Dry run | \`%s\` |\n' "$DRY_RUN"
             printf '| Result | **%s** |\n' "$STATUS"
           } >> "$GITHUB_STEP_SUMMARY"
