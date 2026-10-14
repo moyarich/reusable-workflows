@@ -918,10 +918,15 @@ jobs:
             printf '%s:_authToken=%s\n' "$url_origin" "$token" > "$npmrc"
             chmod 600 "$npmrc"
           fi
-          args=(publish "${files[0]}" --registry="$REGISTRY_URL" --userconfig="$npmrc" --access=public)
-          if [ -n "$DIST_TAG" ]; then args+=(--tag="$DIST_TAG"); fi
-          if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); fi
-          npm "${args[@]}"
+          if [ "$DRY_RUN" = "true" ]; then
+            # npm publish --dry-run can reject an already-published version.
+            # Inspect the exact canonical artifact instead; never call publish.
+            npm pack "${files[0]}" --dry-run --json --ignore-scripts >/dev/null
+          else
+            args=(publish "${files[0]}" --registry="$REGISTRY_URL" --userconfig="$npmrc" --access=public)
+            if [ -n "$DIST_TAG" ]; then args+=(--tag="$DIST_TAG"); fi
+            npm "${args[@]}"
+          fi
           echo "status=$(if [ "$DRY_RUN" = "true" ]; then echo preview; else echo success; fi)" >> "$GITHUB_OUTPUT"
       - name: Record registry result
         if: ${{ always() }}
