@@ -63,6 +63,8 @@ on:
         required: false
       custom-registry-token:
         required: false
+      registry-tokens-json:
+        required: false
 permissions: {}
 jobs:
   discover:
@@ -175,6 +177,8 @@ jobs:
       node-version: ${{ inputs.node-version }}
     secrets:
       npm-token: ${{ secrets.npm-token }}
+      custom-registry-token: ${{ secrets.custom-registry-token }}
+      registry-tokens-json: ${{ secrets.registry-tokens-json }}
   stage-1:
     name: "Stage 2 · ${{ matrix.name }}"
     needs: [plan, stage-0]
@@ -203,6 +207,7 @@ jobs:
     secrets:
       npm-token: ${{ secrets.npm-token }}
       custom-registry-token: ${{ secrets.custom-registry-token }}
+      registry-tokens-json: ${{ secrets.registry-tokens-json }}
   stage-2:
     name: "Stage 3 · ${{ matrix.name }}"
     needs: [plan, stage-1]
@@ -231,6 +236,7 @@ jobs:
     secrets:
       npm-token: ${{ secrets.npm-token }}
       custom-registry-token: ${{ secrets.custom-registry-token }}
+      registry-tokens-json: ${{ secrets.registry-tokens-json }}
   stage-3:
     name: "Stage 4 · ${{ matrix.name }}"
     needs: [plan, stage-2]
@@ -259,6 +265,7 @@ jobs:
     secrets:
       npm-token: ${{ secrets.npm-token }}
       custom-registry-token: ${{ secrets.custom-registry-token }}
+      registry-tokens-json: ${{ secrets.registry-tokens-json }}
   stage-4:
     name: "Stage 5 · ${{ matrix.name }}"
     needs: [plan, stage-3]
@@ -287,6 +294,7 @@ jobs:
     secrets:
       npm-token: ${{ secrets.npm-token }}
       custom-registry-token: ${{ secrets.custom-registry-token }}
+      registry-tokens-json: ${{ secrets.registry-tokens-json }}
   stage-5:
     name: "Stage 6 · ${{ matrix.name }}"
     needs: [plan, stage-4]
@@ -315,6 +323,7 @@ jobs:
     secrets:
       npm-token: ${{ secrets.npm-token }}
       custom-registry-token: ${{ secrets.custom-registry-token }}
+      registry-tokens-json: ${{ secrets.registry-tokens-json }}
   stage-6:
     name: "Stage 7 · ${{ matrix.name }}"
     needs: [plan, stage-5]
@@ -343,6 +352,7 @@ jobs:
     secrets:
       npm-token: ${{ secrets.npm-token }}
       custom-registry-token: ${{ secrets.custom-registry-token }}
+      registry-tokens-json: ${{ secrets.registry-tokens-json }}
   stage-7:
     name: "Stage 8 · ${{ matrix.name }}"
     needs: [plan, stage-6]
@@ -371,6 +381,7 @@ jobs:
     secrets:
       npm-token: ${{ secrets.npm-token }}
       custom-registry-token: ${{ secrets.custom-registry-token }}
+      registry-tokens-json: ${{ secrets.registry-tokens-json }}
   coverage:
     needs: [plan, stage-0, stage-1, stage-2, stage-3, stage-4, stage-5, stage-6, stage-7]
     if: ${{ always() }}
