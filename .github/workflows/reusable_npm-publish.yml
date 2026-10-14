@@ -212,8 +212,6 @@ jobs:
       - uses: actions/setup-node@v7 # v7
         with:
           node-version: ${{ inputs.node-version }}
-          registry-url: https://npm.pkg.github.com
-          scope: "@moyarich"
       - name: Ensure staged publishing CLI support
         run: npm install --global npm@">=11.15.0 <12"
       - name: Validate release package
@@ -284,7 +282,7 @@ jobs:
             abort "Invalid publish mode for #{name}" unless %w[staged direct].include?(entry.fetch('publish-mode', 'direct'))
             backend = entry.fetch('backend', 'custom')
             abort "Invalid backend for #{name}" unless backend.is_a?(String) && backend.match?(/^[a-z][a-z0-9_-]*$/)
-            {'alias' => name, 'registry' => backend, 'url' => url, 'publishGithubRelease' => entry.fetch('publish-github-release', false)}
+            {'alias' => name, 'registry' => backend, 'url' => url, 'publishGithubRelease' => entry.fetch('publish-github-release', false), 'query' => entry.fetch('query', {}), 'tokenSecret' => entry.fetch('token-secret', '')}
           end
           File.open(ENV.fetch('GITHUB_ENV'), 'a') do |file|
             file.puts "REGISTRIES_JSON=#{JSON.generate(targets)}"
@@ -292,7 +290,7 @@ jobs:
             file.puts "EFFECTIVE_REGISTRY_URL=#{targets.size == 1 ? targets.first['url'] : ''}"
             file.puts "PUBLISH_GITHUB_RELEASE=#{targets.any? { |target| target['publishGithubRelease'] }}"
           end
-          puts "Registry config: #{requested.empty? ? fallback : requested}; selected: #{targets.map { |target| target['alias'] }.join(', ')}"
+          puts "Registry config: #{!requested.empty? && File.file?(requested) ? requested : fallback}; selected: #{targets.map { |target| target['alias'] }.join(', ')}"
           RUBY
 
       - name: Validate custom registry inputs
@@ -375,7 +373,7 @@ jobs:
           fi
 
           PLAN_REGISTRY="$EFFECTIVE_REGISTRY"
-          if [ "$PLAN_REGISTRY" = all ]; then PLAN_REGISTRY="$(jq -r 'map(select(.registry != "custom")) | if length == 0 then "custom" elif length == 1 then .[0].registry else "all" end' <<< "$REGISTRIES_JSON")"; fi
+          if [ "$PLAN_REGISTRY" = all ]; then PLAN_REGISTRY="$(jq -r '.[0].registry' <<< "$REGISTRIES_JSON")"; fi
           PLAN_URL="$CUSTOM_REGISTRY_URL"
           if [ "$PLAN_REGISTRY" = custom ]; then PLAN_URL="$(jq -r '.[0].url' <<< "$REGISTRIES_JSON")"; fi
           PLAN_ARGS=(
