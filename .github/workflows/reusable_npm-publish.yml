@@ -157,6 +157,8 @@ on:
         required: false
       custom-registry-token:
         required: false
+      registry-tokens-json:
+        required: false
 
 permissions: {}
 
@@ -879,6 +881,7 @@ jobs:
           _GITHUB_TOKEN: ${{ github.token }}
           _NPM_TOKEN: ${{ secrets.npm-token }}
           _CUSTOM_REGISTRY_TOKEN: ${{ secrets.custom-registry-token }}
+          REGISTRY_TOKENS_JSON: ${{ secrets.registry-tokens-json }}
           CUSTOM_REGISTRY_URL: ${{ env.EFFECTIVE_REGISTRY_URL }}
           CANONICAL_ARTIFACT_PATH: ${{ steps.canonical-artifact.outputs.path }}
         run: |
@@ -926,7 +929,21 @@ jobs:
             done
             if [ "$backend" = custom ]; then args+=("--registry-url=$url"); fi
             echo "::group::Registry $alias"
+            if [ "$backend" = custom ]; then
+              if [ -n "${REGISTRY_TOKENS_JSON:-}" ]; then
+                token="$(jq -er --arg alias "$alias" '.[$alias] // empty' <<< "$REGISTRY_TOKENS_JSON")" || {
+                  echo "::error::Missing registry token for $alias in registry-tokens-json"
+                  exit 1
+                }
+                export _CUSTOM_REGISTRY_TOKEN="$token"
+              elif [ "$DRY_RUN" != "true" ] && [ -z "${_CUSTOM_REGISTRY_TOKEN:-}" ]; then
+                echo "::error::Custom registry $alias requires registry-tokens-json or custom-registry-token"
+                exit 1
+              fi
+            fi
             result="$(node "$WORKSPACE_TOOLS_BIN/workspace-publish.mjs" "${args[@]}")"
+            unset token
+            if [ "$backend" = custom ]; then unset _CUSTOM_REGISTRY_TOKEN; fi
             echo "$result" | jq .
             RESULTS+=("$(jq -c --arg alias "$alias" '. + {registryAlias:$alias}' <<< "$result")")
             echo "::endgroup::"
