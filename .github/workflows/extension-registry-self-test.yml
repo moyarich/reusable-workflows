@@ -27,7 +27,7 @@ jobs:
             abort 'Invalid selector' unless name.match?(/\A[a-z][a-z0-9_-]*\z/)
             uri = URI.parse(entry.fetch('url'))
             abort 'Invalid HTTPS URL' unless uri.is_a?(URI::HTTPS)
-            abort 'Invalid token-source' unless entry.fetch('token-source').match?(/\A[a-z][a-z0-9_-]*\z/)
+            abort 'Invalid token-source' unless entry.fetch('token-source').match?(/\A[A-Za-z_][A-Za-z0-9_]*\z/)
             abort 'Invalid token-env' unless entry.fetch('token-env').match?(/\A[A-Z][A-Z0-9_]*\z/)
           end
           override = {'company' => {'url' => 'https://example.test', 'backend' => 'custom', 'token-source' => 'company-token', 'token-env' => 'COMPANY_TOKEN', 'publish-command' => 'true', 'enabled' => true}, defaults.keys.first => {'enabled' => false}}
