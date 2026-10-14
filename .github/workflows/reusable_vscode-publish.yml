@@ -133,7 +133,7 @@ jobs:
       - name: Validate paths and configuration
         env:
           DIRECTORY: ${{ inputs.package-directory }}
-          GLOB: ${{ steps.vsix.outputs.glob }}
+          GLOB: ${{ inputs.artifact-glob }}
           REGISTRY: ${{ inputs.registry || 'openvsx' }}
         shell: bash
         run: |
