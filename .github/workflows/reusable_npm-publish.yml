@@ -915,6 +915,7 @@ jobs:
           fi
 
           RESULTS=()
+          DEFAULT_CUSTOM_TOKEN="${_CUSTOM_REGISTRY_TOKEN:-}"
           while IFS= read -r target; do
             backend="$(jq -r '.registry' <<< "$target")"
             url="$(jq -r '.url' <<< "$target")"
@@ -930,7 +931,8 @@ jobs:
             if [ "$backend" = custom ]; then args+=("--registry-url=$url"); fi
             echo "::group::Registry $alias"
             if [ "$backend" = custom ]; then
-              if [ -n "${REGISTRY_TOKENS_JSON:-}" ]; then
+              export _CUSTOM_REGISTRY_TOKEN="$DEFAULT_CUSTOM_TOKEN"
+              if [ -n "${REGISTRY_TOKENS_JSON:-}" ] && [ "$DRY_RUN" != "true" ]; then
                 token="$(jq -er --arg alias "$alias" '.[$alias] // empty' <<< "$REGISTRY_TOKENS_JSON")" || {
                   echo "::error::Missing registry token for $alias in registry-tokens-json"
                   exit 1
