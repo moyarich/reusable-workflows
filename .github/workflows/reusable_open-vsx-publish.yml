@@ -1,0 +1,181 @@
+name: "Reusable · Publish Open VSX extension"
+
+on:
+  workflow_call:
+    inputs:
+      package-directory:
+        description: Extension workspace directory containing package.json
+        type: string
+        required: true
+      node-version:
+        description: Node.js version
+        type: string
+        default: "24"
+      install-command:
+        description: Dependency installation command executed at repository root
+        type: string
+        default: npm ci --include=optional
+      check-command:
+        description: Repository validation command (empty to skip)
+        type: string
+        default: npm run check
+      package-command:
+        description: Command creating VSIX artifacts (empty if check-command already packages)
+        type: string
+        default: ""
+      artifact-glob:
+        description: Repository-relative path to generated VSIX files
+        type: string
+        required: true
+      artifact-name:
+        description: Uploaded artifact name
+        type: string
+        default: open-vsx-vsix
+      publish-command:
+        description: Command executed from package-directory when publishing
+        type: string
+        default: node scripts/publish-extension.mjs
+      dry-run:
+        description: Validate and upload VSIX without publishing
+        type: boolean
+        default: true
+    secrets:
+      ovsx-token:
+        required: false
+      package-token:
+        required: false
+    outputs:
+      publish-status:
+        description: validated, published, or failed
+        value: ${{ jobs.extension.outputs.publish-status }}
+  workflow_dispatch:
+    inputs:
+      package-directory:
+        type: string
+        required: true
+      artifact-glob:
+        type: string
+        required: true
+      publish-command:
+        type: string
+        default: node scripts/publish-extension.mjs
+      dry-run:
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  extension:
+    name: "job: Validate and publish VSIX"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      publish-status: ${{ steps.outcome.outputs.status }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version || '24' }}
+      - name: Validate paths and configuration
+        env:
+          DIRECTORY: ${{ inputs.package-directory }}
+          GLOB: ${{ inputs.artifact-glob }}
+          PUBLISH_COMMAND: ${{ inputs.publish-command }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for value in "$DIRECTORY" "$GLOB"; do
+            [ -n "$value" ] || { echo "::error::Package directory and VSIX path are required"; exit 1; }
+            case "$value" in /*|..|../*|*/../*|*/..) echo "::error::Invalid path: $value"; exit 1;; esac
+          done
+          [ -f "$DIRECTORY/package.json" ] || { echo "::error::Missing $DIRECTORY/package.json"; exit 1; }
+          [ -n "$PUBLISH_COMMAND" ] || { echo "::error::Publish command cannot be empty"; exit 1; }
+      - name: Install dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.package-token || github.token }}
+          COMMAND: ${{ inputs.install-command || 'npm ci --include=optional' }}
+        run: bash -euo pipefail -c "$COMMAND"
+      - name: Validate extension
+        if: ${{ inputs.check-command != '' }}
+        env:
+          COMMAND: ${{ inputs.check-command }}
+        run: bash -euo pipefail -c "$COMMAND"
+      - name: Package VSIX
+        if: ${{ inputs.package-command != '' }}
+        env:
+          COMMAND: ${{ inputs.package-command }}
+        run: bash -euo pipefail -c "$COMMAND"
+      - name: Verify VSIX output
+        env:
+          GLOB: ${{ inputs.artifact-glob }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob globstar
+          files=( $GLOB )
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "::error::No VSIX files matched $GLOB"
+            exit 1
+          fi
+          for file in "${files[@]}"; do
+            [ -f "$file" ] && [ -s "$file" ] || { echo "::error::Empty or invalid VSIX: $file"; exit 1; }
+            [[ "$file" == *.vsix ]] || { echo "::error::Expected .vsix artifact: $file"; exit 1; }
+          done
+          printf 'Validated %s VSIX file(s)\n' "${#files[@]}"
+      - name: Upload validated VSIX
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact-name || 'open-vsx-vsix' }}
+          path: ${{ inputs.artifact-glob }}
+          if-no-files-found: error
+      - name: Check Open VSX credentials
+        if: ${{ !inputs.dry-run }}
+        env:
+          OVSX_PAT: ${{ secrets.ovsx-token }}
+        run: |
+          if [ -z "$OVSX_PAT" ]; then
+            echo "::error::Open VSX publishing requires the ovsx-token secret"
+            exit 1
+          fi
+      - name: Publish to Open VSX
+        if: ${{ !inputs.dry-run }}
+        working-directory: ${{ inputs.package-directory }}
+        env:
+          OVSX_PAT: ${{ secrets.ovsx-token }}
+          COMMAND: ${{ inputs.publish-command || 'node scripts/publish-extension.mjs' }}
+        run: bash -euo pipefail -c "$COMMAND"
+      - name: Report outcome
+        id: outcome
+        if: ${{ success() }}
+        env:
+          DRY_RUN: ${{ inputs.dry-run }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "status=validated" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=published" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Workflow summary
+        if: ${{ always() }}
+        env:
+          DRY_RUN: ${{ inputs.dry-run }}
+          DIRECTORY: ${{ inputs.package-directory }}
+          VSIX: ${{ inputs.artifact-glob }}
+          STATUS: ${{ job.status }}
+        run: |
+          {
+            echo "## Open VSX publishing"
+            echo
+            echo "| Setting | Value |"
+            echo "| --- | --- |"
+            printf '| Package directory | \`%s\` |\n' "$DIRECTORY"
+            printf '| VSIX artifacts | \`%s\` |\n' "$VSIX"
+            printf '| Dry run | \`%s\` |\n' "$DRY_RUN"
+            printf '| Result | **%s** |\n' "$STATUS"
+          } >> "$GITHUB_STEP_SUMMARY"
