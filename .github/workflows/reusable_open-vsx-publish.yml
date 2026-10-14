@@ -50,6 +50,8 @@ on:
         required: false
       package-token:
         required: false
+      registry-tokens-json:
+        required: false
     outputs:
       publish-status:
         description: validated, published, or failed
@@ -109,7 +111,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: moyarich/reusable-workflows
-          ref: ${{ job.workflow_sha }}
+          ref: main
           path: .github/reusable-extension-registry-config
           persist-credentials: false
           sparse-checkout: config/vscode-registries.yml
@@ -147,7 +149,7 @@ jobs:
             abort "Invalid enabled flag for #{alias_name}" unless [true, false].include?(entry.fetch('enabled', true))
             abort "Missing backend for #{alias_name}" unless entry.fetch('backend').is_a?(String)
             abort "Missing publish command for #{alias_name}" unless entry.fetch('publish-command').is_a?(String)
-            abort "Missing credential source for #{alias_name}" unless entry.fetch('token-source').is_a?(String)
+            abort "Missing credential source for #{alias_name}" unless entry.fetch('token-source').is_a?(String) && entry.fetch('token-source').match?(/\A[a-z][a-z0-9_-]*\z/)
             abort "Missing token environment variable for #{alias_name}" unless entry.fetch('token-env').match?(/\A[A-Z][A-Z0-9_]*\z/)
           end
           selector = ENV.fetch('REGISTRY_SELECTION')
@@ -220,6 +222,7 @@ jobs:
           GLOB: ${{ inputs.artifact-glob }}
           OVSX_TOKEN: ${{ secrets.ovsx-token }}
           VSCE_TOKEN: ${{ secrets.vsce-token }}
+          REGISTRY_TOKENS_JSON: ${{ secrets.registry-tokens-json }}
         run: |
           set -euo pipefail
           shopt -s nullglob globstar
@@ -227,16 +230,28 @@ jobs:
           [ "${#files[@]}" -eq 1 ] || { echo "::error::Expected one VSIX"; exit 1; }
           VSIX_FILE="$(realpath "${files[0]}")"
           export VSIX_FILE
-          echo "$TARGETS_JSON" | jq -ce '.[]' | while IFS= read -r target; do
+          if [ -n "${REGISTRY_TOKENS_JSON:-}" ]; then
+            jq -e 'type == "object" and all(.[]; type == "string")' <<< "$REGISTRY_TOKENS_JSON" >/dev/null || {
+              echo "::error::registry-tokens-json must be a JSON object containing string tokens"
+              exit 1
+            }
+          fi
+          while IFS= read -r target; do
             alias="$(jq -r '.alias' <<< "$target")"
             source="$(jq -r '."token-source"' <<< "$target")"
             variable="$(jq -r '."token-env"' <<< "$target")"
             command="$(jq -r '."publish-command"' <<< "$target")"
-            case "$source" in
-              ovsx-token) token="$OVSX_TOKEN" ;;
-              vsce-token) token="$VSCE_TOKEN" ;;
-              *) echo "::error::Unsupported credential source for $alias: $source"; exit 1 ;;
-            esac
+            token=""
+            if [ -n "${REGISTRY_TOKENS_JSON:-}" ]; then
+              token="$(jq -r --arg key "$alias" '.[$key] // empty' <<< "$REGISTRY_TOKENS_JSON")"
+            fi
+            if [ -z "$token" ]; then
+              case "$source" in
+                ovsx-token) token="$OVSX_TOKEN" ;;
+                vsce-token) token="$VSCE_TOKEN" ;;
+                *) echo "::error::Unsupported token-source for $alias: $source (supply registry-tokens-json)" >&2; exit 1 ;;
+              esac
+            fi
             [ -n "$token" ] || { echo "::error::Missing credential for $alias"; exit 1; }
             [[ "$variable" =~ ^[A-Z][A-Z0-9_]*$ ]] || exit 1
             export "$variable=$token"
@@ -244,7 +259,7 @@ jobs:
             bash -euo pipefail -c "$command"
             echo "::endgroup::"
             unset "$variable" token
-          done
+          done < <(jq -ce '.[]' <<< "$TARGETS_JSON")
       - name: Report outcome
         id: outcome
         if: ${{ success() }}
