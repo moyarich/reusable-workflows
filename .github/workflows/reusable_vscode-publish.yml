@@ -46,7 +46,11 @@ on:
     secrets:
       package-token:
         required: false
-      registry-tokens-json:
+      ovsx-token:
+        required: false
+      vsce-token:
+        required: false
+      custom-registry-token:
         required: false
     outputs:
       publish-status:
@@ -216,7 +220,9 @@ jobs:
         env:
           TARGETS_JSON: ${{ steps.registries.outputs.targets-json }}
           GLOB: ${{ inputs.artifact-glob }}
-          REGISTRY_TOKENS_JSON: ${{ secrets.registry-tokens-json }}
+          OVSX_TOKEN: ${{ secrets.ovsx-token }}
+          VSCE_TOKEN: ${{ secrets.vsce-token }}
+          CUSTOM_REGISTRY_TOKEN: ${{ secrets.custom-registry-token }}
         run: |
           set -euo pipefail
           shopt -s nullglob globstar
@@ -224,24 +230,17 @@ jobs:
           [ "${#files[@]}" -eq 1 ] || { echo "::error::Expected one VSIX"; exit 1; }
           VSIX_FILE="$(realpath "${files[0]}")"
           export VSIX_FILE
-          if [ -z "${REGISTRY_TOKENS_JSON:-}" ]; then
-            echo "::error::registry-tokens-json is required for live extension publishing"
-            exit 1
-          fi
-          if [ -n "${REGISTRY_TOKENS_JSON:-}" ]; then
-            jq -e 'type == "object" and all(.[]; type == "string")' <<< "$REGISTRY_TOKENS_JSON" >/dev/null || {
-              echo "::error::registry-tokens-json must be a JSON object containing string tokens"
-              exit 1
-            }
-          fi
           while IFS= read -r target; do
             alias="$(jq -r '.alias' <<< "$target")"
             source="$(jq -r '."token-source"' <<< "$target")"
             variable="$(jq -r '."token-env"' <<< "$target")"
             command="$(jq -r '."publish-command"' <<< "$target")"
-            # The secret map can use registry aliases or shared token-source keys.
-            # Alias-specific credentials have priority when both are present.
-            token="$(jq -r --arg alias "$alias" --arg source "$source" '.[$alias] // .[$source] // empty' <<< "$REGISTRY_TOKENS_JSON")"
+            case "$source" in
+              ovsx-token) token="$OVSX_TOKEN" ;;
+              vsce-token) token="$VSCE_TOKEN" ;;
+              custom-registry-token) token="$CUSTOM_REGISTRY_TOKEN" ;;
+              *) echo "::error::Unsupported token-source for $alias: $source" >&2; exit 1 ;;
+            esac
             [ -n "$token" ] || { echo "::error::Missing credential for $alias"; exit 1; }
             [[ "$variable" =~ ^[A-Z][A-Z0-9_]*$ ]] || exit 1
             export "$variable=$token"
