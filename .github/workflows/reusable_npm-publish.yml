@@ -279,7 +279,7 @@ jobs:
             abort "Invalid publish mode for #{name}" unless %w[staged direct].include?(entry.fetch('publish-mode', 'direct'))
             backend = entry.fetch('backend', 'custom')
             abort "Invalid backend for #{name}" unless backend.is_a?(String) && backend.match?(/^[a-z][a-z0-9_-]*$/)
-            {'alias' => name, 'registry' => backend, 'url' => url, 'publishGithubRelease' => entry.fetch('publish-github-release', false), 'query' => entry.fetch('query', {}), 'tokenSource' => entry.fetch('token-source', 'custom-registry-token'), 'secretName' => ({'npm-token' => 'NPM_TOKEN', 'github-token' => 'GITHUB_TOKEN', 'custom-registry-token' => 'CUSTOM_REGISTRY_TOKEN'}[entry.fetch('token-source', 'custom-registry-token')] || entry.fetch('token-source', 'custom-registry-token'))}
+            {'alias' => name, 'registry' => backend, 'url' => url, 'publishGithubRelease' => entry.fetch('publish-github-release', false), 'query' => entry.fetch('query', {}), 'tokenSource' => entry.fetch('token-source', 'custom-registry-token')}
           end
           File.open(ENV.fetch('GITHUB_ENV'), 'a') do |file|
             file.puts "REGISTRIES_JSON=#{JSON.generate(targets)}"
@@ -1315,12 +1315,8 @@ jobs:
           REGISTRY_ALIAS: ${{ matrix.target.alias }}
           REGISTRY_BACKEND: ${{ matrix.target.registry }}
           REGISTRY_URL: ${{ matrix.target.url }}
-          REGISTRY_SECRET_NAME: ${{ matrix.target.secretName }}
           SOURCE_NAME: ${{ matrix.target.tokenSource }}
-          DYNAMIC_TOKEN: ${{ secrets[matrix.target.secretName] }}
-          LEGACY_NPM_TOKEN: ${{ secrets.npm-token }}
-          LEGACY_CUSTOM_TOKEN: ${{ secrets.custom-registry-token }}
-          GITHUB_PACKAGE_TOKEN: ${{ github.token }}
+          REGISTRY_TOKEN: ${{ matrix.target.tokenSource == 'github-token' && github.token || secrets[matrix.target.tokenSource] }}
           DRY_RUN: ${{ inputs.dry-run }}
           DIST_TAG: ${{ needs.publish-package.outputs.distribution-tag }}
         shell: bash
@@ -1329,19 +1325,9 @@ jobs:
           shopt -s nullglob
           files=("$RUNNER_TEMP"/npm-artifact/*.tgz)
           [ "${#files[@]}" -eq 1 ] || { echo "::error::Expected exactly one canonical npm artifact"; exit 1; }
-          # Preserve explicitly forwarded workflow_call secrets when the caller
-          # cannot inherit dynamically named secrets.
-          token="$DYNAMIC_TOKEN"
-          if [ -z "$token" ]; then
-            case "$SOURCE_NAME" in
-              npm-token) token="$LEGACY_NPM_TOKEN" ;;
-              github-token) token="$GITHUB_PACKAGE_TOKEN" ;;
-              custom-registry-token) token="$LEGACY_CUSTOM_TOKEN" ;;
-              *) ;;
-            esac
-          fi
+          token="$REGISTRY_TOKEN"
           if [ "$DRY_RUN" != "true" ] && [ -z "$token" ]; then
-            echo "::error::Missing credential for $REGISTRY_ALIAS ($REGISTRY_SECRET_NAME)"
+            echo "::error::Missing credential for $REGISTRY_ALIAS ($SOURCE_NAME)"
             exit 1
           fi
           npmrc="$(mktemp)"
