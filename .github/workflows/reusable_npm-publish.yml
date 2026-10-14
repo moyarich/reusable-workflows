@@ -87,6 +87,11 @@ on:
         required: false
         default: ""
         type: string
+      matrix-publish:
+        description: Opt in to publishing each registry in its own job
+        required: false
+        default: false
+        type: boolean
       registry:
         description: github, npm, or all
         required: false
@@ -927,6 +932,7 @@ jobs:
 
       - name: Publish package
         id: publish
+        if: ${{ !inputs.matrix-publish }}
         env:
           DRY_RUN: ${{ inputs.dry-run }}
           VERIFY_GIT_TAG: ${{ inputs.verify-git-tag }}
@@ -1043,7 +1049,7 @@ jobs:
 
       - name: Publish GitHub Release draft for GitHub Packages
         id: github-release
-        if: ${{ !inputs.dry-run && steps.publish.outcome == 'success' && env.PUBLISH_GITHUB_RELEASE == 'true' && steps.release-state.outputs.draft == 'true' }}
+        if: ${{ !inputs.matrix-publish && !inputs.dry-run && steps.publish.outcome == 'success' && env.PUBLISH_GITHUB_RELEASE == 'true' && steps.release-state.outputs.draft == 'true' }}
         env:
           GH_REPO: ${{ github.repository }}
           RELEASE_ID: ${{ steps.release-state.outputs.id }}
@@ -1069,7 +1075,7 @@ jobs:
 
       - name: Preserve existing GitHub Release state
         id: preserved-release-state
-        if: ${{ !inputs.dry-run && steps.publish.outcome == 'success' && (env.PUBLISH_GITHUB_RELEASE != 'true' || steps.release-state.outputs.draft != 'true') }}
+        if: ${{ !inputs.matrix-publish && !inputs.dry-run && steps.publish.outcome == 'success' && (env.PUBLISH_GITHUB_RELEASE != 'true' || steps.release-state.outputs.draft != 'true') }}
         env:
           RELEASE_STATE: ${{ steps.release-state.outputs.state }}
           RELEASE_IMMUTABLE: ${{ steps.release-state.outputs.immutable }}
