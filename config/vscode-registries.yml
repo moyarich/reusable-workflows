@@ -5,13 +5,13 @@ registries:
     url: https://open-vsx.org
     enabled: true
     backend: ovsx
-    token-source: ovsx-token
+    token-source: OVSX_PAT
     token-env: OVSX_PAT
     publish-command: 'npx --yes ovsx publish "$VSIX_FILE"'
   marketplace:
     url: https://marketplace.visualstudio.com
     enabled: true
     backend: vsce
-    token-source: vsce-token
+    token-source: VSCE_PAT
     token-env: VSCE_PAT
     publish-command: 'npx --yes @vscode/vsce publish --packagePath "$VSIX_FILE"'
