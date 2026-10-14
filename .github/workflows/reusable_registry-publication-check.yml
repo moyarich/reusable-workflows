@@ -88,7 +88,9 @@ jobs:
             'github-token' => ENV['GH_PACKAGE_TOKEN'],
             'custom-registry-token' => ENV['CUSTOM_REGISTRY_TOKEN']
           }
-          supplied = JSON.parse(ENV.fetch('REGISTRY_TOKENS_JSON', '{}'))
+          token_json = ENV.fetch('REGISTRY_TOKENS_JSON', '').strip
+          supplied = token_json.empty? ? {} : JSON.parse(token_json)
+          abort 'registry-tokens-json must be a JSON object' unless supplied.is_a?(Hash)
           results = entries.map do |name, entry|
             abort "Disabled registry: #{name}" if entry['enabled'] == false
             abort "Unsupported query adapter: #{name}" unless entry.fetch('query', {}).fetch('type', 'npm') == 'npm'
