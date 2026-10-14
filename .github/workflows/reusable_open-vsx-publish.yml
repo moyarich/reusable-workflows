@@ -32,15 +32,11 @@ on:
         type: string
         default: openvsx-vsix
       registry:
-        description: "Configured registry alias (openvsx, marketplace) or all"
+        description: Configured extension registry alias or all
         type: string
         default: openvsx
       registries-file:
         description: Optional caller registry YAML path (overrides bundled extension registry defaults)
-        type: string
-        default: ""
-      publish-command:
-        description: Optional Open VSX publishing command (uses ovsx CLI when empty)
         type: string
         default: ""
       dry-run:
@@ -67,13 +63,9 @@ on:
         type: string
         required: true
       registry:
-        type: choice
-        options: [openvsx, marketplace, all]
+        type: string
         default: openvsx
       registries-file:
-        type: string
-        default: ""
-      publish-command:
         type: string
         default: ""
       dry-run:
@@ -120,7 +112,7 @@ jobs:
           ref: ${{ github.workflow_sha }}
           path: .github/reusable-extension-registry-config
           persist-credentials: false
-          sparse-checkout: config/vscodew-registries.yml
+          sparse-checkout: config/vscode-registries.yml
           sparse-checkout-cone-mode: false
       - name: Resolve extension registry aliases
         id: registries
@@ -131,7 +123,7 @@ jobs:
         run: |
           set -euo pipefail
           ruby -ryaml -rjson -ruri <<'RUBY'
-          defaults_file = '.github/reusable-extension-registry-config/config/vscodew-registries.yml'
+          defaults_file = '.github/reusable-extension-registry-config/config/vscode-registries.yml'
           abort "Missing bundled extension registry defaults: #{defaults_file}" unless File.file?(defaults_file)
           requested_file = ENV.fetch('REGISTRIES_FILE', '')
           abort 'Invalid registries-file path' if requested_file.start_with?('/') || requested_file.split('/').include?('..')
@@ -147,17 +139,16 @@ jobs:
             abort "Registry #{key} must be a mapping" unless default.is_a?(Hash) && override.is_a?(Hash)
             default.merge(override)
           end
-          supported = {
-            'openvsx' => 'https://open-vsx.org',
-            'marketplace' => 'https://marketplace.visualstudio.com'
-          }
           configured.each do |alias_name, entry|
-            abort "Unsupported extension registry alias: #{alias_name}" unless supported.key?(alias_name)
-            abort "Invalid extension registry configuration for #{alias_name}" unless entry.is_a?(Hash)
+            abort "Invalid registry alias: #{alias_name}" unless alias_name.match?(/\A[a-z][a-z0-9_-]*\z/)
+            abort "Invalid config for #{alias_name}" unless entry.is_a?(Hash)
             url = URI.parse(entry.fetch('url'))
-            expected = URI.parse(supported.fetch(alias_name))
-            abort "Unsupported registry endpoint for #{alias_name}" unless url.is_a?(URI::HTTPS) && url.host == expected.host && (url.path == '' || url.path == '/') && url.userinfo.nil? && url.query.nil? && url.fragment.nil?
-            abort "enabled must be a boolean for #{alias_name}" unless [true, false].include?(entry.fetch('enabled', true))
+            abort "Invalid HTTPS registry endpoint for #{alias_name}" unless url.is_a?(URI::HTTPS) && url.host && !url.userinfo && !url.query && !url.fragment
+            abort "Invalid enabled flag for #{alias_name}" unless [true, false].include?(entry.fetch('enabled', true))
+            abort "Missing backend for #{alias_name}" unless entry.fetch('backend').is_a?(String)
+            abort "Missing publish command for #{alias_name}" unless entry.fetch('publish-command').is_a?(String)
+            abort "Missing credential source for #{alias_name}" unless entry.fetch('token-source').is_a?(String)
+            abort "Missing token environment variable for #{alias_name}" unless entry.fetch('token-env').match?(/\A[A-Z][A-Z0-9_]*\z/)
           end
           selector = ENV.fetch('REGISTRY_SELECTION')
           selected = if selector == 'all'
@@ -169,9 +160,8 @@ jobs:
           end
           abort 'No enabled extension registries selected' if selected.empty?
           File.open(ENV.fetch('GITHUB_OUTPUT'), 'a') do |out|
-            out.puts "openvsx=#{selected.include?('openvsx')}"
-            out.puts "marketplace=#{selected.include?('marketplace')}"
             out.puts "selected=#{selected.join(',')}"
+            out.puts "targets-json=#{JSON.generate(selected.map { |name| { 'alias' => name }.merge(configured.fetch(name)) })}"
           end
           File.open(ENV.fetch('GITHUB_STEP_SUMMARY'), 'a') do |out|
             out.puts "### Resolved extension registries"
@@ -222,50 +212,39 @@ jobs:
           name: ${{ inputs.artifact-name || 'open-vsx-vsix' }}
           path: ${{ inputs.artifact-glob }}
           if-no-files-found: error
-      - name: Check selected registry credentials
+      - name: Publish configured extension registries
         if: ${{ !inputs.dry-run }}
-        env:
-          OPENVSX: ${{ steps.registries.outputs.openvsx }}
-          MARKETPLACE: ${{ steps.registries.outputs.marketplace }}
-          OVSX_PAT: ${{ secrets.ovsx-token }}
-          VSCE_PAT: ${{ secrets.vsce-token }}
         shell: bash
-        run: |
-          set -euo pipefail
-          if [ "$OPENVSX" = "true" ]; then
-            [ -n "$OVSX_PAT" ] || { echo "::error::Open VSX requires ovsx-token"; exit 1; }
-          fi
-          if [ "$MARKETPLACE" = "true" ]; then
-            [ -n "$VSCE_PAT" ] || { echo "::error::VS Code Marketplace requires vsce-token"; exit 1; }
-          fi
-      - name: Publish to Open VSX
-        if: ${{ !inputs.dry-run && (steps.registries.outputs.openvsx == 'true') }}
         env:
-          OVSX_PAT: ${{ secrets.ovsx-token }}
-          COMMAND: ${{ inputs.publish-command }}
+          TARGETS_JSON: ${{ steps.registries.outputs.targets-json }}
           GLOB: ${{ inputs.artifact-glob }}
-          DIRECTORY: ${{ inputs.package-directory }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ -n "$COMMAND" ]; then
-            (cd "$DIRECTORY" && bash -euo pipefail -c "$COMMAND")
-          else
-            shopt -s nullglob globstar
-            files=( $GLOB )
-            npx --yes ovsx publish "${files[0]}"
-          fi
-      - name: Publish to VS Code Marketplace
-        if: ${{ !inputs.dry-run && (steps.registries.outputs.marketplace == 'true') }}
-        env:
-          VSCE_PAT: ${{ secrets.vsce-token }}
-          GLOB: ${{ inputs.artifact-glob }}
-        shell: bash
+          OVSX_TOKEN: ${{ secrets.ovsx-token }}
+          VSCE_TOKEN: ${{ secrets.vsce-token }}
         run: |
           set -euo pipefail
           shopt -s nullglob globstar
           files=( $GLOB )
-          npx --yes @vscode/vsce publish --packagePath "${files[0]}"
+          [ "${#files[@]}" -eq 1 ] || { echo "::error::Expected one VSIX"; exit 1; }
+          VSIX_FILE="$(realpath "${files[0]}")"
+          export VSIX_FILE
+          echo "$TARGETS_JSON" | jq -ce '.[]' | while IFS= read -r target; do
+            alias="$(jq -r '.alias' <<< "$target")"
+            source="$(jq -r '."token-source"' <<< "$target")"
+            variable="$(jq -r '."token-env"' <<< "$target")"
+            command="$(jq -r '."publish-command"' <<< "$target")"
+            case "$source" in
+              ovsx-token) token="$OVSX_TOKEN" ;;
+              vsce-token) token="$VSCE_TOKEN" ;;
+              *) echo "::error::Unsupported credential source for $alias: $source"; exit 1 ;;
+            esac
+            [ -n "$token" ] || { echo "::error::Missing credential for $alias"; exit 1; }
+            [[ "$variable" =~ ^[A-Z][A-Z0-9_]*$ ]] || exit 1
+            export "$variable=$token"
+            echo "::group::Publish extension to $alias"
+            bash -euo pipefail -c "$command"
+            echo "::endgroup::"
+            unset "$variable" token
+          done
       - name: Report outcome
         id: outcome
         if: ${{ success() }}
