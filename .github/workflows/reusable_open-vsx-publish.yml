@@ -34,7 +34,7 @@ on:
       registry:
         description: "Configured registry alias (openvsx, marketplace) or all"
         type: string
-        default: open-vsx
+        default: openvsx
       registries-file:
         description: Optional caller registry YAML path (overrides bundled extension registry defaults)
         type: string
@@ -68,8 +68,11 @@ on:
         required: true
       registry:
         type: choice
-        options: [open-vsx, vscode, all]
-        default: open-vsx
+        options: [openvsx, marketplace, all]
+        default: openvsx
+      registries-file:
+        type: string
+        default: ""
       publish-command:
         type: string
         default: ""
@@ -211,6 +214,7 @@ jobs:
             [ -f "$file" ] && [ -s "$file" ] || { echo "::error::Empty or invalid VSIX: $file"; exit 1; }
             [[ "$file" == *.vsix ]] || { echo "::error::Expected .vsix artifact: $file"; exit 1; }
           done
+          [ "${#files[@]}" -eq 1 ] || { echo "::error::Expected one VSIX, found ${#files[@]}"; exit 1; }
           printf 'Validated %s VSIX file(s)\n' "${#files[@]}"
       - name: Upload validated VSIX
         uses: actions/upload-artifact@v4
