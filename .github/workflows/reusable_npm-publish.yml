@@ -8,8 +8,7 @@ on:
         required: false
         default: true
         type: boolean
-      target-branch:
-        description: Optional target branch; defaults to the selected workflow run ref
+      description: Optional target branch; defaults to the selected workflow run ref
         required: false
         default: ""
         type: string
@@ -46,8 +45,7 @@ on:
         type: string
         required: false
         default: ""
-      registry-url:
-        description: Optional URL override for one configured registry
+      description: Optional URL override for one configured registry
         type: string
         required: false
         default: ""
@@ -61,8 +59,7 @@ on:
         required: true
         default: true
         type: boolean
-      workspace-tools-source:
-        description: Workspace Tools source — published package or current caller checkout
+      description: Workspace Tools source — published package or current caller checkout
         required: true
         default: registry:npm:0.2.0
         type: string
@@ -236,8 +233,8 @@ jobs:
       - name: Checkout shared registry defaults
         uses: actions/checkout@v7
         with:
-          repository: ${{ job.workflow_repository }}
-          ref: ${{ job.workflow_sha }}
+          repository: moyarich/reusable-workflows
+          ref: ${{ github.workflow_sha }}
           path: .github/reusable-registry-config
           persist-credentials: false
           sparse-checkout: config/package-registries.yml
@@ -312,8 +309,8 @@ jobs:
       - name: Checkout version-matched reusable workflow actions
         uses: actions/checkout@v7
         with:
-          repository: ${{ job.workflow_repository }}
-          ref: ${{ job.workflow_sha }}
+          repository: moyarich/reusable-workflows
+          ref: ${{ github.workflow_sha }}
           path: .github/reusable-workflows-runtime
           persist-credentials: false
           sparse-checkout: actions
@@ -1109,7 +1106,7 @@ jobs:
             echo "| Package | \`${{ steps.plan.outputs.name || inputs.package-directory }}\` |"
             echo "| Package version | \`${{ steps.plan.outputs.version || 'unresolved' }}\` |"
             echo "| Package directory | \`${{ inputs.package-directory }}\` |"
-            echo "| Requested version | \`${{ inputs.version || 'package version' }}\` |"
+            echo "| Requested version | \`${{ inputs.exact-version || 'package version' }}\` |"
             echo "| Access | \`$(jq -r '.access // "unresolved"' <<< "$RESULT_JSON" 2>/dev/null || echo unresolved)\` |"
             echo "| Registry selection | \`${{ inputs.registry }}\` |"
             echo "| Distribution tag | \`${{ steps.plan.outputs.distribution-tag || '(preview suggestion only)' }}\` |"
