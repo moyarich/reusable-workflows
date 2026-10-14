@@ -46,12 +46,6 @@ on:
     secrets:
       package-token:
         required: false
-      ovsx-token:
-        required: false
-      vsce-token:
-        required: false
-      custom-registry-token:
-        required: false
     outputs:
       publish-status:
         description: validated, published, or failed
@@ -86,6 +80,7 @@ jobs:
       packages: read
     outputs:
       publish-status: ${{ steps.outcome.outputs.status }}
+      targets-json: ${{ steps.registries.outputs.targets-json }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -149,7 +144,7 @@ jobs:
             abort "Invalid enabled flag for #{alias_name}" unless [true, false].include?(entry.fetch('enabled', true))
             abort "Missing backend for #{alias_name}" unless entry.fetch('backend').is_a?(String)
             abort "Missing publish command for #{alias_name}" unless entry.fetch('publish-command').is_a?(String)
-            abort "Missing credential source for #{alias_name}" unless entry.fetch('token-source').is_a?(String) && entry.fetch('token-source').match?(/\A[a-z][a-z0-9_-]*\z/)
+            abort "Missing credential source for #{alias_name}" unless entry.fetch('token-source').is_a?(String) && entry.fetch('token-source').match?(/\A[A-Za-z_][A-Za-z0-9_]*\z/)
             abort "Missing token environment variable for #{alias_name}" unless entry.fetch('token-env').match?(/\A[A-Z][A-Z0-9_]*\z/)
           end
           selector = ENV.fetch('REGISTRY_SELECTION')
@@ -214,41 +209,6 @@ jobs:
           name: ${{ inputs.artifact-name || 'open-vsx-vsix' }}
           path: ${{ inputs.artifact-glob }}
           if-no-files-found: error
-      - name: Publish configured extension registries
-        if: ${{ !inputs.dry-run }}
-        shell: bash
-        env:
-          TARGETS_JSON: ${{ steps.registries.outputs.targets-json }}
-          GLOB: ${{ inputs.artifact-glob }}
-          OVSX_TOKEN: ${{ secrets.ovsx-token }}
-          VSCE_TOKEN: ${{ secrets.vsce-token }}
-          CUSTOM_REGISTRY_TOKEN: ${{ secrets.custom-registry-token }}
-        run: |
-          set -euo pipefail
-          shopt -s nullglob globstar
-          files=( $GLOB )
-          [ "${#files[@]}" -eq 1 ] || { echo "::error::Expected one VSIX"; exit 1; }
-          VSIX_FILE="$(realpath "${files[0]}")"
-          export VSIX_FILE
-          while IFS= read -r target; do
-            alias="$(jq -r '.alias' <<< "$target")"
-            source="$(jq -r '."token-source"' <<< "$target")"
-            variable="$(jq -r '."token-env"' <<< "$target")"
-            command="$(jq -r '."publish-command"' <<< "$target")"
-            case "$source" in
-              ovsx-token) token="$OVSX_TOKEN" ;;
-              vsce-token) token="$VSCE_TOKEN" ;;
-              custom-registry-token) token="$CUSTOM_REGISTRY_TOKEN" ;;
-              *) echo "::error::Unsupported token-source for $alias: $source" >&2; exit 1 ;;
-            esac
-            [ -n "$token" ] || { echo "::error::Missing credential for $alias"; exit 1; }
-            [[ "$variable" =~ ^[A-Z][A-Z0-9_]*$ ]] || exit 1
-            export "$variable=$token"
-            echo "::group::Publish extension to $alias"
-            bash -euo pipefail -c "$command"
-            echo "::endgroup::"
-            unset "$variable" token
-          done < <(jq -ce '.[]' <<< "$TARGETS_JSON")
       - name: Report outcome
         id: outcome
         if: ${{ success() }}
@@ -258,7 +218,7 @@ jobs:
           if [ "$DRY_RUN" = "true" ]; then
             echo "status=validated" >> "$GITHUB_OUTPUT"
           else
-            echo "status=published" >> "$GITHUB_OUTPUT"
+            echo "status=validated" >> "$GITHUB_OUTPUT"
           fi
       - name: Workflow summary
         if: ${{ always() }}
@@ -280,3 +240,41 @@ jobs:
             printf '| Dry run | \`%s\` |\n' "$DRY_RUN"
             printf '| Result | **%s** |\n' "$STATUS"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  publish:
+    name: "job: Publish ${{ matrix.target.alias }}"
+    needs: extension
+    if: ${{ !inputs.dry-run }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.extension.outputs.targets-json) }}
+    steps:
+      - name: Download validated VSIX
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact-name || 'open-vsx-vsix' }}
+          path: ${{ runner.temp }}/vsix
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version || '24' }}
+      - name: Publish selected registry
+        env:
+          REGISTRY_TOKEN: ${{ secrets[matrix.target.token-source] }}
+          TOKEN_ENV: ${{ matrix.target.token-env }}
+          PUBLISH_COMMAND: ${{ matrix.target.publish-command }}
+          REGISTRY_ALIAS: ${{ matrix.target.alias }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ -n "$REGISTRY_TOKEN" ] || { echo "::error::Missing secret for registry $REGISTRY_ALIAS"; exit 1; }
+          [[ "$TOKEN_ENV" =~ ^[A-Z][A-Z0-9_]*$ ]] || { echo "::error::Invalid token-env"; exit 1; }
+          mapfile -d '' -t files < <(find "$RUNNER_TEMP/vsix" -type f -name '*.vsix' -print0)
+          [ "${#files[@]}" -eq 1 ] || { echo "::error::Expected exactly one VSIX"; exit 1; }
+          VSIX_FILE="${files[0]}"
+          export VSIX_FILE
+          export "$TOKEN_ENV=$REGISTRY_TOKEN"
+          bash -euo pipefail -c "$PUBLISH_COMMAND"
+          echo "Published $REGISTRY_ALIAS" >> "$GITHUB_STEP_SUMMARY"
