@@ -907,36 +907,63 @@ jobs:
           files=("$RUNNER_TEMP"/npm-artifact/*.tgz)
           [ "${#files[@]}" -eq 1 ] || { echo "::error::Expected exactly one canonical npm artifact"; exit 1; }
           token="$REGISTRY_TOKEN"
-          if [ "$DRY_RUN" != "true" ] && [ -z "$token" ]; then
-            echo "::error::Missing credential for $REGISTRY_ALIAS ($SOURCE_NAME)"
-            exit 1
-          fi
           npmrc="$(mktemp)"
           trap 'rm -f "$npmrc"' EXIT
+          url_origin="$(node -e 'let u=new URL(process.argv[1]);if(u.protocol!=="https:")process.exit(1);console.log("//"+u.host+(u.pathname.endsWith("/")?u.pathname.slice(0,-1):u.pathname)+"/")' "$REGISTRY_URL")"
           if [ -n "$token" ]; then
-            url_origin="$(node -e 'let u=new URL(process.argv[1]);if(u.protocol!=="https:")process.exit(1);console.log("//"+u.host+(u.pathname.endsWith("/")?u.pathname.slice(0,-1):u.pathname)+"/")' "$REGISTRY_URL")"
             printf '%s:_authToken=%s\n' "$url_origin" "$token" > "$npmrc"
             chmod 600 "$npmrc"
           fi
+          report_blocked() {
+            local reason="$1"
+            echo "::warning title=Cannot publish to $REGISTRY_ALIAS::$reason"
+            echo "🔴 **Cannot publish to $REGISTRY_ALIAS:** $reason" >> "$GITHUB_STEP_SUMMARY"
+            echo "status=blocked" >> "$GITHUB_OUTPUT"
+            echo "reason=$reason" >> "$GITHUB_OUTPUT"
+          }
+          if [ -z "$token" ]; then
+            if [ "$DRY_RUN" = "true" ]; then
+              report_blocked "credential unavailable ($SOURCE_NAME)"
+              exit 0
+            fi
+            echo "::error::Missing credential for $REGISTRY_ALIAS ($SOURCE_NAME)"
+            exit 1
+          fi
           if [ "$DRY_RUN" = "true" ]; then
-            # npm publish --dry-run can reject an already-published version.
-            # Inspect the exact canonical artifact instead; never call publish.
-            npm pack "${files[0]}" --dry-run --json --ignore-scripts >/dev/null
+            # Validate the actual tarball, without calling npm publish --dry-run
+            # (npm rejects an already-published version even in dry-run mode).
+            tar -tzf "${files[0]}" >/dev/null
+            package_json="$(tar -xOzf "${files[0]}" package/package.json)"
+            pkg_name="$(jq -er '.name' <<< "$package_json")"
+            pkg_version="$(jq -er '.version' <<< "$package_json")"
+            if npm view "$pkg_name@$pkg_version" version --registry="$REGISTRY_URL" --userconfig="$npmrc" --json > "$RUNNER_TEMP/npm-registry-version.json" 2>"$RUNNER_TEMP/npm-registry-version.err"; then
+              report_blocked "version $pkg_version already published"
+              exit 0
+            fi
+            # A 404 means the version has not been published. A timeout,
+            # authentication error, or other registry error must fail.
+            if ! grep -Eq 'E404|404 Not Found' "$RUNNER_TEMP/npm-registry-version.err"; then
+              echo "::error::Unable to verify version on registry $REGISTRY_ALIAS"
+              exit 1
+            fi
+            echo "status=preview" >> "$GITHUB_OUTPUT"
+            echo "✅ **$REGISTRY_ALIAS:** version $pkg_version eligible for publication" >> "$GITHUB_STEP_SUMMARY"
           else
             args=(publish "${files[0]}" --registry="$REGISTRY_URL" --userconfig="$npmrc" --access=public)
             if [ -n "$DIST_TAG" ]; then args+=(--tag="$DIST_TAG"); fi
             npm "${args[@]}"
+            echo "status=success" >> "$GITHUB_OUTPUT"
           fi
-          echo "status=$(if [ "$DRY_RUN" = "true" ]; then echo preview; else echo success; fi)" >> "$GITHUB_OUTPUT"
       - name: Record registry result
         if: ${{ always() }}
         env:
           TARGET_ALIAS: ${{ matrix.target.alias }}
           RESULT: ${{ steps.publish.outputs.status }}
+          REASON: ${{ steps.publish.outputs.reason }}
         shell: bash
         run: |
           mkdir -p "$RUNNER_TEMP/registry-result"
-          jq -cn --arg alias "$TARGET_ALIAS" --arg status "${RESULT:-failed}" '{registryAlias:$alias,status:$status,operation:"publish"}' > "$RUNNER_TEMP/registry-result/result.json"
+          jq -cn --arg alias "$TARGET_ALIAS" --arg status "${RESULT:-failed}" --arg reason "${REASON:-}" '{registryAlias:$alias,status:$status,reason:$reason,operation:"publish"}' > "$RUNNER_TEMP/registry-result/result.json"
       - uses: actions/upload-artifact@v4
         if: ${{ always() }}
         with:
@@ -973,17 +1000,22 @@ jobs:
           files=()
           while IFS= read -r -d '' file; do files+=("$file"); done < <(find "$RUNNER_TEMP/registry-results" -name result.json -print0)
           [ "${#files[@]}" -gt 0 ] || { echo "::error::No registry results"; exit 1; }
-          result="$(jq -sc '{operation:"publish", registries:., status:(if all(.[]; .status=="success" or .status=="preview") then "success" else "failed" end),canPublish:all(.[]; .status=="success" or .status=="preview")}' "${files[@]}")"
+          result="$(jq -sc '{operation:"publish", registries:., status:(if any(.[]; .status=="failed") then "failed" elif any(.[]; .status=="blocked") then "blocked" else "success" end),canPublish:all(.[]; .status=="success" or .status=="preview")}' "${files[@]}")"
           expected="$(jq 'length' <<< "$EXPECTED")"
           actual="$(jq '.registries|length' <<< "$result")"
-          if [ "$MATRIX_RESULT" != success ] || [ "$actual" -ne "$expected" ] || [ "$(jq -r '.status' <<< "$result")" != success ]; then
-            echo "::error::One or more registries failed to publish"
+          if [ "$MATRIX_RESULT" != success ] || [ "$actual" -ne "$expected" ] || [ "$(jq -r '.status' <<< "$result")" = failed ]; then
+            echo "::error::One or more registry jobs failed or did not report"
             exit 1
           fi
-          status="$(if [ "$DRY_RUN" = "true" ]; then echo preview; else echo success; fi)"
+          can_publish="$(jq -r '.canPublish' <<< "$result")"
+          if [ "$DRY_RUN" != true ] && [ "$can_publish" != true ]; then
+            echo "::error::Required registry publication did not complete"
+            exit 1
+          fi
+          status="$(if [ "$can_publish" != true ]; then echo blocked; elif [ "$DRY_RUN" = true ]; then echo preview; else echo success; fi)"
           {
             echo "publish-status=$status"
-            echo "can-publish=true"
+            echo "can-publish=$can_publish"
             echo "result-json=$result"
           } >> "$GITHUB_OUTPUT"
           echo "## Registry publication results" >> "$GITHUB_STEP_SUMMARY"
