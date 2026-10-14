@@ -31,6 +31,8 @@ jobs:
           defaults.each do |name, entry|
             abort "Invalid registry name: #{name}" unless name.match?(/^[a-z][a-z0-9_-]*$/)
             abort 'Redundant alias' if entry.key?('alias')
+            abort 'Redundant token-secret' if entry.key?('token-secret')
+            abort 'Missing token-source' unless %w[npm-token github-token custom-registry-token].include?(entry.fetch('token-source'))
             uri = URI.parse(entry.fetch('url'))
             abort "Invalid URL: #{name}" unless uri.is_a?(URI::HTTPS) && uri.host
             abort "Missing query: #{name}" unless entry.fetch('query').fetch('type') == 'npm'

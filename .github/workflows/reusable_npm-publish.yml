@@ -266,7 +266,7 @@ jobs:
             abort "Invalid publish mode for #{name}" unless %w[staged direct].include?(entry.fetch('publish-mode', 'direct'))
             backend = entry.fetch('backend', 'custom')
             abort "Invalid backend for #{name}" unless backend.is_a?(String) && backend.match?(/^[a-z][a-z0-9_-]*$/)
-            {'alias' => name, 'registry' => backend, 'url' => url, 'publishGithubRelease' => entry.fetch('publish-github-release', false), 'query' => entry.fetch('query', {}), 'tokenSecret' => entry.fetch('token-secret', ''), 'tokenSource' => entry.fetch('token-source', 'custom-registry-token')}
+            {'alias' => name, 'registry' => backend, 'url' => url, 'publishGithubRelease' => entry.fetch('publish-github-release', false), 'query' => entry.fetch('query', {}), 'tokenSource' => entry.fetch('token-source', 'custom-registry-token')}
           end
           File.open(ENV.fetch('GITHUB_ENV'), 'a') do |file|
             file.puts "REGISTRIES_JSON=#{JSON.generate(targets)}"
@@ -318,7 +318,9 @@ jobs:
         env:
           PACKAGE_SELECTOR: ${{ inputs.package-directory }}
           CUSTOM_REGISTRY_URL: ${{ env.EFFECTIVE_REGISTRY_URL }}
-          _CUSTOM_REGISTRY_TOKEN: ${{ secrets.custom-registry-token }}
+          BASE_CUSTOM_TOKEN: ${{ secrets.custom-registry-token }}
+          BASE_NPM_TOKEN: ${{ secrets.npm-token }}
+          BASE_GITHUB_TOKEN: ${{ github.token }}
           REGISTRY_TOKENS_JSON: ${{ secrets.registry-tokens-json }}
           VERSION_MODE: ${{ inputs.version-mode }}
           EXACT_VERSION: ${{ inputs.exact-version }}
@@ -350,11 +352,30 @@ jobs:
           if [ "$PLAN_REGISTRY" = all ]; then PLAN_REGISTRY="$(jq -r '.[0].registry' <<< "$REGISTRIES_JSON")"; fi
           PLAN_URL="$CUSTOM_REGISTRY_URL"
           if [ "$PLAN_REGISTRY" = custom ]; then PLAN_URL="$(jq -r '.[0].url' <<< "$REGISTRIES_JSON")"; fi
-          if [ "$PLAN_REGISTRY" = custom ] && [ -n "${REGISTRY_TOKENS_JSON:-}" ]; then
-            plan_alias="$(jq -r '.[0].alias' <<< "$REGISTRIES_JSON")"
-            plan_token="$(jq -r --arg alias "$plan_alias" '.[$alias] // empty' <<< "$REGISTRY_TOKENS_JSON")"
-            if [ -n "$plan_token" ]; then export _CUSTOM_REGISTRY_TOKEN="$plan_token"; fi
-          fi
+          resolve_token() {
+            local target="$1" alias source value
+            alias="$(jq -r '.alias' <<< "$target")"
+            source="$(jq -r '.tokenSource' <<< "$target")"
+            value=""
+            if [ -n "${REGISTRY_TOKENS_JSON:-}" ]; then
+              jq -e 'type == "object"' <<< "$REGISTRY_TOKENS_JSON" >/dev/null || { echo "::error::registry-tokens-json must be a JSON object" >&2; return 1; }
+              value="$(jq -r --arg key "$alias" '.[$key] // empty' <<< "$REGISTRY_TOKENS_JSON")"
+            fi
+            if [ -z "$value" ]; then
+              case "$source" in
+                npm-token) value="${BASE_NPM_TOKEN:-}" ;;
+                github-token) value="${BASE_GITHUB_TOKEN:-}" ;;
+                custom-registry-token) value="${BASE_CUSTOM_TOKEN:-}" ;;
+                *) echo "::error::Unknown token-source '$source' for registry '$alias'" >&2; return 1 ;;
+              esac
+            fi
+            printf '%s' "$value"
+          }
+          plan_target="$(jq -c '.[0]' <<< "$REGISTRIES_JSON")"
+          plan_token="$(resolve_token "$plan_target")"
+          export _CUSTOM_REGISTRY_TOKEN="$plan_token"
+          export _NPM_TOKEN="$plan_token"
+          export _GITHUB_TOKEN="$plan_token"
           PLAN_ARGS=(
             "--package=$PACKAGE_SELECTOR"
             --registry="$PLAN_REGISTRY"
@@ -910,9 +931,9 @@ jobs:
           DRY_RUN: ${{ inputs.dry-run }}
           VERIFY_GIT_TAG: ${{ inputs.verify-git-tag }}
           PACKAGE_SELECTOR: ${{ inputs.package-directory }}
-          _GITHUB_TOKEN: ${{ github.token }}
-          _NPM_TOKEN: ${{ secrets.npm-token }}
-          _CUSTOM_REGISTRY_TOKEN: ${{ secrets.custom-registry-token }}
+          BASE_GITHUB_TOKEN: ${{ github.token }}
+          BASE_NPM_TOKEN: ${{ secrets.npm-token }}
+          BASE_CUSTOM_TOKEN: ${{ secrets.custom-registry-token }}
           REGISTRY_TOKENS_JSON: ${{ secrets.registry-tokens-json }}
           CUSTOM_REGISTRY_URL: ${{ env.EFFECTIVE_REGISTRY_URL }}
           CANONICAL_ARTIFACT_PATH: ${{ steps.canonical-artifact.outputs.path }}
@@ -947,7 +968,26 @@ jobs:
           fi
 
           RESULTS=()
-          DEFAULT_CUSTOM_TOKEN="${_CUSTOM_REGISTRY_TOKEN:-}"
+          resolve_token() {
+            local target="$1" alias source value
+            alias="$(jq -r '.alias' <<< "$target")"
+            source="$(jq -r '.tokenSource' <<< "$target")"
+            value=""
+            if [ -n "${REGISTRY_TOKENS_JSON:-}" ]; then
+              jq -e 'type == "object"' <<< "$REGISTRY_TOKENS_JSON" >/dev/null || { echo "::error::registry-tokens-json must be a JSON object" >&2; return 1; }
+              value="$(jq -r --arg key "$alias" '.[$key] // empty' <<< "$REGISTRY_TOKENS_JSON")"
+            fi
+            if [ -z "$value" ]; then
+              case "$source" in
+                npm-token) value="${BASE_NPM_TOKEN:-}" ;;
+                github-token) value="${BASE_GITHUB_TOKEN:-}" ;;
+                custom-registry-token) value="${BASE_CUSTOM_TOKEN:-}" ;;
+                *) echo "::error::Unknown token-source '$source' for registry '$alias'" >&2; return 1 ;;
+              esac
+            fi
+            printf '%s' "$value"
+          }
+
           while IFS= read -r target; do
             backend="$(jq -r '.registry' <<< "$target")"
             url="$(jq -r '.url' <<< "$target")"
@@ -962,22 +1002,17 @@ jobs:
             done
             if [ "$backend" = custom ]; then args+=("--registry-url=$url"); fi
             echo "::group::Registry $alias"
-            if [ "$backend" = custom ]; then
-              export _CUSTOM_REGISTRY_TOKEN="$DEFAULT_CUSTOM_TOKEN"
-              if [ -n "${REGISTRY_TOKENS_JSON:-}" ] && [ "$DRY_RUN" != "true" ]; then
-                token="$(jq -er --arg alias "$alias" '.[$alias] // empty' <<< "$REGISTRY_TOKENS_JSON")" || {
-                  echo "::error::Missing registry token for $alias in registry-tokens-json"
-                  exit 1
-                }
-                export _CUSTOM_REGISTRY_TOKEN="$token"
-              elif [ "$DRY_RUN" != "true" ] && [ -z "${_CUSTOM_REGISTRY_TOKEN:-}" ]; then
-                echo "::error::Custom registry $alias requires registry-tokens-json or custom-registry-token"
-                exit 1
-              fi
+            token="$(resolve_token "$target")"
+            if [ "$DRY_RUN" != "true" ] && [ -z "$token" ]; then
+              echo "::error::No credential configured for registry $alias"
+              exit 1
             fi
+            export _CUSTOM_REGISTRY_TOKEN="$token"
+            export _NPM_TOKEN="$token"
+            export _GITHUB_TOKEN="$token"
             result="$(node "$WORKSPACE_TOOLS_BIN/workspace-publish.mjs" "${args[@]}")"
             unset token
-            if [ "$backend" = custom ]; then unset _CUSTOM_REGISTRY_TOKEN; fi
+            unset _CUSTOM_REGISTRY_TOKEN _NPM_TOKEN _GITHUB_TOKEN
             echo "$result" | jq .
             RESULTS+=("$(jq -c --arg alias "$alias" '. + {registryAlias:$alias}' <<< "$result")")
             echo "::endgroup::"
