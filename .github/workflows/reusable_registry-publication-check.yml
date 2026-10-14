@@ -1,0 +1,124 @@
+name: "Reusable · Check package registry publication"
+on:
+  workflow_call:
+    inputs:
+      package-name:
+        type: string
+        required: true
+      package-version:
+        type: string
+        required: true
+      registries-file:
+        type: string
+        required: false
+        default: ""
+      registry:
+        type: string
+        required: false
+        default: all
+    secrets:
+      npm-token:
+        required: false
+      custom-registry-token:
+        required: false
+      registry-tokens-json:
+        required: false
+    outputs:
+      result-json:
+        value: ${{ jobs.check.outputs.result-json }}
+permissions: {}
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      result-json: ${{ steps.query.outputs.result-json }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: moyarich/reusable-workflows
+          ref: ${{ github.workflow_sha }}
+          path: .github/reusable-registry-config
+          persist-credentials: false
+          sparse-checkout: config/package-registries.yml
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Check configured registry versions
+        id: query
+        shell: bash
+        env:
+          PACKAGE_NAME: ${{ inputs.package-name }}
+          PACKAGE_VERSION: ${{ inputs.package-version }}
+          REGISTRY_FILE: ${{ inputs.registries-file }}
+          REGISTRY_SELECTION: ${{ inputs.registry }}
+          REGISTRY_TOKENS_JSON: ${{ secrets.registry-tokens-json }}
+          NPM_TOKEN: ${{ secrets.npm-token }}
+          CUSTOM_REGISTRY_TOKEN: ${{ secrets.custom-registry-token }}
+          GH_PACKAGE_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ruby -ryaml -rjson -ruri <<'RUBY'
+          require 'open3'
+          require 'tmpdir'
+          fallback = '.github/reusable-registry-config/config/package-registries.yml'
+          package_selector = ENV.fetch('PACKAGE_NAME')
+          if File.file?(File.join(package_selector, 'package.json'))
+            package_selector = JSON.parse(File.read(File.join(package_selector, 'package.json'))).fetch('name')
+          elsif package_selector == '.' && File.file?('package.json')
+            package_selector = JSON.parse(File.read('package.json')).fetch('name')
+          end
+          abort 'Package name unresolved' if package_selector.nil? || package_selector == ''
+          defaults = YAML.safe_load_file(fallback).fetch('registries')
+          file = ENV.fetch('REGISTRY_FILE', '')
+          additional = file != '' && File.file?(file) ? YAML.safe_load_file(file).fetch('registries', {}) : {}
+          abort 'Registry mapping expected' unless defaults.is_a?(Hash) && additional.is_a?(Hash)
+          entries = defaults.merge(additional) { |_, base, extension| base.merge(extension) }
+          selection = ENV.fetch('REGISTRY_SELECTION')
+          entries.select! { |name, entry| selection == 'all' ? entry['enabled'] != false : name == selection }
+          abort 'No registry selected' if entries.empty?
+          credentials = {
+            'npm-token' => ENV['NPM_TOKEN'],
+            'github-token' => ENV['GH_PACKAGE_TOKEN'],
+            'custom-registry-token' => ENV['CUSTOM_REGISTRY_TOKEN']
+          }
+          supplied = JSON.parse(ENV.fetch('REGISTRY_TOKENS_JSON', '{}'))
+          results = entries.map do |name, entry|
+            abort "Disabled registry: #{name}" if entry['enabled'] == false
+            abort "Unsupported query adapter: #{name}" unless entry.fetch('query', {}).fetch('type', 'npm') == 'npm'
+            url = entry.fetch('url')
+            uri = URI.parse(url)
+            abort "Invalid HTTPS registry URL: #{name}" unless uri.is_a?(URI::HTTPS) && uri.host && uri.userinfo.nil?
+            token = supplied[name] || credentials[entry.fetch('token-source', 'custom-registry-token')]
+            published = false
+            error = nil
+            Dir.mktmpdir('registry-check-') do |directory|
+              npmrc = File.join(directory, '.npmrc')
+              if token && token != ''
+                File.write(npmrc, "//#{uri.host}#{uri.path.sub(%r{/$}, '')}/:_authToken=#{token}\n")
+                File.chmod(0600, npmrc)
+              end
+              stdout, stderr, status = Open3.capture3('npm', 'view', "#{package_selector}@#{ENV.fetch('PACKAGE_VERSION')}", 'version', '--json', "--registry=#{url}", "--userconfig=#{npmrc}")
+              if status.success?
+                published = JSON.parse(stdout) == ENV.fetch('PACKAGE_VERSION')
+              elsif stderr.match?(/E404|404 Not Found|is not in this registry/i)
+                published = false
+              else
+                error = 'query failed'
+              end
+            end
+            {'alias' => name, 'published' => published, 'error' => error}
+          end
+          File.open(ENV.fetch('GITHUB_OUTPUT'), 'a') { |out| out.puts "result-json=#{JSON.generate(results)}" }
+          File.open(ENV.fetch('GITHUB_STEP_SUMMARY'), 'a') do |out|
+            out.puts "## Registry publication status\n\n| Registry | Version | Status |\n| --- | --- | --- |"
+            results.each { |result| out.puts "| #{result['alias']} | #{ENV.fetch('PACKAGE_VERSION')} | #{result['error'] || (result['published'] ? 'published' : 'not published')} |" }
+          end
+          abort 'Registry publication query failed' if results.any? { |result| result['error'] }
+          RUBY

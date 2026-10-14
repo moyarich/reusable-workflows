@@ -8,11 +8,6 @@ on:
         required: false
         default: true
         type: boolean
-      target-branch:
-        description: Optional target branch; defaults to the selected workflow run ref
-        required: false
-        default: ""
-        type: string
       dry-run:
         description: Preview publishing without registry mutation
         required: true
@@ -40,14 +35,9 @@ on:
         description: Package registry
         required: true
         default: github
-        type: choice
-        options:
-          - github
-          - npm
-          - all
-          - custom
-      registry-url:
-        description: HTTPS registry URL when registry=custom
+        type: string
+      registries-file:
+        description: Optional caller repository registry YAML location
         type: string
         required: false
         default: ""
@@ -61,11 +51,6 @@ on:
         required: true
         default: true
         type: boolean
-      workspace-tools-source:
-        description: Workspace Tools source — published package or current caller checkout
-        required: true
-        default: registry:npm:0.2.0
-        type: string
       node-version:
         description: Node.js version
         required: true
@@ -107,8 +92,13 @@ on:
         required: false
         default: github
         type: string
+      registries-file:
+        description: Optional caller repository registry YAML location
+        type: string
+        required: false
+        default: ""
       registry-url:
-        description: HTTPS registry URL when registry=custom
+        description: Optional URL override for one configured registry
         type: string
         required: false
         default: ""
@@ -151,6 +141,8 @@ on:
       npm-token:
         required: false
       custom-registry-token:
+        required: false
+      registry-tokens-json:
         required: false
 
 permissions: {}
@@ -204,14 +196,6 @@ jobs:
           ref: ${{ env.TARGET_BRANCH }}
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-node@v7 # v7
-        with:
-          node-version: ${{ inputs.node-version }}
-          registry-url: https://npm.pkg.github.com
-          scope: "@moyarich"
-      - name: Ensure staged publishing CLI support
-        if: inputs.registry == 'npm' || inputs.registry == 'all'
-        run: npm install --global npm@">=11.15.0 <12"
       - name: Validate release package
         env:
           PACKAGE_SELECTOR: ${{ inputs.package-directory }}
@@ -237,76 +221,71 @@ jobs:
       - name: Checkout shared registry defaults
         uses: actions/checkout@v7
         with:
-          repository: ${{ job.workflow_repository }}
-          ref: ${{ job.workflow_sha }}
+          repository: moyarich/reusable-workflows
+          ref: ${{ github.workflow_sha }}
           path: .github/reusable-registry-config
           persist-credentials: false
-          sparse-checkout: config/registries.yml
+          sparse-checkout: config/package-registries.yml
           sparse-checkout-cone-mode: false
 
       - name: Resolve registry configuration
         shell: bash
         env:
-          SELECTED_REGISTRY: ${{ inputs.registry }}
-          OVERRIDE_URL: ${{ inputs.registry-url }}
+          CONFIG_FILE: ${{ inputs.registries-file }}
+          SELECTION: ${{ inputs.registry }}
+          URL_OVERRIDE: ${{ inputs.registry-url }}
         run: |
           set -euo pipefail
-          ruby -ryaml -ruri <<'RUBY'
-          base = YAML.safe_load_file('.github/reusable-registry-config/config/registries.yml')
-          override = File.exist?('.github/registries.yml') ? YAML.safe_load_file('.github/registries.yml') : {}
-          defaults = base.fetch('registries')
-          configured = override.fetch('registries', {})
-          abort 'Registry override must be a mapping' unless configured.is_a?(Hash)
-          names = (defaults.keys + configured.keys).uniq
-          entries = names.to_h do |name|
-            value = (defaults[name] || {}).merge(configured[name] || {})
-            abort "Invalid registry #{name}" unless value.is_a?(Hash)
-            [name, value]
+          ruby -ryaml -rjson -ruri <<'RUBY'
+          fallback = '.github/reusable-registry-config/config/package-registries.yml'
+          requested = ENV.fetch('CONFIG_FILE', '').strip
+          base_document = YAML.safe_load_file(fallback)
+          defaults = base_document.fetch('registries')
+          abort 'Default registries must be a mapping' unless defaults.is_a?(Hash)
+          override_document = !requested.empty? && File.file?(requested) ? YAML.safe_load_file(requested) : {}
+          overrides = override_document.fetch('registries', {})
+          abort 'Caller registries must be a mapping' unless overrides.is_a?(Hash)
+          aliases = defaults.merge(overrides) do |name, base, override|
+            abort "Invalid registry entry: #{name}" unless base.is_a?(Hash) && override.is_a?(Hash)
+            base.merge(override)
           end
-          selection = ENV.fetch('SELECTED_REGISTRY')
-          # Backwards compatibility: all continues to mean npm and github.
-          selected = selection == 'all' ? %w[npm github] : [selection]
-          selected.each do |name|
-            entry = entries.fetch(name) { abort "Unknown registry: #{name}" }
-            abort "Registry disabled: #{name}" if entry['enabled'] == false && ENV.fetch('OVERRIDE_URL','').empty?
-            url = ENV.fetch('OVERRIDE_URL', '').empty? ? entry['url'].to_s : ENV.fetch('OVERRIDE_URL')
+          aliases.each do |name, entry|
+            abort "Invalid registry: #{name}" unless entry.is_a?(Hash)
+            abort "Invalid registry name: #{name}" unless name.to_s.match?(/^[a-zA-Z][a-zA-Z0-9_-]*$/) && name != 'all'
+          end
+          selection = ENV.fetch('SELECTION')
+          url_override = ENV.fetch('URL_OVERRIDE', '')
+          selected = selection == 'all' ? aliases.select { |_, entry| entry['enabled'] != false } : aliases.select { |name, _| name == selection }
+          abort "Unknown registry selection: #{selection}" if selected.empty?
+          abort 'URL override requires a single registry' unless url_override.empty? || selected.size == 1
+          targets = selected.map do |name, entry|
+            abort "Disabled registry: #{name}" if entry['enabled'] == false
+            url = url_override.empty? ? entry.fetch('url', '').to_s : url_override
             uri = URI.parse(url)
-            abort "Invalid HTTPS registry URL for #{name}" unless uri.is_a?(URI::HTTPS) && uri.userinfo.nil? && uri.query.nil? && uri.fragment.nil? && uri.host
-            abort "Invalid publish mode for #{name}" unless %w[staged direct].include?(entry['publish-mode'])
-            if name == 'npm' || name == 'github'
-              standard = name == 'npm' ? 'https://registry.npmjs.org' : 'https://npm.pkg.github.com'
-              abort "Built-in registry URL cannot change: #{name}; use custom" unless url == standard
-            end
+            abort "Invalid HTTPS registry URL for #{name}" unless uri.is_a?(URI::HTTPS) && uri.host && uri.userinfo.nil? && uri.query.nil? && uri.fragment.nil?
+            abort "Invalid publish mode for #{name}" unless %w[staged direct].include?(entry.fetch('publish-mode', 'direct'))
+            backend = entry.fetch('backend', 'custom')
+            abort "Invalid backend for #{name}" unless backend.is_a?(String) && backend.match?(/^[a-z][a-z0-9_-]*$/)
+            {'alias' => name, 'registry' => backend, 'url' => url, 'publishGithubRelease' => entry.fetch('publish-github-release', false), 'query' => entry.fetch('query', {}), 'tokenSecret' => entry.fetch('token-secret', ''), 'tokenSource' => entry.fetch('token-source', 'custom-registry-token')}
           end
-          abort "Custom registry selection requires a single registry" if selected.size > 1 && selected.include?('custom')
-          effective = selection == 'all' ? 'all' : (%w[npm github].include?(selection) ? selection : 'custom')
-          selected_url = selection == 'all' ? '' : (ENV.fetch('OVERRIDE_URL','').empty? ? entries.fetch(selection)['url'].to_s : ENV.fetch('OVERRIDE_URL'))
-          File.open(ENV.fetch('GITHUB_ENV'),'a') do |f|
-            f.puts "EFFECTIVE_REGISTRY=#{effective}"
-            f.puts "EFFECTIVE_REGISTRY_URL=#{selected_url}"
+          File.open(ENV.fetch('GITHUB_ENV'), 'a') do |file|
+            file.puts "REGISTRIES_JSON=#{JSON.generate(targets)}"
+            file.puts "INSTALL_REGISTRY_URL=#{override_document.fetch('install-registry', base_document.fetch('install-registry', ''))}"
+            file.puts "INSTALL_REGISTRY_SCOPE=#{override_document.fetch('install-scope', base_document.fetch('install-scope', ''))}"
+            file.puts "EFFECTIVE_REGISTRY=#{targets.size == 1 ? targets.first['registry'] : 'all'}"
+            file.puts "EFFECTIVE_REGISTRY_URL=#{targets.size == 1 ? targets.first['url'] : ''}"
+            file.puts "PUBLISH_GITHUB_RELEASE=#{targets.any? { |target| target['publishGithubRelease'] }}"
           end
+          puts "Registry config: #{!requested.empty? && File.file?(requested) ? requested : fallback}; selected: #{targets.map { |target| target['alias'] }.join(', ')}"
           RUBY
 
-      - name: Validate custom registry inputs
-        if: env.EFFECTIVE_REGISTRY == 'custom'
-        env:
-          URL_VALUE: ${{ env.EFFECTIVE_REGISTRY_URL }}
-          HAS_TOKEN: ${{ secrets.custom-registry-token != '' }}
-          DRY_RUN: ${{ inputs.dry-run }}
-        shell: bash
-        run: |
-          node - <<'NODE'
-          const value = process.env.URL_VALUE;
-          let url;
-          try { url = new URL(value); } catch { throw new Error('Custom registry URL is invalid.'); }
-          if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) {
-            throw new Error('Custom registry must be HTTPS without embedded credentials, query, or fragment.');
-          }
-          if (process.env.DRY_RUN !== 'true' && process.env.HAS_TOKEN !== 'true') {
-            throw new Error('A custom registry token secret is required for live publishing.');
-          }
-          NODE
-
+      - uses: actions/setup-node@v7 # v7
+        with:
+          node-version: ${{ inputs.node-version }}
+          registry-url: ${{ env.INSTALL_REGISTRY_URL }}
+          scope: ${{ env.INSTALL_REGISTRY_SCOPE }}
+      - name: Ensure staged publishing CLI support
+        run: npm install --global npm@">=11.15.0 <12"
       - name: Install workspace dependencies
         env:
           NODE_AUTH_TOKEN: ${{ github.token }}
@@ -318,8 +297,8 @@ jobs:
       - name: Checkout version-matched reusable workflow actions
         uses: actions/checkout@v7
         with:
-          repository: ${{ job.workflow_repository }}
-          ref: ${{ job.workflow_sha }}
+          repository: moyarich/reusable-workflows
+          ref: ${{ github.workflow_sha }}
           path: .github/reusable-workflows-runtime
           persist-credentials: false
           sparse-checkout: actions
@@ -340,6 +319,7 @@ jobs:
           PACKAGE_SELECTOR: ${{ inputs.package-directory }}
           CUSTOM_REGISTRY_URL: ${{ env.EFFECTIVE_REGISTRY_URL }}
           _CUSTOM_REGISTRY_TOKEN: ${{ secrets.custom-registry-token }}
+          REGISTRY_TOKENS_JSON: ${{ secrets.registry-tokens-json }}
           VERSION_MODE: ${{ inputs.version-mode }}
           EXACT_VERSION: ${{ inputs.exact-version }}
           NODE_AUTH_TOKEN: ${{ github.token }}
@@ -366,14 +346,23 @@ jobs:
             REQUESTED_VERSION="$EXACT_VERSION"
           fi
 
+          PLAN_REGISTRY="$EFFECTIVE_REGISTRY"
+          if [ "$PLAN_REGISTRY" = all ]; then PLAN_REGISTRY="$(jq -r '.[0].registry' <<< "$REGISTRIES_JSON")"; fi
+          PLAN_URL="$CUSTOM_REGISTRY_URL"
+          if [ "$PLAN_REGISTRY" = custom ]; then PLAN_URL="$(jq -r '.[0].url' <<< "$REGISTRIES_JSON")"; fi
+          if [ "$PLAN_REGISTRY" = custom ] && [ -n "${REGISTRY_TOKENS_JSON:-}" ]; then
+            plan_alias="$(jq -r '.[0].alias' <<< "$REGISTRIES_JSON")"
+            plan_token="$(jq -r --arg alias "$plan_alias" '.[$alias] // empty' <<< "$REGISTRY_TOKENS_JSON")"
+            if [ -n "$plan_token" ]; then export _CUSTOM_REGISTRY_TOKEN="$plan_token"; fi
+          fi
           PLAN_ARGS=(
             "--package=$PACKAGE_SELECTOR"
-            --registry="$EFFECTIVE_REGISTRY"
+            --registry="$PLAN_REGISTRY"
             --list
             --json
           )
 
-          if [ "$EFFECTIVE_REGISTRY" = custom ]; then PLAN_ARGS+=(--registry-url="$CUSTOM_REGISTRY_URL"); fi
+          if [ "$PLAN_REGISTRY" = custom ]; then PLAN_ARGS+=(--registry-url="$PLAN_URL"); fi
           if [ -n "${{ inputs.tag }}" ]; then
             PLAN_ARGS+=(--tag="${{ inputs.tag }}")
           fi
@@ -485,6 +474,61 @@ jobs:
             echo "$PLAN" | jq -c .
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
+
+      - name: Check published versions across configured registries
+        id: registry-status
+        shell: bash
+        env:
+          PACKAGE_NAME: ${{ steps.plan.outputs.name }}
+          PACKAGE_VERSION: ${{ steps.plan.outputs.version }}
+          REGISTRY_TOKENS_JSON: ${{ secrets.registry-tokens-json }}
+          CUSTOM_REGISTRY_TOKEN: ${{ secrets.custom-registry-token }}
+          NPM_TOKEN: ${{ secrets.npm-token }}
+          GH_PACKAGE_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const {execFileSync} = require('node:child_process');
+          const targets = JSON.parse(process.env.REGISTRIES_JSON);
+          const tokens = process.env.REGISTRY_TOKENS_JSON ? JSON.parse(process.env.REGISTRY_TOKENS_JSON) : {};
+          const packageName = process.env.PACKAGE_NAME;
+          const version = process.env.PACKAGE_VERSION;
+          const credentials = {
+            'npm-token': process.env.NPM_TOKEN,
+            'github-token': process.env.GH_PACKAGE_TOKEN,
+            'custom-registry-token': process.env.CUSTOM_REGISTRY_TOKEN
+          };
+          const results = [];
+          for (const target of targets) {
+            const type = target.query?.type ?? 'npm';
+            if (type !== 'npm') throw new Error('Unsupported registry query adapter: ' + type);
+            const token = tokens[target.alias] ?? credentials[target.tokenSource];
+            const url = new URL(target.url);
+            const tmp = fs.mkdtempSync(require('node:os').tmpdir() + '/registry-query-');
+            try {
+              const npmrc = require('node:path').join(tmp, '.npmrc');
+              if (token) fs.writeFileSync(npmrc, '//' + url.host + url.pathname.replace(/\/$/, '') + '/:_authToken=' + token + '\n', {mode: 0o600});
+              const args = ['view', packageName + '@' + version, 'version', '--json', '--registry=' + target.url, '--userconfig=' + npmrc];
+              let published = false, error = null;
+              try {
+                const output = execFileSync('npm', args, {encoding:'utf8', stdio:['ignore','pipe','pipe'], timeout:30000});
+                published = JSON.parse(output.trim() || 'null') === version;
+              } catch (e) {
+                const details = String(e.stderr || e.message);
+                if (!/E404|404 Not Found|is not in this registry/i.test(details)) error = details.split('\n').filter(Boolean).slice(0,2).join('; ');
+              }
+              results.push({alias:target.alias, url:target.url, published, error});
+            } finally {
+              fs.rmSync(tmp, {recursive:true, force:true});
+            }
+          }
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'result-json=' + JSON.stringify(results) + '\n');
+          const summary = ['### Package registry publication status', '', '| Registry | Version | State |', '| --- | --- | --- |'];
+          for (const item of results) summary.push('| ' + item.alias + ' | `' + version + '` | ' + (item.error ? 'query failed' : item.published ? 'published' : 'not published') + ' |');
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary.join('\n') + '\n');
+          if (results.some(item => item.error)) throw new Error('One or more registry publication checks failed');
+          NODE
 
       - name: Validate requested version
         if: ${{ inputs.version-mode == 'exact' }}
@@ -869,7 +913,8 @@ jobs:
           _GITHUB_TOKEN: ${{ github.token }}
           _NPM_TOKEN: ${{ secrets.npm-token }}
           _CUSTOM_REGISTRY_TOKEN: ${{ secrets.custom-registry-token }}
-          CUSTOM_REGISTRY_URL: ${{ inputs.registry-url }}
+          REGISTRY_TOKENS_JSON: ${{ secrets.registry-tokens-json }}
+          CUSTOM_REGISTRY_URL: ${{ env.EFFECTIVE_REGISTRY_URL }}
           CANONICAL_ARTIFACT_PATH: ${{ steps.canonical-artifact.outputs.path }}
         run: |
           set -euo pipefail
@@ -901,9 +946,43 @@ jobs:
             PUBLISH_ARGS+=(--no-verify-git-tag)
           fi
 
-          RESULT="$(
-            node "$WORKSPACE_TOOLS_BIN/workspace-publish.mjs" "${PUBLISH_ARGS[@]}"
-          )"
+          RESULTS=()
+          DEFAULT_CUSTOM_TOKEN="${_CUSTOM_REGISTRY_TOKEN:-}"
+          while IFS= read -r target; do
+            backend="$(jq -r '.registry' <<< "$target")"
+            url="$(jq -r '.url' <<< "$target")"
+            alias="$(jq -r '.alias' <<< "$target")"
+            args=()
+            for arg in "${PUBLISH_ARGS[@]}"; do
+              case "$arg" in
+                --registry=*) args+=("--registry=$backend") ;;
+                --registry-url=*) ;;
+                *) args+=("$arg") ;;
+              esac
+            done
+            if [ "$backend" = custom ]; then args+=("--registry-url=$url"); fi
+            echo "::group::Registry $alias"
+            if [ "$backend" = custom ]; then
+              export _CUSTOM_REGISTRY_TOKEN="$DEFAULT_CUSTOM_TOKEN"
+              if [ -n "${REGISTRY_TOKENS_JSON:-}" ] && [ "$DRY_RUN" != "true" ]; then
+                token="$(jq -er --arg alias "$alias" '.[$alias] // empty' <<< "$REGISTRY_TOKENS_JSON")" || {
+                  echo "::error::Missing registry token for $alias in registry-tokens-json"
+                  exit 1
+                }
+                export _CUSTOM_REGISTRY_TOKEN="$token"
+              elif [ "$DRY_RUN" != "true" ] && [ -z "${_CUSTOM_REGISTRY_TOKEN:-}" ]; then
+                echo "::error::Custom registry $alias requires registry-tokens-json or custom-registry-token"
+                exit 1
+              fi
+            fi
+            result="$(node "$WORKSPACE_TOOLS_BIN/workspace-publish.mjs" "${args[@]}")"
+            unset token
+            if [ "$backend" = custom ]; then unset _CUSTOM_REGISTRY_TOKEN; fi
+            echo "$result" | jq .
+            RESULTS+=("$(jq -c --arg alias "$alias" '. + {registryAlias:$alias}' <<< "$result")")
+            echo "::endgroup::"
+          done < <(jq -c '.[]' <<< "$REGISTRIES_JSON")
+          RESULT="$(printf '%s\n' "${RESULTS[@]}" | jq -sc 'if length == 1 then .[0] else {operation:"publish",dryRun:.[0].dryRun,status:(if all(.[]; .status == "success") then "success" elif all(.[]; .status == "preview" or .status == "warning") then "preview" else "failed" end),canPublish:all(.[]; .canPublish != false),registries:.} end')"
 
           echo "$RESULT" | jq -e --argjson dryRun "$DRY_RUN" '
             type == "object" and
@@ -929,7 +1008,7 @@ jobs:
 
       - name: Publish GitHub Release draft for GitHub Packages
         id: github-release
-        if: ${{ !inputs.dry-run && steps.publish.outcome == 'success' && (inputs.registry == 'github' || inputs.registry == 'all') && steps.release-state.outputs.draft == 'true' }}
+        if: ${{ !inputs.dry-run && steps.publish.outcome == 'success' && env.PUBLISH_GITHUB_RELEASE == 'true' && steps.release-state.outputs.draft == 'true' }}
         env:
           GH_REPO: ${{ github.repository }}
           RELEASE_ID: ${{ steps.release-state.outputs.id }}
@@ -955,7 +1034,7 @@ jobs:
 
       - name: Preserve existing GitHub Release state
         id: preserved-release-state
-        if: ${{ !inputs.dry-run && steps.publish.outcome == 'success' && (inputs.registry == 'npm' || steps.release-state.outputs.draft != 'true') }}
+        if: ${{ !inputs.dry-run && steps.publish.outcome == 'success' && (env.PUBLISH_GITHUB_RELEASE != 'true' || steps.release-state.outputs.draft != 'true') }}
         env:
           RELEASE_STATE: ${{ steps.release-state.outputs.state }}
           RELEASE_IMMUTABLE: ${{ steps.release-state.outputs.immutable }}
@@ -1015,7 +1094,7 @@ jobs:
             echo "| Package | \`${{ steps.plan.outputs.name || inputs.package-directory }}\` |"
             echo "| Package version | \`${{ steps.plan.outputs.version || 'unresolved' }}\` |"
             echo "| Package directory | \`${{ inputs.package-directory }}\` |"
-            echo "| Requested version | \`${{ inputs.version || 'package version' }}\` |"
+            echo "| Requested version | \`${{ inputs.exact-version || 'package version' }}\` |"
             echo "| Access | \`$(jq -r '.access // "unresolved"' <<< "$RESULT_JSON" 2>/dev/null || echo unresolved)\` |"
             echo "| Registry selection | \`${{ inputs.registry }}\` |"
             echo "| Distribution tag | \`${{ steps.plan.outputs.distribution-tag || '(preview suggestion only)' }}\` |"
@@ -1081,7 +1160,7 @@ jobs:
             if [ "${{ inputs.dry-run }}" = "true" ]; then
               echo "| GitHub Release after workflow | **unchanged (dry run)** |"
             elif [ "${RELEASE_STATE:-missing}" = "draft" ] &&
-                 { [ "${{ inputs.registry }}" = "github" ] || [ "${{ inputs.registry }}" = "all" ]; }; then
+                 [ "$PUBLISH_GITHUB_RELEASE" = "true" ]; then
               echo "| GitHub Release after workflow | **published** |"
             else
               echo "| GitHub Release after workflow | **${RELEASE_STATE:-missing}, unchanged** |"

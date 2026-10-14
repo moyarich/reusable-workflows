@@ -4,9 +4,14 @@ on:
     inputs:
       package:
         description: Package name, directory, or all
-        required: true
+        required: false
         default: all
         type: string
+      registries-file:
+        description: Optional caller repository registry YAML location
+        type: string
+        required: false
+        default: ""
       registry-url:
         description: HTTPS URL for custom registry
         required: false
@@ -19,12 +24,12 @@ on:
         type: string
       registry:
         description: Publish destination
-        required: true
+        required: false
         default: npm
         type: string
       version-mode:
         description: Publish manifest version or an exact version
-        required: true
+        required: false
         default: package-json
         type: string
       exact-version:
@@ -34,17 +39,17 @@ on:
         type: string
       verify-git-tag:
         description: Require matching package Git tag before publishing
-        required: true
+        required: false
         default: true
         type: boolean
       node-version:
         description: Node.js version for publishing
-        required: true
+        required: false
         default: "24"
         type: string
       dry-run:
         description: Preview publishing without changing the npm registry
-        required: true
+        required: false
         default: true
         type: boolean
       tag:
@@ -57,6 +62,8 @@ on:
       npm-token:
         required: false
       custom-registry-token:
+        required: false
+      registry-tokens-json:
         required: false
 permissions: {}
 jobs:
@@ -161,6 +168,7 @@ jobs:
       version-mode: ${{ inputs.version-mode }}
       exact-version: ${{ inputs.exact-version }}
       registry: ${{ inputs.registry }}
+      registries-file: ${{ inputs.registries-file }}
       registry-url: ${{ inputs.registry-url }}
       workspace-tools-source: ${{ inputs.workspace-tools-source }}
       dry-run: ${{ inputs.dry-run }}
@@ -169,6 +177,8 @@ jobs:
       node-version: ${{ inputs.node-version }}
     secrets:
       npm-token: ${{ secrets.npm-token }}
+      custom-registry-token: ${{ secrets.custom-registry-token }}
+      registry-tokens-json: ${{ secrets.registry-tokens-json }}
   stage-1:
     name: "Stage 2 · ${{ matrix.name }}"
     needs: [plan, stage-0]
@@ -187,6 +197,7 @@ jobs:
       version-mode: ${{ inputs.version-mode }}
       exact-version: ${{ inputs.exact-version }}
       registry: ${{ inputs.registry }}
+      registries-file: ${{ inputs.registries-file }}
       registry-url: ${{ inputs.registry-url }}
       workspace-tools-source: ${{ inputs.workspace-tools-source }}
       dry-run: ${{ inputs.dry-run }}
@@ -196,6 +207,7 @@ jobs:
     secrets:
       npm-token: ${{ secrets.npm-token }}
       custom-registry-token: ${{ secrets.custom-registry-token }}
+      registry-tokens-json: ${{ secrets.registry-tokens-json }}
   stage-2:
     name: "Stage 3 · ${{ matrix.name }}"
     needs: [plan, stage-1]
@@ -214,6 +226,7 @@ jobs:
       version-mode: ${{ inputs.version-mode }}
       exact-version: ${{ inputs.exact-version }}
       registry: ${{ inputs.registry }}
+      registries-file: ${{ inputs.registries-file }}
       registry-url: ${{ inputs.registry-url }}
       workspace-tools-source: ${{ inputs.workspace-tools-source }}
       dry-run: ${{ inputs.dry-run }}
@@ -223,6 +236,7 @@ jobs:
     secrets:
       npm-token: ${{ secrets.npm-token }}
       custom-registry-token: ${{ secrets.custom-registry-token }}
+      registry-tokens-json: ${{ secrets.registry-tokens-json }}
   stage-3:
     name: "Stage 4 · ${{ matrix.name }}"
     needs: [plan, stage-2]
@@ -241,6 +255,7 @@ jobs:
       version-mode: ${{ inputs.version-mode }}
       exact-version: ${{ inputs.exact-version }}
       registry: ${{ inputs.registry }}
+      registries-file: ${{ inputs.registries-file }}
       registry-url: ${{ inputs.registry-url }}
       workspace-tools-source: ${{ inputs.workspace-tools-source }}
       dry-run: ${{ inputs.dry-run }}
@@ -250,6 +265,7 @@ jobs:
     secrets:
       npm-token: ${{ secrets.npm-token }}
       custom-registry-token: ${{ secrets.custom-registry-token }}
+      registry-tokens-json: ${{ secrets.registry-tokens-json }}
   stage-4:
     name: "Stage 5 · ${{ matrix.name }}"
     needs: [plan, stage-3]
@@ -268,6 +284,7 @@ jobs:
       version-mode: ${{ inputs.version-mode }}
       exact-version: ${{ inputs.exact-version }}
       registry: ${{ inputs.registry }}
+      registries-file: ${{ inputs.registries-file }}
       registry-url: ${{ inputs.registry-url }}
       workspace-tools-source: ${{ inputs.workspace-tools-source }}
       dry-run: ${{ inputs.dry-run }}
@@ -277,6 +294,7 @@ jobs:
     secrets:
       npm-token: ${{ secrets.npm-token }}
       custom-registry-token: ${{ secrets.custom-registry-token }}
+      registry-tokens-json: ${{ secrets.registry-tokens-json }}
   stage-5:
     name: "Stage 6 · ${{ matrix.name }}"
     needs: [plan, stage-4]
@@ -295,6 +313,7 @@ jobs:
       version-mode: ${{ inputs.version-mode }}
       exact-version: ${{ inputs.exact-version }}
       registry: ${{ inputs.registry }}
+      registries-file: ${{ inputs.registries-file }}
       registry-url: ${{ inputs.registry-url }}
       workspace-tools-source: ${{ inputs.workspace-tools-source }}
       dry-run: ${{ inputs.dry-run }}
@@ -304,6 +323,7 @@ jobs:
     secrets:
       npm-token: ${{ secrets.npm-token }}
       custom-registry-token: ${{ secrets.custom-registry-token }}
+      registry-tokens-json: ${{ secrets.registry-tokens-json }}
   stage-6:
     name: "Stage 7 · ${{ matrix.name }}"
     needs: [plan, stage-5]
@@ -322,6 +342,7 @@ jobs:
       version-mode: ${{ inputs.version-mode }}
       exact-version: ${{ inputs.exact-version }}
       registry: ${{ inputs.registry }}
+      registries-file: ${{ inputs.registries-file }}
       registry-url: ${{ inputs.registry-url }}
       workspace-tools-source: ${{ inputs.workspace-tools-source }}
       dry-run: ${{ inputs.dry-run }}
@@ -331,6 +352,7 @@ jobs:
     secrets:
       npm-token: ${{ secrets.npm-token }}
       custom-registry-token: ${{ secrets.custom-registry-token }}
+      registry-tokens-json: ${{ secrets.registry-tokens-json }}
   stage-7:
     name: "Stage 8 · ${{ matrix.name }}"
     needs: [plan, stage-6]
@@ -349,6 +371,7 @@ jobs:
       version-mode: ${{ inputs.version-mode }}
       exact-version: ${{ inputs.exact-version }}
       registry: ${{ inputs.registry }}
+      registries-file: ${{ inputs.registries-file }}
       registry-url: ${{ inputs.registry-url }}
       workspace-tools-source: ${{ inputs.workspace-tools-source }}
       dry-run: ${{ inputs.dry-run }}
@@ -358,6 +381,7 @@ jobs:
     secrets:
       npm-token: ${{ secrets.npm-token }}
       custom-registry-token: ${{ secrets.custom-registry-token }}
+      registry-tokens-json: ${{ secrets.registry-tokens-json }}
   coverage:
     needs: [plan, stage-0, stage-1, stage-2, stage-3, stage-4, stage-5, stage-6, stage-7]
     if: ${{ always() }}

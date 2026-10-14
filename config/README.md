@@ -1,20 +1,28 @@
-# Publishing registry configuration
+# Package registry configuration
 
-The reusable npm publisher reads `config/registries.yml` from **reusable-workflows**. A caller repository can override entries in `.github/registries.yml`:
+`config/package-registries.yml` provides built-in publishing destinations. A calling repository may **extend or override** these entries with its own `registries-file` path, relative to the checkout. The workflow uses the bundled defaults if the caller's file is absent.
+
+The map key is the registry selector. No separate `alias` field is needed.
 
 ```yaml
 registries:
-  custom:
-    url: https://registry.example.com/npm/
-    token-secret: CUSTOM_REGISTRY_TOKEN
+  company:
+    url: https://npm.example.com
+    backend: custom
+    token-secret: COMPANY_TOKEN
     publish-mode: direct
     enabled: true
+    publish-github-release: false
+    query:
+      type: npm
 ```
 
-Select `registry: custom` (or another configured custom entry name) when calling `reusable_npm-publish.yml`. Pass `custom-registry-token` explicitly from the caller's GitHub Actions secret; the `token-secret` value documents the required secret and does **not** dynamically read it. No tokens belong in YAML.
+Specify `registry: company` for one target or `registry: all` for every enabled entry, including the built-in destinations. Set `enabled: false` in a caller override to exclude a default destination.
 
-The built-in `npm` and `github` destinations retain their current URLs, authentication, and publishing semantics; their URLs cannot be overridden. For backward compatibility, `registry: all` means npmjs.org plus GitHub Packages, **not** all custom destinations. The caller can optionally provide `registry-url` to override its configured custom endpoint.
+`backend` names the publication adapter expected by the configured version of workspace-tools. `query` describes how package publication should be checked. `token-secret` documents the intended credential, but GitHub Actions cannot dynamically evaluate `secrets[<name>]` from YAML at runtime; credentials must be forwarded through workflow secrets. Never place tokens in this file.
 
-URLs must use HTTPS and may not contain credentials, a query string, or a fragment. A custom registry publishes directly; npmjs.org continues to use staged publishing. The `workspace-tools` version configured in the reusable workflow must support `--registry custom --registry-url`.
+`config/vscodew-registries.yml` is reserved for extension publication destinations, independent of package registries. GitHub Releases and GitHub Pages are not npm package registries.
 
-Console's existing dispatch inputs are unchanged, so its UI continues to offer `npm`, `github`, and `all`. Direct reusable-workflow callers can opt into custom destinations.
+For multiple private registries, callers may pass the `registry-tokens-json` workflow secret containing a JSON object keyed by registry name (for example, `{"company":"...","internal":"..."}`). This is a secret value, **not** a YAML field committed to the repository. Existing `custom-registry-token` remains a compatibility fallback. The `token-source` field identifies the available credentials for query checks; the registry file's `token-secret` value is informational; GitHub Actions requires secrets to be mapped explicitly.
+
+**Implementation note:** npm publishing checks now use the registry's `query.type: npm` adapter and report publication status for each selected registry. Other release workflows are not yet wired to the same check. The workspace-tools publish CLI still handles backend-specific behavior. Treat multi-target publication as unverified until CI and dry-run checks complete.
