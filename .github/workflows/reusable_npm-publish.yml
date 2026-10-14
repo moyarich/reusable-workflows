@@ -211,11 +211,6 @@ jobs:
           ref: ${{ env.TARGET_BRANCH }}
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-node@v7 # v7
-        with:
-          node-version: ${{ inputs.node-version }}
-      - name: Ensure staged publishing CLI support
-        run: npm install --global npm@">=11.15.0 <12"
       - name: Validate release package
         env:
           PACKAGE_SELECTOR: ${{ inputs.package-directory }}
@@ -259,9 +254,11 @@ jobs:
           ruby -ryaml -rjson -ruri <<'RUBY'
           fallback = '.github/reusable-registry-config/config/package-registries.yml'
           requested = ENV.fetch('CONFIG_FILE', '').strip
-          defaults = YAML.safe_load_file(fallback).fetch('registries')
+          base_document = YAML.safe_load_file(fallback)
+          defaults = base_document.fetch('registries')
           abort 'Default registries must be a mapping' unless defaults.is_a?(Hash)
-          overrides = !requested.empty? && File.file?(requested) ? YAML.safe_load_file(requested).fetch('registries', {}) : {}
+          override_document = !requested.empty? && File.file?(requested) ? YAML.safe_load_file(requested) : {}
+          overrides = override_document.fetch('registries', {})
           abort 'Caller registries must be a mapping' unless overrides.is_a?(Hash)
           aliases = defaults.merge(overrides) do |name, base, override|
             abort "Invalid registry entry: #{name}" unless base.is_a?(Hash) && override.is_a?(Hash)
@@ -288,6 +285,8 @@ jobs:
           end
           File.open(ENV.fetch('GITHUB_ENV'), 'a') do |file|
             file.puts "REGISTRIES_JSON=#{JSON.generate(targets)}"
+            file.puts "INSTALL_REGISTRY_URL=#{override_document.fetch('install-registry', base_document.fetch('install-registry', ''))}"
+            file.puts "INSTALL_REGISTRY_SCOPE=#{override_document.fetch('install-scope', base_document.fetch('install-scope', ''))}"
             file.puts "EFFECTIVE_REGISTRY=#{targets.size == 1 ? targets.first['registry'] : 'all'}"
             file.puts "EFFECTIVE_REGISTRY_URL=#{targets.size == 1 ? targets.first['url'] : ''}"
             file.puts "PUBLISH_GITHUB_RELEASE=#{targets.any? { |target| target['publishGithubRelease'] }}"
@@ -295,6 +294,13 @@ jobs:
           puts "Registry config: #{!requested.empty? && File.file?(requested) ? requested : fallback}; selected: #{targets.map { |target| target['alias'] }.join(', ')}"
           RUBY
 
+      - uses: actions/setup-node@v7 # v7
+        with:
+          node-version: ${{ inputs.node-version }}
+          registry-url: ${{ env.INSTALL_REGISTRY_URL }}
+          scope: ${{ env.INSTALL_REGISTRY_SCOPE }}
+      - name: Ensure staged publishing CLI support
+        run: npm install --global npm@">=11.15.0 <12"
       - name: Install workspace dependencies
         env:
           NODE_AUTH_TOKEN: ${{ github.token }}
