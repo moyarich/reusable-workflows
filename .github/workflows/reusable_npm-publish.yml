@@ -918,11 +918,21 @@ jobs:
             printf '%s:_authToken=%s\n' "$url_origin" "$token" > "$npmrc"
             chmod 600 "$npmrc"
           fi
-          args=(publish "${files[0]}" --registry="$REGISTRY_URL" --userconfig="$npmrc" --access=public)
-          if [ -n "$DIST_TAG" ]; then args+=(--tag="$DIST_TAG"); fi
-          if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); fi
-          npm "${args[@]}"
-          echo "status=$(if [ "$DRY_RUN" = "true" ]; then echo preview; else echo success; fi)" >> "$GITHUB_OUTPUT"
+          if [ "$DRY_RUN" = "true" ]; then
+            # npm publish --dry-run still rejects versions already published.
+            # Validate the exact canonical tarball without touching the registry.
+            metadata="$(tar -xOf "${files[0]}" package/package.json)"
+            name="$(jq -er '.name | select(type=="string" and length>0)' <<< "$metadata")"
+            version="$(jq -er '.version | select(type=="string" and length>0)' <<< "$metadata")"
+            tar -tzf "${files[0]}" >/dev/null
+            echo "Validated canonical npm tarball $name@$version for $REGISTRY_ALIAS (dry run)" >> "$GITHUB_STEP_SUMMARY"
+            echo "status=preview" >> "$GITHUB_OUTPUT"
+          else
+            args=(publish "${files[0]}" --registry="$REGISTRY_URL" --userconfig="$npmrc" --access=public)
+            if [ -n "$DIST_TAG" ]; then args+=(--tag="$DIST_TAG"); fi
+            npm "${args[@]}"
+            echo "status=success" >> "$GITHUB_OUTPUT"
+          fi
       - name: Record registry result
         if: ${{ always() }}
         env:
