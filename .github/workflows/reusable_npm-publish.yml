@@ -87,11 +87,6 @@ on:
         required: false
         default: ""
         type: string
-      matrix-publish:
-        description: Opt in to publishing each registry in its own job
-        required: false
-        default: false
-        type: boolean
       registry:
         description: github, npm, or all
         required: false
@@ -135,19 +130,17 @@ on:
         value: ${{ jobs.publish-package.outputs.package-version }}
       publish-status:
         description: Publish result status
-        value: ${{ jobs.aggregate.outputs.publish-status || jobs.publish-package.outputs.publish-status }}
+        value: ${{ jobs.aggregate.outputs.publish-status }}
       can-publish:
         description: Whether publish readiness checks passed
-        value: ${{ jobs.aggregate.outputs.can-publish || jobs.publish-package.outputs.can-publish }}
+        value: ${{ jobs.aggregate.outputs.can-publish }}
       result-json:
         description: Complete workspace-publish JSON result
-        value: ${{ jobs.aggregate.outputs.result-json || jobs.publish-package.outputs.result-json }}
+        value: ${{ jobs.aggregate.outputs.result-json }}
     secrets:
       npm-token:
         required: false
       custom-registry-token:
-        required: false
-      registry-tokens-json:
         required: false
 
 permissions: {}
@@ -180,9 +173,6 @@ jobs:
       package-name: ${{ steps.plan.outputs.name }}
       package-version: ${{ steps.plan.outputs.version }}
       distribution-tag: ${{ steps.plan.outputs.distribution-tag }}
-      publish-status: ${{ steps.publish.outputs.status }}
-      can-publish: ${{ steps.preflight.outputs.can-publish }}
-      result-json: ${{ steps.publish.outputs.result-json }}
     env:
       GH_TOKEN: ${{ github.token }}
       TARGET_BRANCH: ${{ inputs.target-branch || github.ref_name }}
@@ -335,7 +325,6 @@ jobs:
           BASE_CUSTOM_TOKEN: ${{ secrets.custom-registry-token }}
           BASE_NPM_TOKEN: ${{ secrets.npm-token }}
           BASE_GITHUB_TOKEN: ${{ github.token }}
-          REGISTRY_TOKENS_JSON: ${{ secrets.registry-tokens-json }}
           VERSION_MODE: ${{ inputs.version-mode }}
           EXACT_VERSION: ${{ inputs.exact-version }}
           NODE_AUTH_TOKEN: ${{ github.token }}
@@ -366,27 +355,13 @@ jobs:
           if [ "$PLAN_REGISTRY" = all ]; then PLAN_REGISTRY="$(jq -r '.[0].registry' <<< "$REGISTRIES_JSON")"; fi
           PLAN_URL="$CUSTOM_REGISTRY_URL"
           if [ "$PLAN_REGISTRY" = custom ]; then PLAN_URL="$(jq -r '.[0].url' <<< "$REGISTRIES_JSON")"; fi
-          resolve_token() {
-            local target="$1" alias source value
-            alias="$(jq -r '.alias' <<< "$target")"
-            source="$(jq -r '.tokenSource' <<< "$target")"
-            value=""
-            if [ -n "${REGISTRY_TOKENS_JSON:-}" ]; then
-              jq -e 'type == "object"' <<< "$REGISTRY_TOKENS_JSON" >/dev/null || { echo "::error::registry-tokens-json must be a JSON object" >&2; return 1; }
-              value="$(jq -r --arg key "$alias" '.[$key] // empty' <<< "$REGISTRY_TOKENS_JSON")"
-            fi
-            if [ -z "$value" ]; then
-              case "$source" in
-                npm-token) value="${BASE_NPM_TOKEN:-}" ;;
-                github-token) value="${BASE_GITHUB_TOKEN:-}" ;;
-                custom-registry-token) value="${BASE_CUSTOM_TOKEN:-}" ;;
-                *) echo "::error::Unknown token-source '$source' for registry '$alias'" >&2; return 1 ;;
-              esac
-            fi
-            printf '%s' "$value"
-          }
-          plan_target="$(jq -c '.[0]' <<< "$REGISTRIES_JSON")"
-          plan_token="$(resolve_token "$plan_target")"
+          plan_source="$(jq -r '.[0].tokenSource' <<< "$REGISTRIES_JSON")"
+          case "$plan_source" in
+            npm-token) plan_token="$BASE_NPM_TOKEN" ;;
+            github-token) plan_token="$BASE_GITHUB_TOKEN" ;;
+            custom-registry-token) plan_token="$BASE_CUSTOM_TOKEN" ;;
+            *) plan_token="" ;;
+          esac
           export _CUSTOM_REGISTRY_TOKEN="$plan_token"
           export _NPM_TOKEN="$plan_token"
           export _GITHUB_TOKEN="$plan_token"
@@ -509,62 +484,6 @@ jobs:
             echo "$PLAN" | jq -c .
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
-
-      - name: Check published versions across configured registries
-        id: registry-status
-        if: ${{ !inputs.matrix-publish }}
-        shell: bash
-        env:
-          PACKAGE_NAME: ${{ steps.plan.outputs.name }}
-          PACKAGE_VERSION: ${{ steps.plan.outputs.version }}
-          REGISTRY_TOKENS_JSON: ${{ secrets.registry-tokens-json }}
-          CUSTOM_REGISTRY_TOKEN: ${{ secrets.custom-registry-token }}
-          NPM_TOKEN: ${{ secrets.npm-token }}
-          GH_PACKAGE_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          node <<'NODE'
-          const fs = require('node:fs');
-          const {execFileSync} = require('node:child_process');
-          const targets = JSON.parse(process.env.REGISTRIES_JSON);
-          const tokens = process.env.REGISTRY_TOKENS_JSON ? JSON.parse(process.env.REGISTRY_TOKENS_JSON) : {};
-          const packageName = process.env.PACKAGE_NAME;
-          const version = process.env.PACKAGE_VERSION;
-          const credentials = {
-            'npm-token': process.env.NPM_TOKEN,
-            'github-token': process.env.GH_PACKAGE_TOKEN,
-            'custom-registry-token': process.env.CUSTOM_REGISTRY_TOKEN
-          };
-          const results = [];
-          for (const target of targets) {
-            const type = target.query?.type ?? 'npm';
-            if (type !== 'npm') throw new Error('Unsupported registry query adapter: ' + type);
-            const token = tokens[target.alias] ?? credentials[target.tokenSource];
-            const url = new URL(target.url);
-            const tmp = fs.mkdtempSync(require('node:os').tmpdir() + '/registry-query-');
-            try {
-              const npmrc = require('node:path').join(tmp, '.npmrc');
-              if (token) fs.writeFileSync(npmrc, '//' + url.host + url.pathname.replace(/\/$/, '') + '/:_authToken=' + token + '\n', {mode: 0o600});
-              const args = ['view', packageName + '@' + version, 'version', '--json', '--registry=' + target.url, '--userconfig=' + npmrc];
-              let published = false, error = null;
-              try {
-                const output = execFileSync('npm', args, {encoding:'utf8', stdio:['ignore','pipe','pipe'], timeout:30000});
-                published = JSON.parse(output.trim() || 'null') === version;
-              } catch (e) {
-                const details = String(e.stderr || e.message);
-                if (!/E404|404 Not Found|is not in this registry/i.test(details)) error = details.split('\n').filter(Boolean).slice(0,2).join('; ');
-              }
-              results.push({alias:target.alias, url:target.url, published, error});
-            } finally {
-              fs.rmSync(tmp, {recursive:true, force:true});
-            }
-          }
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'result-json=' + JSON.stringify(results) + '\n');
-          const summary = ['### Package registry publication status', '', '| Registry | Version | State |', '| --- | --- | --- |'];
-          for (const item of results) summary.push('| ' + item.alias + ' | `' + version + '` | ' + (item.error ? 'query failed' : item.published ? 'published' : 'not published') + ' |');
-          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary.join('\n') + '\n');
-          if (results.some(item => item.error)) throw new Error('One or more registry publication checks failed');
-          NODE
 
       - name: Validate requested version
         if: ${{ inputs.version-mode == 'exact' }}
@@ -940,159 +859,6 @@ jobs:
             echo "zip=$ZIP_NAME"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Publish package
-        id: publish
-        if: ${{ !inputs.matrix-publish }}
-        env:
-          DRY_RUN: ${{ inputs.dry-run }}
-          VERIFY_GIT_TAG: ${{ inputs.verify-git-tag }}
-          PACKAGE_SELECTOR: ${{ inputs.package-directory }}
-          BASE_GITHUB_TOKEN: ${{ github.token }}
-          BASE_NPM_TOKEN: ${{ secrets.npm-token }}
-          BASE_CUSTOM_TOKEN: ${{ secrets.custom-registry-token }}
-          REGISTRY_TOKENS_JSON: ${{ secrets.registry-tokens-json }}
-          CUSTOM_REGISTRY_URL: ${{ env.EFFECTIVE_REGISTRY_URL }}
-          CANONICAL_ARTIFACT_PATH: ${{ steps.canonical-artifact.outputs.path }}
-        run: |
-          set -euo pipefail
-
-          ARTIFACT_DIRECTORY="$RUNNER_TEMP/npm-package-artifacts"
-          mkdir -p "$ARTIFACT_DIRECTORY"
-
-          PUBLISH_ARGS=(
-            "--package=$PACKAGE_SELECTOR"
-            --registry="$EFFECTIVE_REGISTRY"
-            --artifact-directory="$ARTIFACT_DIRECTORY"
-            --json
-          )
-
-          if [ "$EFFECTIVE_REGISTRY" = custom ]; then PUBLISH_ARGS+=(--registry-url="$CUSTOM_REGISTRY_URL"); fi
-          if [ -n "${{ steps.plan.outputs.distribution-tag }}" ]; then
-            PUBLISH_ARGS+=(--tag="${{ steps.plan.outputs.distribution-tag }}")
-          fi
-
-          if [ -n "$CANONICAL_ARTIFACT_PATH" ]; then
-            PUBLISH_ARGS+=(--artifact-file="$CANONICAL_ARTIFACT_PATH")
-          fi
-
-          if [ "$DRY_RUN" = "true" ]; then
-            PUBLISH_ARGS+=(--dry-run)
-          fi
-
-          if [ "$VERIFY_GIT_TAG" != "true" ]; then
-            PUBLISH_ARGS+=(--no-verify-git-tag)
-          fi
-
-          RESULTS=()
-          resolve_token() {
-            local target="$1" alias source value
-            alias="$(jq -r '.alias' <<< "$target")"
-            source="$(jq -r '.tokenSource' <<< "$target")"
-            value=""
-            if [ -n "${REGISTRY_TOKENS_JSON:-}" ]; then
-              jq -e 'type == "object"' <<< "$REGISTRY_TOKENS_JSON" >/dev/null || { echo "::error::registry-tokens-json must be a JSON object" >&2; return 1; }
-              value="$(jq -r --arg key "$alias" '.[$key] // empty' <<< "$REGISTRY_TOKENS_JSON")"
-            fi
-            if [ -z "$value" ]; then
-              case "$source" in
-                npm-token) value="${BASE_NPM_TOKEN:-}" ;;
-                github-token) value="${BASE_GITHUB_TOKEN:-}" ;;
-                custom-registry-token) value="${BASE_CUSTOM_TOKEN:-}" ;;
-                *) echo "::error::Unknown token-source '$source' for registry '$alias'" >&2; return 1 ;;
-              esac
-            fi
-            printf '%s' "$value"
-          }
-
-          while IFS= read -r target; do
-            backend="$(jq -r '.registry' <<< "$target")"
-            url="$(jq -r '.url' <<< "$target")"
-            alias="$(jq -r '.alias' <<< "$target")"
-            args=()
-            for arg in "${PUBLISH_ARGS[@]}"; do
-              case "$arg" in
-                --registry=*) args+=("--registry=$backend") ;;
-                --registry-url=*) ;;
-                *) args+=("$arg") ;;
-              esac
-            done
-            if [ "$backend" = custom ]; then args+=("--registry-url=$url"); fi
-            echo "::group::Registry $alias"
-            token="$(resolve_token "$target")"
-            if [ "$DRY_RUN" != "true" ] && [ -z "$token" ]; then
-              echo "::error::No credential configured for registry $alias"
-              exit 1
-            fi
-            export _CUSTOM_REGISTRY_TOKEN="$token"
-            export _NPM_TOKEN="$token"
-            export _GITHUB_TOKEN="$token"
-            result="$(node "$WORKSPACE_TOOLS_BIN/workspace-publish.mjs" "${args[@]}")"
-            unset token
-            unset _CUSTOM_REGISTRY_TOKEN _NPM_TOKEN _GITHUB_TOKEN
-            echo "$result" | jq .
-            RESULTS+=("$(jq -c --arg alias "$alias" '. + {registryAlias:$alias}' <<< "$result")")
-            echo "::endgroup::"
-          done < <(jq -c '.[]' <<< "$REGISTRIES_JSON")
-          RESULT="$(printf '%s\n' "${RESULTS[@]}" | jq -sc 'if length == 1 then .[0] else {operation:"publish",dryRun:.[0].dryRun,status:(if all(.[]; .status == "success") then "success" elif all(.[]; .status == "preview" or .status == "warning") then "preview" else "failed" end),canPublish:all(.[]; .canPublish != false),registries:.} end')"
-
-          echo "$RESULT" | jq -e --argjson dryRun "$DRY_RUN" '
-            type == "object" and
-            .operation == "publish" and
-            .dryRun == $dryRun and
-            (
-              if $dryRun
-              then (.status == "preview" or .status == "warning")
-              else .status == "success"
-              end
-            )
-          ' >/dev/null
-
-          {
-            echo "status=$(jq -r '.status' <<< "$RESULT")"
-            echo "can-publish=$(jq -r 'if has("canPublish") then .canPublish else true end' <<< "$RESULT")"
-            echo "result-json<<EOF"
-            echo "$RESULT" | jq -c .
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-
-          echo "$RESULT" | jq .
-
-      - name: Publish GitHub Release draft for GitHub Packages
-        id: github-release
-        if: ${{ !inputs.matrix-publish && !inputs.dry-run && steps.publish.outcome == 'success' && env.PUBLISH_GITHUB_RELEASE == 'true' && steps.release-state.outputs.draft == 'true' }}
-        env:
-          GH_REPO: ${{ github.repository }}
-          RELEASE_ID: ${{ steps.release-state.outputs.id }}
-          RELEASE_TAG: ${{ steps.plan.outputs.release-tag }}
-          RELEASE_NAME: ${{ steps.plan.outputs.release-name }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          RELEASE="$(
-            gh api --method PATCH "repos/$GH_REPO/releases/$RELEASE_ID" \
-              -f tag_name="$RELEASE_TAG" \
-              -f name="$RELEASE_NAME" \
-              -F draft=false
-          )"
-
-          if [ "$(jq -r '.draft' <<< "$RELEASE")" != "false" ]; then
-            echo "::error::GitHub Release remained in draft state."
-            exit 1
-          fi
-
-          echo "status=published" >> "$GITHUB_OUTPUT"
-
-      - name: Preserve existing GitHub Release state
-        id: preserved-release-state
-        if: ${{ !inputs.matrix-publish && !inputs.dry-run && steps.publish.outcome == 'success' && (env.PUBLISH_GITHUB_RELEASE != 'true' || steps.release-state.outputs.draft != 'true') }}
-        env:
-          RELEASE_STATE: ${{ steps.release-state.outputs.state }}
-          RELEASE_IMMUTABLE: ${{ steps.release-state.outputs.immutable }}
-        shell: bash
-        run: |
-          echo "status=$RELEASE_STATE" >> "$GITHUB_OUTPUT"
-          echo "Registry publication completed; GitHub Release state remains $RELEASE_STATE."
       - name: Upload packed npm artifact
         id: packed-artifact
         if: ${{ always() }}
@@ -1103,195 +869,10 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-      - name: Resolve publish preflight
-        id: preflight
-        if: ${{ always() }}
-        env:
-          CLI_CAN_PUBLISH: ${{ steps.publish.outputs.can-publish }}
-          RELEASE_VALID: ${{ steps.release-state.outputs.valid }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          CAN_PUBLISH="${CLI_CAN_PUBLISH:-false}"
-          if [ "${RELEASE_VALID:-false}" != "true" ]; then
-            CAN_PUBLISH=false
-          fi
-          echo "can-publish=$CAN_PUBLISH" >> "$GITHUB_OUTPUT"
-
-      - name: Publish summary
-        if: ${{ always() && !inputs.matrix-publish }}
-        env:
-          RESULT_JSON: ${{ steps.publish.outputs.result-json }}
-          ARTIFACT_ID: ${{ steps.packed-artifact.outputs.artifact-id }}
-          ARTIFACT_URL: ${{ steps.packed-artifact.outputs.artifact-url }}
-          ARTIFACT_DIGEST: ${{ steps.packed-artifact.outputs.artifact-digest }}
-          RELEASE_VALID: ${{ steps.release-state.outputs.valid }}
-          RELEASE_STATE: ${{ steps.release-state.outputs.state }}
-          RELEASE_IMMUTABLE: ${{ steps.release-state.outputs.immutable }}
-          RELEASE_URL: ${{ steps.release-state.outputs.url }}
-          RELEASE_REASON: ${{ steps.release-state.outputs.reason }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          OVERALL_CAN_PUBLISH="${{ steps.preflight.outputs.can-publish || 'false' }}"
-
-          {
-            echo "## Package publish"
-            echo
-            echo "| Setting | Value |"
-            echo "| --- | --- |"
-            echo "| Dry run | **${{ inputs.dry-run }}** |"
-            echo "| Package | \`${{ steps.plan.outputs.name || inputs.package-directory }}\` |"
-            echo "| Package version | \`${{ steps.plan.outputs.version || 'unresolved' }}\` |"
-            echo "| Package directory | \`${{ inputs.package-directory }}\` |"
-            echo "| Requested version | \`${{ inputs.exact-version || 'package version' }}\` |"
-            echo "| Access | \`$(jq -r '.access // "unresolved"' <<< "$RESULT_JSON" 2>/dev/null || echo unresolved)\` |"
-            echo "| Registry selection | \`${{ inputs.registry }}\` |"
-            echo "| Distribution tag | \`${{ steps.plan.outputs.distribution-tag || '(preview suggestion only)' }}\` |"
-            echo "| Suggested distribution tag | \`${{ steps.plan.outputs.suggested-distribution-tag || 'unresolved' }}\` |"
-            echo "| Verify Git release tag | **${{ inputs.verify-git-tag }}** |"
-            echo "| Node.js | \`${{ inputs.node-version }}\` |"
-            echo "| Publish status | \`${{ steps.publish.outputs.status || 'unresolved' }}\` |"
-            echo "| Can publish | **$OVERALL_CAN_PUBLISH** |"
-            echo "| Result | **${{ job.status }}** |"
-            echo
-
-            echo "### Registry readiness"
-            echo
-            echo "| Registry | Current version | Action |"
-            echo "| --- | --- | --- |"
-
-            if [ -n "$RESULT_JSON" ]; then
-              jq -r '
-                .packages[0].registries // {} |
-                to_entries[] |
-                "| \(.key) | **\(.value)** | \(if .value == "missing" then "publish" else "skip" end) |"
-              ' <<< "$RESULT_JSON"
-            else
-              echo "| unresolved | unresolved | unresolved |"
-            fi
-
-            echo
-            echo "### Release preflight"
-            echo
-            echo "| Check | Value |"
-            echo "| --- | --- |"
-            echo "| Release tag | \`${{ steps.plan.outputs.release-tag || 'unresolved' }}\` |"
-
-            if [ -n "$RESULT_JSON" ]; then
-              PACKAGE_NAME="${{ steps.plan.outputs.name }}"
-              TAG_EXISTS="$(jq -r --arg name "$PACKAGE_NAME" '.gitTags[$name].exists // false' <<< "$RESULT_JSON")"
-              TAG_AT_HEAD="$(jq -r --arg name "$PACKAGE_NAME" '.gitTags[$name].atHead // false' <<< "$RESULT_JSON")"
-              TAG_COMMIT="$(jq -r --arg name "$PACKAGE_NAME" '.gitTags[$name].commit // "none"' <<< "$RESULT_JSON")"
-              CLI_REASON="$(jq -r '.reason // "none"' <<< "$RESULT_JSON")"
-
-              echo "| Git tag exists | **$TAG_EXISTS** |"
-              echo "| Git tag points to HEAD | **$TAG_AT_HEAD** |"
-              echo "| Git tag commit | \`$TAG_COMMIT\` |"
-              echo "| CLI readiness reason | $CLI_REASON |"
-            else
-              echo "| Git tag exists | **unresolved** |"
-              echo "| Git tag points to HEAD | **unresolved** |"
-              echo "| Git tag commit | \`unresolved\` |"
-              echo "| CLI readiness reason | unresolved |"
-            fi
-
-            echo "| GitHub Release state | **${RELEASE_STATE:-missing}** |"
-            echo "| GitHub Release identity valid | **${RELEASE_VALID:-false}** |"
-            echo "| GitHub Release immutable | **${RELEASE_IMMUTABLE:-false}** |"
-            if [ -n "$RELEASE_URL" ]; then
-              echo "| GitHub Release | [Open release]($RELEASE_URL) |"
-            else
-              echo "| GitHub Release | unavailable |"
-            fi
-            if [ -n "$RELEASE_REASON" ]; then
-              echo "| GitHub Release reason | $RELEASE_REASON |"
-            fi
-            if [ "${{ inputs.dry-run }}" = "true" ]; then
-              echo "| GitHub Release after workflow | **unchanged (dry run)** |"
-            elif [ "${RELEASE_STATE:-missing}" = "draft" ] &&
-                 [ "$PUBLISH_GITHUB_RELEASE" = "true" ]; then
-              echo "| GitHub Release after workflow | **published** |"
-            else
-              echo "| GitHub Release after workflow | **${RELEASE_STATE:-missing}, unchanged** |"
-            fi
-            echo
-
-            echo "### Packed package"
-            echo
-            echo "| Artifact | Value |"
-            echo "| --- | --- |"
-
-            if [ -n "$RESULT_JSON" ] && [ "$(jq '.artifacts | length' <<< "$RESULT_JSON")" -gt 0 ]; then
-              echo "| Tarball | \`$(jq -r '.artifacts[0].filename' <<< "$RESULT_JSON")\` |"
-              echo "| Package | \`$(jq -r '.artifacts[0].name' <<< "$RESULT_JSON")\` |"
-              echo "| Version | \`$(jq -r '.artifacts[0].version' <<< "$RESULT_JSON")\` |"
-              echo "| Size | \`$(jq -r '.artifacts[0].size // "unknown"' <<< "$RESULT_JSON") bytes\` |"
-              echo "| npm shasum | \`$(jq -r '.artifacts[0].shasum // "unknown"' <<< "$RESULT_JSON")\` |"
-              echo "| npm integrity | \`$(jq -r '.artifacts[0].integrity // "unknown"' <<< "$RESULT_JSON")\` |"
-            else
-              echo "| Tarball | none |"
-            fi
-
-            echo "| Workflow artifact | \`npm-package-${{ steps.plan.outputs.version || 'unresolved' }}\` |"
-            echo "| Workflow artifact ID | \`${ARTIFACT_ID:-none}\` |"
-            echo "| Workflow artifact digest | \`${ARTIFACT_DIGEST:-none}\` |"
-            echo "| GitHub Release npm asset | \`${{ steps.release-assets.outputs.tarball || (inputs.dry-run && 'preview only' || 'none') }}\` |"
-            echo "| GitHub Release ZIP asset | \`${{ steps.release-assets.outputs.zip || (inputs.dry-run && 'preview only' || 'none') }}\` |"
-
-            if [ -n "$ARTIFACT_URL" ]; then
-              echo "| Workflow artifact download | [Open artifact](${ARTIFACT_URL}) |"
-            else
-              echo "| Workflow artifact download | unavailable |"
-            fi
-
-            echo
-            echo "### CHANGELOG.md"
-            echo
-
-            CHANGELOG_VERSION="${{ steps.plan.outputs.version }}"
-            PACKAGE_DIRECTORY="${{ inputs.package-directory }}"
-            CHANGELOG_PATH="$PACKAGE_DIRECTORY/CHANGELOG.md"
-            if [ "$PACKAGE_DIRECTORY" = "." ]; then
-              CHANGELOG_PATH="CHANGELOG.md"
-            fi
-
-            if [ -z "$CHANGELOG_VERSION" ]; then
-              echo '> Package version was unresolved; cannot select changelog entries.'
-            elif [ ! -f "$CHANGELOG_PATH" ]; then
-              printf '> No changelog found at `%s`.\n' "$CHANGELOG_PATH"
-            else
-              CHANGELOG_SECTION="$(
-                awk -v version="$CHANGELOG_VERSION" '
-                  /^##[[:space:]]/ {
-                    heading = $0
-                    sub(/^##[[:space:]]+/, "", heading)
-                    sub(/^\[/, "", heading)
-                    sub(/\].*$/, "", heading)
-                    sub(/^v/, "", heading)
-                    sub(/[[:space:]].*$/, "", heading)
-                    if (in_section) exit
-                    if (heading == version) in_section = 1
-                  }
-                  in_section { print }
-                ' "$CHANGELOG_PATH"
-              )"
-
-              if [ -n "$CHANGELOG_SECTION" ]; then
-                printf '%s\n' "$CHANGELOG_SECTION"
-              else
-                printf '> No matching entry for version `%s` in `%s`.\n' "$CHANGELOG_VERSION" "$CHANGELOG_PATH"
-              fi
-            fi
-
-            echo
-          } >> "$GITHUB_STEP_SUMMARY"
-
   publish-matrix:
     name: "job: Publish npm · ${{ matrix.target.alias }}"
     needs: publish-package
-    if: ${{ inputs.matrix-publish && needs.publish-package.result == 'success' }}
+    if: ${{ needs.publish-package.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -1361,7 +942,7 @@ jobs:
   aggregate:
     name: "job: Aggregate npm registry publication"
     needs: [publish-package, publish-matrix]
-    if: ${{ always() && inputs.matrix-publish && needs.publish-package.result == 'success' }}
+    if: ${{ always() && needs.publish-package.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -1406,7 +987,7 @@ jobs:
   finalize-github-release:
     name: "job: Finalize GitHub Release after npm registries"
     needs: [publish-package, aggregate]
-    if: ${{ !inputs.dry-run && inputs.matrix-publish && needs.aggregate.result == 'success' && needs.publish-package.outputs.publish-github-release == 'true' && needs.publish-package.outputs.release-is-draft == 'true' }}
+    if: ${{ !inputs.dry-run && needs.aggregate.result == 'success' && needs.publish-package.outputs.publish-github-release == 'true' && needs.publish-package.outputs.release-is-draft == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
