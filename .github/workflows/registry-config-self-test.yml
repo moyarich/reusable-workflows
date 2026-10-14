@@ -20,7 +20,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.9 -color \\
+          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.9 -color \
             .github/workflows/reusable_npm-publish.yml \\
             .github/workflows/reusable_bulk-npm-publish.yml \\
             .github/workflows/reusable_npm-release.yml \\
