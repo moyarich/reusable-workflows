@@ -1,0 +1,43 @@
+name: Registry configuration self-test
+on:
+  pull_request:
+    paths:
+      - config/package-registries.yml
+      - .github/workflows/reusable_npm-publish.yml
+      - .github/workflows/reusable_registry-publication-check.yml
+      - .github/workflows/registry-config-self-test.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Validate registry defaults and extension behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          ruby -ryaml -ruri <<'RUBY'
+          defaults = YAML.safe_load_file('config/package-registries.yml').fetch('registries')
+          abort 'Defaults must be a mapping with multiple destinations' unless defaults.is_a?(Hash) && defaults.size >= 2
+          defaults.each do |name, entry|
+            abort "Invalid registry name: #{name}" unless name.match?(/^[a-z][a-z0-9_-]*$/)
+            abort 'Redundant alias' if entry.key?('alias')
+            uri = URI.parse(entry.fetch('url'))
+            abort "Invalid URL: #{name}" unless uri.is_a?(URI::HTTPS) && uri.host
+            abort "Missing query: #{name}" unless entry.fetch('query').fetch('type') == 'npm'
+            abort "Missing backend: #{name}" unless entry.fetch('backend').is_a?(String)
+          end
+          override = {'company' => {'url' => 'https://registry.example.test/', 'backend' => 'custom', 'enabled' => true},
+                      defaults.keys.first => {'enabled' => false}}
+          merged = defaults.merge(override) { |_, base, extension| base.merge(extension) }
+          abort 'Extension missing' unless merged.key?('company')
+          abort 'Override ignored' unless merged.fetch(defaults.keys.first)['enabled'] == false
+          expected = merged.select { |_, entry| entry['enabled'] != false }
+          abort 'All included disabled entries' if expected.key?(defaults.keys.first)
+          abort 'All omitted custom entries' unless expected.key?('company')
+          puts 'Default registry schema, extension, override, and all-selection checks passed'
+          RUBY
