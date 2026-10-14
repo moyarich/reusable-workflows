@@ -1,0 +1,9 @@
+# Extension publishing destinations. Registry keys are selectors.
+# Extension publishing integration is handled separately from npm package publishing.
+registries:
+  marketplace:
+    url: https://marketplace.visualstudio.com
+    enabled: true
+  openvsx:
+    url: https://open-vsx.org
+    enabled: true
