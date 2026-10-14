@@ -138,10 +138,6 @@ on:
         description: Complete workspace-publish JSON result
         value: ${{ jobs.publish-package.outputs.result-json }}
     secrets:
-      npm-token:
-        required: false
-      custom-registry-token:
-        required: false
       registry-tokens-json:
         required: false
 
@@ -318,9 +314,6 @@ jobs:
         env:
           PACKAGE_SELECTOR: ${{ inputs.package-directory }}
           CUSTOM_REGISTRY_URL: ${{ env.EFFECTIVE_REGISTRY_URL }}
-          BASE_CUSTOM_TOKEN: ${{ secrets.custom-registry-token }}
-          BASE_NPM_TOKEN: ${{ secrets.npm-token }}
-          BASE_GITHUB_TOKEN: ${{ github.token }}
           REGISTRY_TOKENS_JSON: ${{ secrets.registry-tokens-json }}
           VERSION_MODE: ${{ inputs.version-mode }}
           EXACT_VERSION: ${{ inputs.exact-version }}
@@ -358,16 +351,8 @@ jobs:
             source="$(jq -r '.tokenSource' <<< "$target")"
             value=""
             if [ -n "${REGISTRY_TOKENS_JSON:-}" ]; then
-              jq -e 'type == "object"' <<< "$REGISTRY_TOKENS_JSON" >/dev/null || { echo "::error::registry-tokens-json must be a JSON object" >&2; return 1; }
-              value="$(jq -r --arg key "$alias" '.[$key] // empty' <<< "$REGISTRY_TOKENS_JSON")"
-            fi
-            if [ -z "$value" ]; then
-              case "$source" in
-                npm-token) value="${BASE_NPM_TOKEN:-}" ;;
-                github-token) value="${BASE_GITHUB_TOKEN:-}" ;;
-                custom-registry-token) value="${BASE_CUSTOM_TOKEN:-}" ;;
-                *) echo "::error::Unknown token-source '$source' for registry '$alias'" >&2; return 1 ;;
-              esac
+              jq -e 'type == "object" and all(.[]; type == "string")' <<< "$REGISTRY_TOKENS_JSON" >/dev/null || { echo "::error::registry-tokens-json must contain string credentials" >&2; return 1; }
+              value="$(jq -r --arg alias "$alias" --arg source "$source" '.[$alias] // .[$source] // empty' <<< "$REGISTRY_TOKENS_JSON")"
             fi
             printf '%s' "$value"
           }
@@ -503,9 +488,6 @@ jobs:
           PACKAGE_NAME: ${{ steps.plan.outputs.name }}
           PACKAGE_VERSION: ${{ steps.plan.outputs.version }}
           REGISTRY_TOKENS_JSON: ${{ secrets.registry-tokens-json }}
-          CUSTOM_REGISTRY_TOKEN: ${{ secrets.custom-registry-token }}
-          NPM_TOKEN: ${{ secrets.npm-token }}
-          GH_PACKAGE_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           node <<'NODE'
@@ -524,7 +506,7 @@ jobs:
           for (const target of targets) {
             const type = target.query?.type ?? 'npm';
             if (type !== 'npm') throw new Error('Unsupported registry query adapter: ' + type);
-            const token = tokens[target.alias] ?? credentials[target.tokenSource];
+            const token = tokens[target.alias] ?? tokens[target.tokenSource];
             const url = new URL(target.url);
             const tmp = fs.mkdtempSync(require('node:os').tmpdir() + '/registry-query-');
             try {
@@ -931,9 +913,6 @@ jobs:
           DRY_RUN: ${{ inputs.dry-run }}
           VERIFY_GIT_TAG: ${{ inputs.verify-git-tag }}
           PACKAGE_SELECTOR: ${{ inputs.package-directory }}
-          BASE_GITHUB_TOKEN: ${{ github.token }}
-          BASE_NPM_TOKEN: ${{ secrets.npm-token }}
-          BASE_CUSTOM_TOKEN: ${{ secrets.custom-registry-token }}
           REGISTRY_TOKENS_JSON: ${{ secrets.registry-tokens-json }}
           CUSTOM_REGISTRY_URL: ${{ env.EFFECTIVE_REGISTRY_URL }}
           CANONICAL_ARTIFACT_PATH: ${{ steps.canonical-artifact.outputs.path }}
@@ -974,16 +953,8 @@ jobs:
             source="$(jq -r '.tokenSource' <<< "$target")"
             value=""
             if [ -n "${REGISTRY_TOKENS_JSON:-}" ]; then
-              jq -e 'type == "object"' <<< "$REGISTRY_TOKENS_JSON" >/dev/null || { echo "::error::registry-tokens-json must be a JSON object" >&2; return 1; }
-              value="$(jq -r --arg key "$alias" '.[$key] // empty' <<< "$REGISTRY_TOKENS_JSON")"
-            fi
-            if [ -z "$value" ]; then
-              case "$source" in
-                npm-token) value="${BASE_NPM_TOKEN:-}" ;;
-                github-token) value="${BASE_GITHUB_TOKEN:-}" ;;
-                custom-registry-token) value="${BASE_CUSTOM_TOKEN:-}" ;;
-                *) echo "::error::Unknown token-source '$source' for registry '$alias'" >&2; return 1 ;;
-              esac
+              jq -e 'type == "object" and all(.[]; type == "string")' <<< "$REGISTRY_TOKENS_JSON" >/dev/null || { echo "::error::registry-tokens-json must contain string credentials" >&2; return 1; }
+              value="$(jq -r --arg alias "$alias" --arg source "$source" '.[$alias] // .[$source] // empty' <<< "$REGISTRY_TOKENS_JSON")"
             fi
             printf '%s' "$value"
           }
