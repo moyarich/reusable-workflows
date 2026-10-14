@@ -68,6 +68,13 @@ jobs:
           require 'open3'
           require 'tmpdir'
           fallback = '.github/reusable-registry-config/config/package-registries.yml'
+          package_selector = ENV.fetch('PACKAGE_NAME')
+          if File.file?(File.join(package_selector, 'package.json'))
+            package_selector = JSON.parse(File.read(File.join(package_selector, 'package.json'))).fetch('name')
+          elsif package_selector == '.' && File.file?('package.json')
+            package_selector = JSON.parse(File.read('package.json')).fetch('name')
+          end
+          abort 'Package name unresolved' if package_selector.nil? || package_selector == ''
           defaults = YAML.safe_load_file(fallback).fetch('registries')
           file = ENV.fetch('REGISTRY_FILE', '')
           additional = file != '' && File.file?(file) ? YAML.safe_load_file(file).fetch('registries', {}) : {}
@@ -97,7 +104,7 @@ jobs:
                 File.write(npmrc, "//#{uri.host}#{uri.path.sub(%r{/$}, '')}/:_authToken=#{token}\n")
                 File.chmod(0600, npmrc)
               end
-              stdout, stderr, status = Open3.capture3('npm', 'view', "#{ENV.fetch('PACKAGE_NAME')}@#{ENV.fetch('PACKAGE_VERSION')}", 'version', '--json', "--registry=#{url}", "--userconfig=#{npmrc}")
+              stdout, stderr, status = Open3.capture3('npm', 'view', "#{package_selector}@#{ENV.fetch('PACKAGE_VERSION')}", 'version', '--json', "--registry=#{url}", "--userconfig=#{npmrc}")
               if status.success?
                 published = JSON.parse(stdout) == ENV.fetch('PACKAGE_VERSION')
               elsif stderr.match?(/E404|404 Not Found|is not in this registry/i)
