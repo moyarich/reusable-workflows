@@ -21,7 +21,7 @@ Specify `registry: company` for one target or `registry: all` for every enabled 
 
 `backend` names the publication adapter expected by the configured version of workspace-tools. `query` describes how package publication should be checked. `token-secret` documents the intended credential, but GitHub Actions cannot dynamically evaluate `secrets[<name>]` from YAML at runtime; credentials must be forwarded through workflow secrets. Never place tokens in this file.
 
-`config/vscodew-registries.yml` is reserved for extension publication destinations, independent of package registries. GitHub Releases and GitHub Pages are not npm package registries.
+`config/vscode-registries.yml` defines extension registry aliases, URLs, publishing backends, CLI commands and credential environment variables. Extension workflows use this file as their fallback, while a caller may supply an alternative path through `registries-file`. Credential values remain GitHub Actions secrets, not configuration-file values. GitHub Releases and GitHub Pages are not npm package registries.
 
 For multiple private registries, callers may pass the `registry-tokens-json` workflow secret containing a JSON object keyed by registry name (for example, `{"company":"...","internal":"..."}`). This is a secret value, **not** a YAML field committed to the repository. Existing `custom-registry-token` remains a compatibility fallback. The `token-source` field identifies the available credentials for query checks; the registry file's `token-secret` value is informational; GitHub Actions requires secrets to be mapped explicitly.
 
