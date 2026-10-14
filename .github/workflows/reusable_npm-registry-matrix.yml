@@ -1,0 +1,83 @@
+name: "Reusable · Resolve npm registry publish matrix"
+on:
+  workflow_call:
+    inputs:
+      registry:
+        type: string
+        default: github
+      registries-file:
+        type: string
+        default: ""
+    outputs:
+      targets-json:
+        value: ${{ jobs.resolve.outputs.targets-json }}
+permissions: {}
+jobs:
+  resolve:
+    name: "job: Resolve registry targets"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      targets-json: ${{ steps.registries.outputs.targets-json }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: moyarich/reusable-workflows
+          ref: main
+          path: .github/reusable-registry-config
+          sparse-checkout: config/package-registries.yml
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - name: Resolve configured registries
+        id: registries
+        env:
+          REGISTRY_SELECTION: ${{ inputs.registry }}
+          REGISTRIES_FILE: ${{ inputs.registries-file }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ruby -ryaml -rjson -ruri <<'RUBY'
+          defaults_path = '.github/reusable-registry-config/config/package-registries.yml'
+          defaults = YAML.safe_load_file(defaults_path).fetch('registries')
+          path = ENV.fetch('REGISTRIES_FILE', '')
+          abort 'Invalid registries-file path' if path.start_with?('/') || path.split('/').include?('..')
+          overrides = path != '' && File.file?(path) ? YAML.safe_load_file(path).fetch('registries', {}) : {}
+          abort 'Registry maps must be objects' unless defaults.is_a?(Hash) && overrides.is_a?(Hash)
+          registries = defaults.merge(overrides) do |name, base, extra|
+            abort "Invalid registry settings: #{name}" unless base.is_a?(Hash) && extra.is_a?(Hash)
+            base.merge(extra)
+          end
+          requested = ENV.fetch('REGISTRY_SELECTION', 'github')
+          targets = registries.filter_map do |name, entry|
+            next unless requested == 'all' || requested == name
+            next if requested == 'all' && entry['enabled'] == false
+            abort "Disabled registry: #{name}" if entry['enabled'] == false
+            abort "Invalid alias: #{name}" unless name.match?(/\A[a-zA-Z][a-zA-Z0-9_-]*\z/)
+            uri = URI.parse(entry.fetch('url'))
+            abort "Invalid registry HTTPS URL: #{name}" unless uri.is_a?(URI::HTTPS) && uri.host && !uri.userinfo && !uri.query && !uri.fragment
+            source = entry.fetch('token-source')
+            # Existing npm callers use explicit named reusable secrets; dynamic
+            # lookup from inherited secrets uses GitHub repository secret names.
+            secret_name = case source
+              when 'npm-token' then 'NPM_TOKEN'
+              when 'github-token' then 'GITHUB_TOKEN'
+              when 'custom-registry-token' then 'CUSTOM_REGISTRY_TOKEN'
+              else source
+            end
+            abort "Invalid secret name for #{name}" unless secret_name.match?(/\A[A-Za-z_][A-Za-z0-9_]*\z/)
+            {'alias' => name, 'url' => uri.to_s, 'backend' => entry.fetch('backend'), 'tokenSource' => source, 'secretName' => secret_name, 'publishGithubRelease' => entry.fetch('publish-github-release', false)}
+          end
+          abort "Registry not selected: #{requested}" if targets.empty?
+          File.open(ENV.fetch('GITHUB_OUTPUT'), 'a') { |f| f.puts "targets-json=#{JSON.generate(targets)}" }
+          File.open(ENV.fetch('GITHUB_STEP_SUMMARY'), 'a') do |f|
+            f.puts "## npm registry target matrix"
+            f.puts
+            f.puts "| Registry | Secret reference |"
+            f.puts "| --- | --- |"
+            targets.each { |target| f.puts "| #{target.fetch('alias')} | #{target.fetch('secretName')} |" }
+          end
+          RUBY

@@ -4,6 +4,7 @@ on:
     paths:
       - config/package-registries.yml
       - .github/workflows/reusable_npm-publish.yml
+      - .github/workflows/reusable_npm-registry-matrix.yml
       - .github/workflows/reusable_registry-publication-check.yml
       - .github/workflows/registry-config-self-test.yml
   workflow_dispatch:
@@ -20,7 +21,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.9 -ignore 'shellcheck reported issue' .github/workflows/reusable_npm-publish.yml .github/workflows/reusable_bulk-npm-publish.yml .github/workflows/reusable_npm-release.yml .github/workflows/reusable_npm-prepare-release.yml .github/workflows/reusable_registry-publication-check.yml .github/workflows/registry-config-self-test.yml
+          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.9 -ignore 'shellcheck reported issue' .github/workflows/reusable_npm-publish.yml .github/workflows/reusable_bulk-npm-publish.yml .github/workflows/reusable_npm-release.yml .github/workflows/reusable_npm-prepare-release.yml .github/workflows/reusable_registry-publication-check.yml .github/workflows/reusable_npm-registry-matrix.yml .github/workflows/registry-config-self-test.yml
       - name: Validate registry defaults and extension behavior
         shell: bash
         run: |
