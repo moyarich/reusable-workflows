@@ -328,6 +328,7 @@ jobs:
           PACKAGE_SELECTOR: ${{ inputs.package-directory }}
           CUSTOM_REGISTRY_URL: ${{ env.EFFECTIVE_REGISTRY_URL }}
           _CUSTOM_REGISTRY_TOKEN: ${{ secrets.custom-registry-token }}
+          REGISTRY_TOKENS_JSON: ${{ secrets.registry-tokens-json }}
           VERSION_MODE: ${{ inputs.version-mode }}
           EXACT_VERSION: ${{ inputs.exact-version }}
           NODE_AUTH_TOKEN: ${{ github.token }}
@@ -358,6 +359,11 @@ jobs:
           if [ "$PLAN_REGISTRY" = all ]; then PLAN_REGISTRY="$(jq -r '.[0].registry' <<< "$REGISTRIES_JSON")"; fi
           PLAN_URL="$CUSTOM_REGISTRY_URL"
           if [ "$PLAN_REGISTRY" = custom ]; then PLAN_URL="$(jq -r '.[0].url' <<< "$REGISTRIES_JSON")"; fi
+          if [ "$PLAN_REGISTRY" = custom ] && [ -n "${REGISTRY_TOKENS_JSON:-}" ]; then
+            plan_alias="$(jq -r '.[0].alias' <<< "$REGISTRIES_JSON")"
+            plan_token="$(jq -r --arg alias "$plan_alias" '.[$alias] // empty' <<< "$REGISTRY_TOKENS_JSON")"
+            if [ -n "$plan_token" ]; then export _CUSTOM_REGISTRY_TOKEN="$plan_token"; fi
+          fi
           PLAN_ARGS=(
             "--package=$PACKAGE_SELECTOR"
             --registry="$PLAN_REGISTRY"
