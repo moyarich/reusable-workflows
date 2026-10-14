@@ -6,7 +6,7 @@ on:
       package-directory:
         description: Extension workspace directory containing package.json
         type: string
-        required: true
+        default: "."
       node-version:
         description: Node.js version
         type: string
@@ -24,13 +24,45 @@ on:
         type: string
         default: ""
       artifact-glob:
-        description: Repository-relative path to generated VSIX files
+        description: Repository-relative path to generated VSIX files (empty uses generated VSIX from vsce package)
         type: string
-        required: true
+        default: ""
       artifact-name:
         description: Uploaded artifact name
         type: string
         default: openvsx-vsix
+      target-branch:
+        description: Branch to package and publish
+        type: string
+        default: main
+      version:
+        description: Version to validate against package.json (empty uses package.json)
+        type: string
+        default: ""
+      release-tag-prefix:
+        description: Prefix for default GitHub Release tags (for example packages/colorshower@)
+        type: string
+        default: v
+      release-tag:
+        description: Existing GitHub Release tag to attach the VSIX to (empty uses release-tag-prefix + version)
+        type: string
+        default: ""
+      attach-release-asset:
+        description: Attach the packaged VSIX to the existing GitHub Release
+        type: boolean
+        default: true
+      release-environment:
+        description: Environment requiring approval before real publishing
+        type: string
+        default: release
+      marketplace-mode:
+        description: "publish or already-published (skip only the marketplace)"
+        type: string
+        default: publish
+      vsce-package-args:
+        description: Extra VSIX packaging arguments
+        type: string
+        default: "--allow-missing-repository --no-rewrite-relative-links"
       registry:
         description: Configured extension registry alias or all
         type: string
@@ -49,15 +81,23 @@ on:
     outputs:
       publish-status:
         description: validated, published, or failed
-        value: ${{ jobs.extension.outputs.publish-status }}
+        value: ${{ jobs.outcome.outputs.publish-status }}
+      extension-version:
+        value: ${{ jobs.extension.outputs.extension-version }}
+      extension-name:
+        value: ${{ jobs.extension.outputs.extension-name }}
+      vsix-name:
+        value: ${{ jobs.extension.outputs.vsix-name }}
+      release-asset-status:
+        value: ${{ jobs.release-asset.outputs.status }}
   workflow_dispatch:
     inputs:
       package-directory:
         type: string
-        required: true
+        default: "."
       artifact-glob:
         type: string
-        required: true
+        default: ""
       registry:
         type: string
         default: openvsx
@@ -72,7 +112,18 @@ permissions:
   contents: read
 
 jobs:
+  approval:
+    name: "job: Publish approval"
+    if: ${{ !inputs.dry-run }}
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.release-environment }}
+    steps:
+      - run: echo "Real extension publish approved" >> "$GITHUB_STEP_SUMMARY"
+
   extension:
+    needs: approval
+    if: ${{ always() && (inputs.dry-run || needs.approval.result == 'success') }}
     name: "job: Validate and publish VSIX"
     runs-on: ubuntu-latest
     permissions:
@@ -81,10 +132,15 @@ jobs:
     outputs:
       publish-status: ${{ steps.outcome.outputs.status }}
       targets-json: ${{ steps.registries.outputs.targets-json }}
+      extension-version: ${{ steps.identity.outputs.version }}
+      extension-name: ${{ steps.identity.outputs.name }}
+      vsix-name: ${{ steps.vsix.outputs.name }}
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+          ref: ${{ inputs.target-branch || github.ref }}
+          fetch-depth: 0
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ inputs.node-version || '24' }}
@@ -96,12 +152,29 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for value in "$DIRECTORY" "$GLOB"; do
+          for value in "$DIRECTORY"; do
             [ -n "$value" ] || { echo "::error::Package directory and VSIX path are required"; exit 1; }
             case "$value" in /*|..|../*|*/../*|*/..) echo "::error::Invalid path: $value"; exit 1;; esac
           done
           [ -f "$DIRECTORY/package.json" ] || { echo "::error::Missing $DIRECTORY/package.json"; exit 1; }
           [ -n "$REGISTRY" ] || { echo "::error::Registry selector must not be empty"; exit 1; }
+      - name: Resolve extension identity and version
+        id: identity
+        env:
+          DIRECTORY: ${{ inputs.package-directory }}
+          REQUESTED_VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          name="$(node -p "require('./' + process.argv[1] + '/package.json').name" "$DIRECTORY")"
+          version="$(node -p "require('./' + process.argv[1] + '/package.json').version" "$DIRECTORY")"
+          if [ -n "$REQUESTED_VERSION" ] && [ "$version" != "$REQUESTED_VERSION" ]; then
+            echo "::error::Requested version does not match package.json"
+            exit 1
+          fi
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
       - name: Checkout bundled extension registry defaults
         uses: actions/checkout@v7
         with:
@@ -185,9 +258,34 @@ jobs:
         env:
           COMMAND: ${{ inputs.package-command }}
         run: bash -euo pipefail -c "$COMMAND"
-      - name: Verify VSIX output
+      - name: Package extension with vsce
+        if: ${{ inputs.artifact-glob == '' && inputs.package-command == '' }}
+        env:
+          DIRECTORY: ${{ inputs.package-directory }}
+          PACKAGE_ARGS: ${{ inputs.vsce-package-args }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$DIRECTORY"
+          read -r -a flags <<< "$PACKAGE_ARGS"
+          npx --yes @vscode/vsce package "${flags[@]}"
+      - name: Resolve VSIX artifact path
+        id: vsix
         env:
           GLOB: ${{ inputs.artifact-glob }}
+          DIRECTORY: ${{ inputs.package-directory }}
+          ARTIFACT_NAME: ${{ inputs.artifact-name }}
+        shell: bash
+        run: |
+          if [ -z "$GLOB" ]; then
+            echo "glob=$DIRECTORY/*.vsix" >> "$GITHUB_OUTPUT"
+          else
+            echo "glob=$GLOB" >> "$GITHUB_OUTPUT"
+          fi
+          echo "name=$ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
+      - name: Verify VSIX output
+        env:
+          GLOB: ${{ steps.vsix.outputs.glob }}
         shell: bash
         run: |
           set -euo pipefail
@@ -204,10 +302,10 @@ jobs:
           [ "${#files[@]}" -eq 1 ] || { echo "::error::Expected one VSIX, found ${#files[@]}"; exit 1; }
           printf 'Validated %s VSIX file(s)\n' "${#files[@]}"
       - name: Upload validated VSIX
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.artifact-name || 'open-vsx-vsix' }}
-          path: ${{ inputs.artifact-glob }}
+          path: ${{ steps.vsix.outputs.glob }}
           if-no-files-found: error
       - name: Report outcome
         id: outcome
@@ -252,7 +350,7 @@ jobs:
         target: ${{ fromJSON(needs.extension.outputs.targets-json) }}
     steps:
       - name: Download validated VSIX
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: ${{ inputs.artifact-name || 'open-vsx-vsix' }}
           path: ${{ runner.temp }}/vsix
@@ -261,8 +359,9 @@ jobs:
         with:
           node-version: ${{ inputs.node-version || '24' }}
       - name: Publish selected registry
+        if: ${{ !(inputs.marketplace-mode == 'already-published' && matrix.target.alias == 'marketplace') }}
         env:
-          REGISTRY_TOKEN: ${{ secrets[matrix.target.token-source] }}
+          REGISTRY_TOKEN: ${{ matrix.target.token-source == 'github-token' && github.token || secrets[matrix.target.token-source] }}
           TOKEN_ENV: ${{ matrix.target.token-env }}
           PUBLISH_COMMAND: ${{ matrix.target.publish-command }}
           REGISTRY_ALIAS: ${{ matrix.target.alias }}
@@ -278,3 +377,86 @@ jobs:
           export "$TOKEN_ENV=$REGISTRY_TOKEN"
           bash -euo pipefail -c "$PUBLISH_COMMAND"
           echo "Published $REGISTRY_ALIAS" >> "$GITHUB_STEP_SUMMARY"
+
+  outcome:
+    name: "job: Aggregate extension publishing"
+    if: ${{ always() && needs.extension.result == 'success' }}
+    needs: [extension, publish, release-asset]
+    runs-on: ubuntu-latest
+    outputs:
+      publish-status: ${{ steps.aggregate.outputs.status }}
+    steps:
+      - name: Report publishing result
+        id: aggregate
+        env:
+          DRY_RUN: ${{ inputs.dry-run }}
+          PUBLISH_RESULT: ${{ needs.publish.result }}
+          RELEASE_ASSET_RESULT: ${{ needs.release-asset.result }}
+          ATTACH_RELEASE_ASSET: ${{ inputs.attach-release-asset }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$DRY_RUN" = true ]; then
+            echo "status=validated" >> "$GITHUB_OUTPUT"
+            echo "VSIX packaged and validated (dry run; no registry publication)." >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$PUBLISH_RESULT" = success ] && { [ "$ATTACH_RELEASE_ASSET" != true ] || [ "$RELEASE_ASSET_RESULT" = success ]; }; then
+            echo "status=published" >> "$GITHUB_OUTPUT"
+            echo "VSIX published to configured registries." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::error::One or more extension registry publications failed"
+            exit 1
+          fi
+
+  release-asset:
+    name: "job: Attach VSIX to existing GitHub Release"
+    needs: [extension, publish]
+    if: ${{ !inputs.dry-run && inputs.attach-release-asset && needs.extension.result == 'success' && needs.publish.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      status: ${{ steps.attach.outputs.status }}
+    steps:
+      - name: Download packaged VSIX
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ inputs.artifact-name || 'open-vsx-vsix' }}
+          path: ${{ runner.temp }}/vsix
+      - name: Attach VSIX asset to existing release
+        id: attach
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          REQUESTED_TAG: ${{ inputs.release-tag }}
+          TAG_PREFIX: ${{ inputs.release-tag-prefix }}
+          VERSION: ${{ needs.extension.outputs.extension-version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${REQUESTED_TAG:-${TAG_PREFIX}${VERSION}}"
+          mapfile -d '' -t files < <(find "$RUNNER_TEMP/vsix" -type f -name '*.vsix' -print0)
+          if [ "${#files[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one packaged VSIX"
+            exit 1
+          fi
+          if ! release="$(gh api "repos/$GH_REPO/releases/tags/$tag")"; then
+            echo "::error::No GitHub Release exists for $tag"
+            exit 1
+          fi
+          if [ "$(jq -r '.draft' <<< "$release")" = true ]; then
+            echo "::error::Release $tag is still a draft"
+            exit 1
+          fi
+          filename="$(basename "${files[0]}")"
+          if jq -e --arg name "$filename" '.assets[]? | select(.name == $name)' <<< "$release" >/dev/null; then
+            echo "::warning title=VSIX already attached::$filename already exists on release $tag"
+            echo "status=already-attached" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$(jq -r '.immutable // false' <<< "$release")" = true ]; then
+            echo "::error::Release $tag is immutable; GitHub prevents adding assets after publication"
+            exit 1
+          fi
+          gh release upload "$tag" "${files[0]}" --repo "$GH_REPO"
+          echo "status=attached" >> "$GITHUB_OUTPUT"
+          echo "Attached `$filename` to release `$tag`." >> "$GITHUB_STEP_SUMMARY"
