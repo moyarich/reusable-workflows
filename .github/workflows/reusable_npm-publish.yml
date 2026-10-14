@@ -47,7 +47,7 @@ on:
         required: false
         default: ""
       registry-url:
-        description: HTTPS registry URL when registry=custom
+        description: Optional URL override for one configured registry
         type: string
         required: false
         default: ""
@@ -113,7 +113,7 @@ on:
         required: false
         default: ""
       registry-url:
-        description: HTTPS registry URL when registry=custom
+        description: Optional URL override for one configured registry
         type: string
         required: false
         default: ""
@@ -272,9 +272,6 @@ jobs:
           end
           selection = ENV.fetch('SELECTION')
           url_override = ENV.fetch('URL_OVERRIDE', '')
-          if selection == 'custom' && !aliases.key?('custom') && !url_override.empty?
-            aliases['custom'] = {'url' => url_override}
-          end
           selected = selection == 'all' ? aliases.select { |_, entry| entry['enabled'] != false } : aliases.select { |name, _| name == selection }
           abort "Unknown registry selection: #{selection}" if selected.empty?
           abort 'URL override requires a single registry' unless url_override.empty? || selected.size == 1
