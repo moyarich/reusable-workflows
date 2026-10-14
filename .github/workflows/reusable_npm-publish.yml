@@ -245,7 +245,7 @@ jobs:
           ref: ${{ job.workflow_sha }}
           path: .github/reusable-registry-config
           persist-credentials: false
-          sparse-checkout: config/registries.yml
+          sparse-checkout: config/package-registries.yml
           sparse-checkout-cone-mode: false
 
       - name: Resolve registry configuration
@@ -257,7 +257,7 @@ jobs:
         run: |
           set -euo pipefail
           ruby -ryaml -rjson -ruri <<'RUBY'
-          fallback = '.github/reusable-registry-config/config/registries.yml'
+          fallback = '.github/reusable-registry-config/config/package-registries.yml'
           requested = ENV.fetch('CONFIG_FILE', '').strip
           path = !requested.empty? && File.file?(requested) ? requested : fallback
           config = YAML.safe_load_file(path).fetch('registries')
@@ -265,9 +265,9 @@ jobs:
           aliases = {}
           config.each do |key, entry|
             abort "Invalid registry: #{key}" unless entry.is_a?(Hash)
-            name = entry.fetch('alias', key).to_s
-            abort "Invalid alias: #{name}" unless name.match?(/^[a-zA-Z][a-zA-Z0-9_-]*$/) && name != 'all'
-            abort "Duplicate alias: #{name}" if aliases.key?(name)
+            name = key.to_s
+            abort "Invalid registry name: #{name}" unless name.match?(/^[a-zA-Z][a-zA-Z0-9_-]*$/) && name != 'all'
+            abort "Duplicate registry: #{name}" if aliases.key?(name)
             aliases[name] = entry
           end
           selection = ENV.fetch('SELECTION')
