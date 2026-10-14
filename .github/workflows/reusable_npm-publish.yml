@@ -325,7 +325,6 @@ jobs:
           BASE_CUSTOM_TOKEN: ${{ secrets.custom-registry-token }}
           BASE_NPM_TOKEN: ${{ secrets.npm-token }}
           BASE_GITHUB_TOKEN: ${{ github.token }}
-          REGISTRY_TOKENS_JSON: ${{ secrets.registry-tokens-json }}
           VERSION_MODE: ${{ inputs.version-mode }}
           EXACT_VERSION: ${{ inputs.exact-version }}
           NODE_AUTH_TOKEN: ${{ github.token }}
@@ -356,27 +355,13 @@ jobs:
           if [ "$PLAN_REGISTRY" = all ]; then PLAN_REGISTRY="$(jq -r '.[0].registry' <<< "$REGISTRIES_JSON")"; fi
           PLAN_URL="$CUSTOM_REGISTRY_URL"
           if [ "$PLAN_REGISTRY" = custom ]; then PLAN_URL="$(jq -r '.[0].url' <<< "$REGISTRIES_JSON")"; fi
-          resolve_token() {
-            local target="$1" alias source value
-            alias="$(jq -r '.alias' <<< "$target")"
-            source="$(jq -r '.tokenSource' <<< "$target")"
-            value=""
-            if [ -n "${REGISTRY_TOKENS_JSON:-}" ]; then
-              jq -e 'type == "object"' <<< "$REGISTRY_TOKENS_JSON" >/dev/null || { echo "::error::registry-tokens-json must be a JSON object" >&2; return 1; }
-              value="$(jq -r --arg key "$alias" '.[$key] // empty' <<< "$REGISTRY_TOKENS_JSON")"
-            fi
-            if [ -z "$value" ]; then
-              case "$source" in
-                npm-token) value="${BASE_NPM_TOKEN:-}" ;;
-                github-token) value="${BASE_GITHUB_TOKEN:-}" ;;
-                custom-registry-token) value="${BASE_CUSTOM_TOKEN:-}" ;;
-                *) echo "::error::Unknown token-source '$source' for registry '$alias'" >&2; return 1 ;;
-              esac
-            fi
-            printf '%s' "$value"
-          }
-          plan_target="$(jq -c '.[0]' <<< "$REGISTRIES_JSON")"
-          plan_token="$(resolve_token "$plan_target")"
+          plan_source="$(jq -r '.[0].tokenSource' <<< "$REGISTRIES_JSON")"
+          case "$plan_source" in
+            npm-token) plan_token="$BASE_NPM_TOKEN" ;;
+            github-token) plan_token="$BASE_GITHUB_TOKEN" ;;
+            custom-registry-token) plan_token="$BASE_CUSTOM_TOKEN" ;;
+            *) plan_token="" ;;
+          esac
           export _CUSTOM_REGISTRY_TOKEN="$plan_token"
           export _NPM_TOKEN="$plan_token"
           export _GITHUB_TOKEN="$plan_token"
@@ -499,61 +484,6 @@ jobs:
             echo "$PLAN" | jq -c .
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
-
-      - name: Check published versions across configured registries
-        id: registry-status
-        shell: bash
-        env:
-          PACKAGE_NAME: ${{ steps.plan.outputs.name }}
-          PACKAGE_VERSION: ${{ steps.plan.outputs.version }}
-          REGISTRY_TOKENS_JSON: ${{ secrets.registry-tokens-json }}
-          CUSTOM_REGISTRY_TOKEN: ${{ secrets.custom-registry-token }}
-          NPM_TOKEN: ${{ secrets.npm-token }}
-          GH_PACKAGE_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          node <<'NODE'
-          const fs = require('node:fs');
-          const {execFileSync} = require('node:child_process');
-          const targets = JSON.parse(process.env.REGISTRIES_JSON);
-          const tokens = process.env.REGISTRY_TOKENS_JSON ? JSON.parse(process.env.REGISTRY_TOKENS_JSON) : {};
-          const packageName = process.env.PACKAGE_NAME;
-          const version = process.env.PACKAGE_VERSION;
-          const credentials = {
-            'npm-token': process.env.NPM_TOKEN,
-            'github-token': process.env.GH_PACKAGE_TOKEN,
-            'custom-registry-token': process.env.CUSTOM_REGISTRY_TOKEN
-          };
-          const results = [];
-          for (const target of targets) {
-            const type = target.query?.type ?? 'npm';
-            if (type !== 'npm') throw new Error('Unsupported registry query adapter: ' + type);
-            const token = tokens[target.alias] ?? credentials[target.tokenSource];
-            const url = new URL(target.url);
-            const tmp = fs.mkdtempSync(require('node:os').tmpdir() + '/registry-query-');
-            try {
-              const npmrc = require('node:path').join(tmp, '.npmrc');
-              if (token) fs.writeFileSync(npmrc, '//' + url.host + url.pathname.replace(/\/$/, '') + '/:_authToken=' + token + '\n', {mode: 0o600});
-              const args = ['view', packageName + '@' + version, 'version', '--json', '--registry=' + target.url, '--userconfig=' + npmrc];
-              let published = false, error = null;
-              try {
-                const output = execFileSync('npm', args, {encoding:'utf8', stdio:['ignore','pipe','pipe'], timeout:30000});
-                published = JSON.parse(output.trim() || 'null') === version;
-              } catch (e) {
-                const details = String(e.stderr || e.message);
-                if (!/E404|404 Not Found|is not in this registry/i.test(details)) error = details.split('\n').filter(Boolean).slice(0,2).join('; ');
-              }
-              results.push({alias:target.alias, url:target.url, published, error});
-            } finally {
-              fs.rmSync(tmp, {recursive:true, force:true});
-            }
-          }
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'result-json=' + JSON.stringify(results) + '\n');
-          const summary = ['### Package registry publication status', '', '| Registry | Version | State |', '| --- | --- | --- |'];
-          for (const item of results) summary.push('| ' + item.alias + ' | `' + version + '` | ' + (item.error ? 'query failed' : item.published ? 'published' : 'not published') + ' |');
-          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary.join('\n') + '\n');
-          if (results.some(item => item.error)) throw new Error('One or more registry publication checks failed');
-          NODE
 
       - name: Validate requested version
         if: ${{ inputs.version-mode == 'exact' }}
