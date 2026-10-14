@@ -25,4 +25,7 @@ Specify `registry: company` for one target or `registry: all` for every enabled 
 
 Callers continue supplying standard workflow secrets (`npm-token` and, where needed, `custom-registry-token`). GitHub Packages uses the workflow's `github.token`. The `token-source` registry setting selects among these supported credential sources; no JSON secret is required. Optional alias-keyed overrides are supported for advanced custom destinations. Never commit token values to registry configuration.
 
+
+Npm publishing now uses a **single per-registry matrix** by default. The caller registry YAML is merged with the built-in defaults by registry key; values in a caller's entry override matching properties without removing other built-in properties. Select `registry: all` to include every enabled entry. Each matrix job resolves `secrets[matrix.target.tokenSource]` directly, except `github-token`, which uses `github.token`. With `secrets: inherit`, `token-source: _NPM_TOKEN` selects the caller's `_NPM_TOKEN`; explicitly forwarded `npm-token` continues to select `token-source: npm-token`. No JSON token bundle or `matrix-publish` switch is required.
+
 **Implementation note:** npm publishing checks now use the registry's `query.type: npm` adapter and report publication status for each selected registry. Other release workflows are not yet wired to the same check. The workspace-tools publish CLI still handles backend-specific behavior. Treat multi-target publication as unverified until CI and dry-run checks complete.
