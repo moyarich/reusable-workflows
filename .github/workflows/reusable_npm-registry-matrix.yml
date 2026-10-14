@@ -62,22 +62,16 @@ jobs:
             source = entry.fetch('token-source')
             # Existing npm callers use explicit named reusable secrets; dynamic
             # lookup from inherited secrets uses GitHub repository secret names.
-            secret_name = case source
-              when 'npm-token' then 'NPM_TOKEN'
-              when 'github-token' then 'GITHUB_TOKEN'
-              when 'custom-registry-token' then 'CUSTOM_REGISTRY_TOKEN'
-              else source
-            end
-            abort "Invalid secret name for #{name}" unless secret_name.match?(/\A[A-Za-z_][A-Za-z0-9_]*\z/)
-            {'alias' => name, 'url' => uri.to_s, 'backend' => entry.fetch('backend'), 'tokenSource' => source, 'secretName' => secret_name, 'publishGithubRelease' => entry.fetch('publish-github-release', false)}
+            abort "Invalid token source for #{name}" unless source.is_a?(String) && source.match?(/\A[A-Za-z_][A-Za-z0-9_-]*\z/)
+            {'alias' => name, 'url' => uri.to_s, 'backend' => entry.fetch('backend'), 'tokenSource' => source, 'publishGithubRelease' => entry.fetch('publish-github-release', false)}
           end
           abort "Registry not selected: #{requested}" if targets.empty?
           File.open(ENV.fetch('GITHUB_OUTPUT'), 'a') { |f| f.puts "targets-json=#{JSON.generate(targets)}" }
           File.open(ENV.fetch('GITHUB_STEP_SUMMARY'), 'a') do |f|
             f.puts "## npm registry target matrix"
             f.puts
-            f.puts "| Registry | Secret reference |"
+            f.puts "| Registry | Token source |"
             f.puts "| --- | --- |"
-            targets.each { |target| f.puts "| #{target.fetch('alias')} | #{target.fetch('secretName')} |" }
+            targets.each { |target| f.puts "| #{target.fetch('alias')} | #{target.fetch('tokenSource')} |" }
           end
           RUBY
