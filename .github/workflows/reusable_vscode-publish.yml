@@ -39,6 +39,14 @@ on:
         description: Version to validate against package.json (empty uses package.json)
         type: string
         default: ""
+      release-tag:
+        description: Existing GitHub Release tag to attach the VSIX to (empty uses v<version>)
+        type: string
+        default: ""
+      attach-release-asset:
+        description: Attach the packaged VSIX to the existing GitHub Release
+        type: boolean
+        default: true
       release-environment:
         description: Environment requiring approval before real publishing
         type: string
@@ -76,6 +84,8 @@ on:
         value: ${{ jobs.extension.outputs.extension-name }}
       vsix-name:
         value: ${{ jobs.extension.outputs.vsix-name }}
+      release-asset-status:
+        value: ${{ jobs.release-asset.outputs.status }}
   workflow_dispatch:
     inputs:
       package-directory:
@@ -271,7 +281,7 @@ jobs:
           echo "name=$ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
       - name: Verify VSIX output
         env:
-          GLOB: ${{ inputs.artifact-glob }}
+          GLOB: ${{ steps.vsix.outputs.glob }}
         shell: bash
         run: |
           set -euo pipefail
@@ -367,7 +377,7 @@ jobs:
   outcome:
     name: "job: Aggregate extension publishing"
     if: ${{ always() && needs.extension.result == 'success' }}
-    needs: [extension, publish]
+    needs: [extension, publish, release-asset]
     runs-on: ubuntu-latest
     outputs:
       publish-status: ${{ steps.aggregate.outputs.status }}
@@ -377,16 +387,71 @@ jobs:
         env:
           DRY_RUN: ${{ inputs.dry-run }}
           PUBLISH_RESULT: ${{ needs.publish.result }}
+          RELEASE_ASSET_RESULT: ${{ needs.release-asset.result }}
+          ATTACH_RELEASE_ASSET: ${{ inputs.attach-release-asset }}
         shell: bash
         run: |
           set -euo pipefail
           if [ "$DRY_RUN" = true ]; then
             echo "status=validated" >> "$GITHUB_OUTPUT"
             echo "VSIX packaged and validated (dry run; no registry publication)." >> "$GITHUB_STEP_SUMMARY"
-          elif [ "$PUBLISH_RESULT" = success ]; then
+          elif [ "$PUBLISH_RESULT" = success ] && { [ "$ATTACH_RELEASE_ASSET" != true ] || [ "$RELEASE_ASSET_RESULT" = success ]; }; then
             echo "status=published" >> "$GITHUB_OUTPUT"
             echo "VSIX published to configured registries." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "::error::One or more extension registry publications failed"
             exit 1
           fi
+
+  release-asset:
+    name: "job: Attach VSIX to existing GitHub Release"
+    needs: [extension, publish]
+    if: ${{ !inputs.dry-run && inputs.attach-release-asset && needs.extension.result == 'success' && needs.publish.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      status: ${{ steps.attach.outputs.status }}
+    steps:
+      - name: Download packaged VSIX
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ inputs.artifact-name || 'open-vsx-vsix' }}
+          path: ${{ runner.temp }}/vsix
+      - name: Attach VSIX asset to existing release
+        id: attach
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          REQUESTED_TAG: ${{ inputs.release-tag }}
+          VERSION: ${{ needs.extension.outputs.extension-version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${REQUESTED_TAG:-v$VERSION}"
+          mapfile -d '' -t files < <(find "$RUNNER_TEMP/vsix" -type f -name '*.vsix' -print0)
+          if [ "${#files[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one packaged VSIX"
+            exit 1
+          fi
+          if ! release="$(gh api "repos/$GH_REPO/releases/tags/$tag")"; then
+            echo "::error::No GitHub Release exists for $tag"
+            exit 1
+          fi
+          if [ "$(jq -r '.draft' <<< "$release")" = true ]; then
+            echo "::error::Release $tag is still a draft"
+            exit 1
+          fi
+          filename="$(basename "${files[0]}")"
+          if jq -e --arg name "$filename" '.assets[]? | select(.name == $name)' <<< "$release" >/dev/null; then
+            echo "::warning title=VSIX already attached::$filename already exists on release $tag"
+            echo "status=already-attached" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$(jq -r '.immutable // false' <<< "$release")" = true ]; then
+            echo "::error::Release $tag is immutable; GitHub prevents adding assets after publication"
+            exit 1
+          fi
+          gh release upload "$tag" "${files[0]}" --repo "$GH_REPO"
+          echo "status=attached" >> "$GITHUB_OUTPUT"
+          echo "Attached `$filename` to release `$tag`." >> "$GITHUB_STEP_SUMMARY"
