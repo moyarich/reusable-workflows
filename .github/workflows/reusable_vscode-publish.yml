@@ -86,6 +86,8 @@ on:
         value: ${{ jobs.extension.outputs.vsix-name }}
       github-release-status:
         value: ${{ jobs.outcome.outputs.github-release-status }}
+      marketplace-status:
+        value: ${{ jobs.outcome.outputs.publish-status }}
   workflow_dispatch:
     inputs:
       package-directory:
@@ -384,3 +386,51 @@ jobs:
           export "$TOKEN_ENV=$REGISTRY_TOKEN"
           bash -euo pipefail -c "$PUBLISH_COMMAND"
           echo "Published $REGISTRY_ALIAS" >> "$GITHUB_STEP_SUMMARY"
+
+  outcome:
+    name: "job: Finalize extension publishing"
+    if: ${{ always() && needs.extension.result == 'success' }}
+    needs: [extension, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      publish-status: ${{ steps.finalize.outputs.status }}
+      github-release-status: ${{ steps.finalize.outputs.release-status }}
+    steps:
+      - name: Finalize publication and draft release
+        id: finalize
+        env:
+          DRY_RUN: ${{ inputs.dry-run }}
+          PUBLISH_RESULT: ${{ needs.publish.result }}
+          PUBLISH_RELEASE: ${{ inputs.publish-github-release }}
+          VERSION: ${{ needs.extension.outputs.extension-version }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$DRY_RUN" = true ]; then
+            echo "status=validated" >> "$GITHUB_OUTPUT"
+            echo "release-status=unchanged" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$PUBLISH_RESULT" != success ]; then
+            echo "::error::One or more VSIX registry publication jobs failed"
+            exit 1
+          fi
+          echo "status=published" >> "$GITHUB_OUTPUT"
+          if [ "$PUBLISH_RELEASE" != true ]; then
+            echo "release-status=disabled" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          tag="v$VERSION"
+          release="$(gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100" | jq -c --arg tag "$tag" '[.[][] | select(.draft == true and .tag_name == $tag)] | first // empty')"
+          if [ -z "$release" ]; then
+            echo "::error::Matching GitHub draft for $tag not found; registry publishing succeeded, release remains unchanged"
+            exit 1
+          fi
+          release_id="$(jq -r '.id' <<< "$release")"
+          gh api --method PATCH "repos/$GH_REPO/releases/$release_id" -f tag_name="$tag" -f name="$tag" -F draft=false >/dev/null
+          echo "release-status=published" >> "$GITHUB_OUTPUT"
+          echo "GitHub Release published for $tag" >> "$GITHUB_STEP_SUMMARY"
