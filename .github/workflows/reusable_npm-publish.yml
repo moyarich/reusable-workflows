@@ -259,16 +259,17 @@ jobs:
           ruby -ryaml -rjson -ruri <<'RUBY'
           fallback = '.github/reusable-registry-config/config/package-registries.yml'
           requested = ENV.fetch('CONFIG_FILE', '').strip
-          path = !requested.empty? && File.file?(requested) ? requested : fallback
-          config = YAML.safe_load_file(path).fetch('registries')
-          abort 'registries must be a mapping' unless config.is_a?(Hash)
-          aliases = {}
-          config.each do |key, entry|
-            abort "Invalid registry: #{key}" unless entry.is_a?(Hash)
-            name = key.to_s
-            abort "Invalid registry name: #{name}" unless name.match?(/^[a-zA-Z][a-zA-Z0-9_-]*$/) && name != 'all'
-            abort "Duplicate registry: #{name}" if aliases.key?(name)
-            aliases[name] = entry
+          defaults = YAML.safe_load_file(fallback).fetch('registries')
+          abort 'Default registries must be a mapping' unless defaults.is_a?(Hash)
+          overrides = !requested.empty? && File.file?(requested) ? YAML.safe_load_file(requested).fetch('registries', {}) : {}
+          abort 'Caller registries must be a mapping' unless overrides.is_a?(Hash)
+          aliases = defaults.merge(overrides) do |name, base, override|
+            abort "Invalid registry entry: #{name}" unless base.is_a?(Hash) && override.is_a?(Hash)
+            base.merge(override)
+          end
+          aliases.each do |name, entry|
+            abort "Invalid registry: #{name}" unless entry.is_a?(Hash)
+            abort "Invalid registry name: #{name}" unless name.to_s.match?(/^[a-zA-Z][a-zA-Z0-9_-]*$/) && name != 'all'
           end
           selection = ENV.fetch('SELECTION')
           url_override = ENV.fetch('URL_OVERRIDE', '')
@@ -281,16 +282,17 @@ jobs:
             uri = URI.parse(url)
             abort "Invalid HTTPS registry URL for #{name}" unless uri.is_a?(URI::HTTPS) && uri.host && uri.userinfo.nil? && uri.query.nil? && uri.fragment.nil?
             abort "Invalid publish mode for #{name}" unless %w[staged direct].include?(entry.fetch('publish-mode', 'direct'))
-            backend = {'https://registry.npmjs.org' => 'npm', 'https://npm.pkg.github.com' => 'github'}.fetch(url.sub(%r{/$}, ''), 'custom')
-            {'alias' => name, 'registry' => backend, 'url' => url}
+            backend = entry.fetch('backend', 'custom')
+            abort "Unsupported backend: #{backend}" unless %w[npm github custom].include?(backend)
+            {'alias' => name, 'registry' => backend, 'url' => url, 'publishGithubRelease' => entry.fetch('publish-github-release', false)}
           end
           File.open(ENV.fetch('GITHUB_ENV'), 'a') do |file|
             file.puts "REGISTRIES_JSON=#{JSON.generate(targets)}"
             file.puts "EFFECTIVE_REGISTRY=#{targets.size == 1 ? targets.first['registry'] : 'all'}"
             file.puts "EFFECTIVE_REGISTRY_URL=#{targets.size == 1 ? targets.first['url'] : ''}"
-            file.puts "INCLUDES_GITHUB=#{targets.any? { |target| target['registry'] == 'github' }}"
+            file.puts "PUBLISH_GITHUB_RELEASE=#{targets.any? { |target| target['publishGithubRelease'] }}"
           end
-          puts "Registry config: #{path}; selected: #{targets.map { |target| target['alias'] }.join(', ')}"
+          puts "Registry config: #{requested.empty? ? fallback : requested}; selected: #{targets.map { |target| target['alias'] }.join(', ')}"
           RUBY
 
       - name: Validate custom registry inputs
@@ -957,7 +959,7 @@ jobs:
 
       - name: Publish GitHub Release draft for GitHub Packages
         id: github-release
-        if: ${{ !inputs.dry-run && steps.publish.outcome == 'success' && env.INCLUDES_GITHUB == 'true' && steps.release-state.outputs.draft == 'true' }}
+        if: ${{ !inputs.dry-run && steps.publish.outcome == 'success' && env.PUBLISH_GITHUB_RELEASE == 'true' && steps.release-state.outputs.draft == 'true' }}
         env:
           GH_REPO: ${{ github.repository }}
           RELEASE_ID: ${{ steps.release-state.outputs.id }}
@@ -983,7 +985,7 @@ jobs:
 
       - name: Preserve existing GitHub Release state
         id: preserved-release-state
-        if: ${{ !inputs.dry-run && steps.publish.outcome == 'success' && (env.INCLUDES_GITHUB != 'true' || steps.release-state.outputs.draft != 'true') }}
+        if: ${{ !inputs.dry-run && steps.publish.outcome == 'success' && (env.PUBLISH_GITHUB_RELEASE != 'true' || steps.release-state.outputs.draft != 'true') }}
         env:
           RELEASE_STATE: ${{ steps.release-state.outputs.state }}
           RELEASE_IMMUTABLE: ${{ steps.release-state.outputs.immutable }}
@@ -1109,7 +1111,7 @@ jobs:
             if [ "${{ inputs.dry-run }}" = "true" ]; then
               echo "| GitHub Release after workflow | **unchanged (dry run)** |"
             elif [ "${RELEASE_STATE:-missing}" = "draft" ] &&
-                 { [ "${{ inputs.registry }}" = "github" ] || [ "${{ inputs.registry }}" = "all" ]; }; then
+                 [ "$PUBLISH_GITHUB_RELEASE" = "true" ]; then
               echo "| GitHub Release after workflow | **published** |"
             else
               echo "| GitHub Release after workflow | **${RELEASE_STATE:-missing}, unchanged** |"
