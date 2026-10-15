@@ -123,8 +123,8 @@ runs:
 
         bash -lc "$BUILD_COMMAND"
 
-        if [ ! -d "$GITHUB_WORKSPACE/packages/workspace-tools/dist/bin" ] && [ ! -d "$GITHUB_WORKSPACE/dist/bin" ]; then
-          echo "::error::Local build did not produce dist/bin."
+        if [ ! -d "$GITHUB_WORKSPACE/packages/workspace-tools/dist/bin" ]; then
+          echo "::error::Local build did not produce packages/workspace-tools/dist/bin."
           exit 1
         fi
 
