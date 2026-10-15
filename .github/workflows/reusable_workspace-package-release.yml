@@ -47,7 +47,7 @@ jobs:
     name: Discover publishable packages
     permissions:
       contents: read
-    uses: ./reusable_discover-packages.yml
+    uses: ./.github/workflows/reusable_discover-packages.yml
     with:
       packages-directory: packages
       use-workspaces: true
@@ -269,7 +269,7 @@ jobs:
       matrix: ${{ fromJSON(needs.select.outputs.matrix) }}
     permissions:
       contents: write
-    uses: ./reusable_release.yml
+    uses: ./.github/workflows/reusable_release.yml
     with:
       version: ${{ matrix.version }}
       release-tag: ${{ format('{0}@{1}', matrix.directory, matrix.version) }}
