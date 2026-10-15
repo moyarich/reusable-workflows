@@ -176,7 +176,7 @@ jobs:
 
       - name: Configure GitHub Pages
         id: pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       # ------------------------------------------------------------
       # Install
@@ -289,7 +289,7 @@ jobs:
       # ------------------------------------------------------------
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: ${{ inputs.working-directory }}/${{ inputs.output-directory }}
 
@@ -452,7 +452,7 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         if: ${{ env.ACT != 'true' }}
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
 
       - name: Local deployment summary
         if: ${{ env.ACT == 'true' }}

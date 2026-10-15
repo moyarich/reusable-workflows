@@ -149,7 +149,7 @@ jobs:
             echo '~~~'
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Persist original state
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.snapshot.outputs.artifact-name }}
           path: before.json
@@ -723,7 +723,7 @@ jobs:
           fi
       - name: Upload after-state audit artifact
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ needs.preflight.outputs.after-artifact-name }}
           path: after.json

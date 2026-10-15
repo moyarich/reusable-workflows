@@ -883,7 +883,7 @@ jobs:
         target: ${{ fromJSON(needs.publish-package.outputs.targets-json) }}
     steps:
       - name: Download canonical package artifact
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: npm-package-${{ needs.publish-package.outputs.package-version }}
           path: ${{ runner.temp }}/npm-artifact
@@ -964,7 +964,7 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/registry-result"
           jq -cn --arg alias "$TARGET_ALIAS" --arg status "${RESULT:-failed}" --arg reason "${REASON:-}" '{registryAlias:$alias,status:$status,reason:$reason,operation:"publish"}' > "$RUNNER_TEMP/registry-result/result.json"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ always() }}
         with:
           name: npm-registry-result-${{ matrix.target.alias }}
@@ -983,7 +983,7 @@ jobs:
       can-publish: ${{ steps.collect.outputs.can-publish }}
       result-json: ${{ steps.collect.outputs.result-json }}
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: npm-registry-result-*
           path: ${{ runner.temp }}/registry-results
