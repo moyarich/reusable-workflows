@@ -52,9 +52,15 @@ jobs:
             public_code=true
           fi
           if [[ "$internal_title" == true || "$public_code" == false ]]; then
-            gh api --method POST "repos/$GH_REPO/issues/$PR_NUMBER/labels" \
-              -f "labels[]=$EXCLUDE_LABEL" >/dev/null
-            echo "Excluded internal-only PR #$PR_NUMBER from public release notes."
+            # Some repositories restrict GITHUB_TOKEN writes, even when permissions
+            # are requested. Classification must not block build/test CI.
+            if gh api --method POST "repos/$GH_REPO/issues/$PR_NUMBER/labels" \
+              -f "labels[]=$EXCLUDE_LABEL" >/dev/null; then
+              echo "Excluded internal-only PR #$PR_NUMBER from public release notes."
+            else
+              echo "::warning::Could not apply $EXCLUDE_LABEL to PR #$PR_NUMBER (check workflow token permissions)."
+              echo "Release-note classification: internal-only, label not applied." >> "$GITHUB_STEP_SUMMARY"
+            fi
           else
             echo "PR #$PR_NUMBER may have user-facing changes; review release notes."
           fi
