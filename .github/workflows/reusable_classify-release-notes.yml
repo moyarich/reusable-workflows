@@ -1,0 +1,60 @@
+name: "Reusable · Classify release notes"
+
+on:
+  workflow_call:
+    inputs:
+      pr-number:
+        description: Pull request number to classify
+        required: true
+        type: number
+      exclude-label:
+        description: Label for changes excluded from public release notes
+        required: false
+        default: skip-changelog
+        type: string
+      public-source-pattern:
+        description: Regex matching public package implementation paths
+        required: false
+        default: '^packages/[^/]+/(src|vite-plugin|bin)/'
+        type: string
+
+permissions: {}
+
+jobs:
+  classify:
+    name: "Classify PR changes"
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+      issues: write
+    steps:
+      - name: Exclude internal-only changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ inputs.pr-number }}
+          EXCLUDE_LABEL: ${{ inputs.exclude-label }}
+          PUBLIC_SOURCE_PATTERN: ${{ inputs.public-source-pattern }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Never check out or execute pull request code. Read metadata only.
+          pr="$(gh api "repos/$GH_REPO/pulls/$PR_NUMBER")"
+          title="$(jq -r '.title' <<< "$pr")"
+          files="$(gh api --paginate "repos/$GH_REPO/pulls/$PR_NUMBER/files?per_page=100" --jq '.[].filename')"
+          maintenance_prefix='^(chore|ci|test|tests|docs|build|refactor|style)(\([^)]*\))?!?:[[:space:]]'
+          internal_title=false
+          if [[ "$title" =~ $maintenance_prefix ]]; then
+            internal_title=true
+          fi
+          public_code=false
+          if grep -Eq "$PUBLIC_SOURCE_PATTERN" <<< "$files"; then
+            public_code=true
+          fi
+          if [[ "$internal_title" == true || "$public_code" == false ]]; then
+            gh api --method POST "repos/$GH_REPO/issues/$PR_NUMBER/labels" \
+              -f "labels[]=$EXCLUDE_LABEL" >/dev/null
+            echo "Excluded internal-only PR #$PR_NUMBER from public release notes."
+          else
+            echo "PR #$PR_NUMBER may have user-facing changes; review release notes."
+          fi
