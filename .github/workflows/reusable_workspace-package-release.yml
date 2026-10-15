@@ -124,11 +124,20 @@ jobs:
           echo "matrix=$(jq -cn --argjson packages "$resolved" '{include: $packages}')" >> "$GITHUB_OUTPUT"
           echo "count=$count" >> "$GITHUB_OUTPUT"
           {
-            echo "# Resolved workspace release versions"
+            echo "# Package release selection"
             echo
-            echo "| Package | Directory | Current → Target |"
-            echo "| --- | --- | --- |"
-            jq -r '.[] | "| `" + .name + "` | `" + .directory + "` | `" + (.currentVersion // .current_version // "see manifest") + "` → `" + .version + "` |"' <<< "$resolved"
+            printf '**%s publishable packages selected**\n\n' "$count"
+            echo "| Setting | Value |"
+            echo "| --- | --- |"
+            printf '| Package selector | `%s` |\n' "${{ inputs.package }}"
+            printf '| Version mode | `%s` |\n' "$VERSION_MODE"
+            printf '| Dry run | **%s** |\n' "${{ inputs.dry-run }}"
+            echo
+            echo "## Packages"
+            echo
+            echo "| Package | Directory | Current version | Release version |"
+            echo "| --- | --- | --- | --- |"
+            jq -r '.[] | "| `" + .name + "` | `" + .directory + "` | `" + (.currentVersion // .current_version // "unknown") + "` | `" + .version + "` |"' <<< "$resolved"
           } >> "$GITHUB_STEP_SUMMARY"
 
   prepare-versions:
