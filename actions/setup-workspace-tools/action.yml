@@ -106,7 +106,7 @@ runs:
         cd "$RUNNER_TEMP/workspace-tools-upstream"
         npm ci --include=optional
         bash -lc "$BUILD_COMMAND"
-        test -f packages/workspace-tools/dist/bin/discover-packages.mjs || test -f dist/bin/discover-packages.mjs || { echo "::error::Upstream build missing discover-packages CLI"; exit 1; }
+        test -f packages/workspace-tools/dist/bin/discover-packages.mjs || { echo "::error::Upstream build missing discover-packages CLI"; exit 1; }
 
     - name: Build Workspace Tools from current checkout
       if: ${{ steps.typed.outputs.mode == 'current' }}
@@ -117,7 +117,7 @@ runs:
         set -euo pipefail
 
         PACKAGE_NAME="$(node -p "require('./package.json').name")"
-        if [ "$PACKAGE_NAME" != "@moyarich/workspace-tools" ] && [ ! -f "packages/workspace-tools/package.json" ]; then
+        if [ ! -f "packages/workspace-tools/package.json" ]; then
           echo "::error::source=checkout:current is only supported when the checked-out local package is @moyarich/workspace-tools; found $PACKAGE_NAME"
           exit 1
         fi
@@ -139,10 +139,8 @@ runs:
 
         if [ "$SOURCE" = "current" ]; then
           BIN_DIR="$GITHUB_WORKSPACE/packages/workspace-tools/dist/bin"
-          [ -d "$BIN_DIR" ] || BIN_DIR="$GITHUB_WORKSPACE/dist/bin"
         elif [ "$SOURCE" = "upstream" ]; then
           BIN_DIR="$RUNNER_TEMP/workspace-tools-upstream/packages/workspace-tools/dist/bin"
-          [ -d "$BIN_DIR" ] || BIN_DIR="$RUNNER_TEMP/workspace-tools-upstream/dist/bin"
         else
           RELEASE_BIN="$(command -v workspace-release)"
           RELEASE_TARGET="$(readlink -f "$RELEASE_BIN")"
