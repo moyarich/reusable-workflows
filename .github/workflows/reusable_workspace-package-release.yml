@@ -89,6 +89,10 @@ jobs:
           ref: main
           path: .github/workspace-tools-runtime
           persist-credentials: false
+      - name: Set up Node.js 24 for Workspace Tools
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
       - name: Build shared Workspace Tools version resolver
         working-directory: .github/workspace-tools-runtime
         run: |
