@@ -4,7 +4,7 @@ description: Copyable VS Code Extension Publish caller workflow.
 ---
 
 import workflow from "./workflow.yml?raw";
-import reusableWorkflow from "../../.github/workflows/reusable_vscode-extension-publish.yml?raw";
+import reusableWorkflow from "../../.github/workflows/reusable_vscode-publish.yml?raw";
 
 # VS Code Extension Publish
 
@@ -12,7 +12,7 @@ import reusableWorkflow from "../../.github/workflows/reusable_vscode-extension-
   files={[
     { name: "workflow.yml", source: workflow, language: "yaml" },
     {
-      name: "reusable_vscode-extension-publish.yml",
+      name: "reusable_vscode-publish.yml",
       source: reusableWorkflow,
       language: "yaml",
     },
