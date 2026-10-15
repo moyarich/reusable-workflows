@@ -350,7 +350,7 @@ jobs:
         target: ${{ fromJSON(needs.extension.outputs.targets-json) }}
     steps:
       - name: Download validated VSIX
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: ${{ inputs.artifact-name || 'open-vsx-vsix' }}
           path: ${{ runner.temp }}/vsix
@@ -418,7 +418,7 @@ jobs:
       status: ${{ steps.attach.outputs.status }}
     steps:
       - name: Download packaged VSIX
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: ${{ inputs.artifact-name || 'open-vsx-vsix' }}
           path: ${{ runner.temp }}/vsix
