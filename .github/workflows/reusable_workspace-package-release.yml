@@ -53,40 +53,51 @@ jobs:
       use-workspaces: true
       require-publish-config: true
 
-  select:
-    name: Resolve release selection
+  select-packages:
+    name: Select requested packages
     needs: discover-packages
+    permissions:
+      contents: read
+    uses: ./.github/workflows/reusable_select-release-packages.yml
+    with:
+      packages-json: ${{ needs.discover-packages.outputs.packages }}
+      package: ${{ inputs.package }}
+      event-name: workflow_dispatch
+      after-sha: ${{ github.sha }}
+      target-branch: main
+      version-mode: ${{ inputs.version-mode }}
+      version-bump: ${{ inputs.version-bump }}
+      exact-version: ${{ inputs.exact-version }}
+
+  select:
+    name: Resolve versions for selected packages
+    needs: select-packages
     runs-on: ubuntu-latest
     permissions:
       contents: read
     outputs:
-      matrix: ${{ steps.package.outputs.matrix }}
-      count: ${{ steps.package.outputs.count }}
+      matrix: ${{ steps.versions.outputs.matrix }}
+      count: ${{ steps.versions.outputs.count }}
     steps:
-      - name: Checkout main
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v7
         with:
           ref: main
           persist-credentials: false
-          fetch-depth: 0
-      - name: Checkout Workspace Tools version resolver
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v7
         with:
           repository: moyarich/workspace-tools
           ref: main
           path: .github/workspace-tools-runtime
           persist-credentials: false
-      - name: Build Workspace Tools version resolver
+      - name: Build shared Workspace Tools version resolver
         working-directory: .github/workspace-tools-runtime
-        shell: bash
         run: |
           npm ci --include=optional
           npx vite build --config vite.cli.config.ts --mode workspace-release-identity
-      - name: Select packages
-        id: package
+      - name: Resolve release versions
+        id: versions
         env:
-          SELECTOR: ${{ inputs.package }}
-          PACKAGES_JSON: ${{ needs.discover-packages.outputs.packages }}
+          MATRIX: ${{ needs.select-packages.outputs.matrix }}
           VERSION_MODE: ${{ inputs.version-mode }}
           VERSION_BUMP: ${{ inputs.version-bump }}
           EXACT_VERSION: ${{ inputs.exact-version }}
@@ -94,47 +105,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          SELECTED="$(jq -cn --argjson packages "$PACKAGES_JSON" --arg selector "$SELECTOR" '
-            if $selector == "all" then $packages
-            else [$packages[] | select(.name == $selector or .directory == $selector)] end
-          ')"
-          SELECTED="$(node .github/workspace-tools-runtime/dist/bin/workspace-release-identity.mjs resolve-versions \
-            --packages-json "$SELECTED" \
+          selected="$(jq -c '.include' <<< "$MATRIX")"
+          resolved="$(node .github/workspace-tools-runtime/dist/bin/workspace-release-identity.mjs resolve-versions \
+            --packages-json "$selected" \
             --mode "$VERSION_MODE" \
             --bump "$VERSION_BUMP" \
             --exact-version "$EXACT_VERSION" \
             --initial-version "$INITIAL_VERSION")"
-          COUNT="$(jq 'length' <<< "$SELECTED")"
-          if [ "$COUNT" -eq 0 ]; then
-            echo "::error::No publishable packages matched $SELECTOR"
+          count="$(jq 'length' <<< "$resolved")"
+          if [ "$count" -eq 0 ]; then
+            echo "::error::No publishable packages selected"
             exit 1
           fi
-          {
-            echo "matrix=$(jq -cn --argjson packages "$SELECTED" '{include: $packages}')"
-            echo "count=$COUNT"
-          } >> "$GITHUB_OUTPUT"
-          {
-            echo "# Package release selection"
-            echo
-            echo "**$COUNT publishable packages selected**"
-            echo
-            echo "| Setting | Value |"
-            echo "| --- | --- |"
-            printf '| Package selector | `%s` |\n' "$SELECTOR"
-            printf '| Version mode | `%s` |\n' "$VERSION_MODE"
-            printf '| Dry run | `%s` |\n' "${{ inputs.dry-run }}"
-            echo
-            echo "## Packages"
-            echo
-            echo "| Type | Package | Current version | Release version |"
-            echo "| --- | --- | --- | --- |"
-            jq -r '.[] | [
-              ("Package"),
-              ("`" + .name + "`"),
-              ("`" + .currentVersion + "`"),
-              ("`" + .version + "`")
-            ] | "| " + join(" | ") + " |"' <<< "$SELECTED"
-          } >> "$GITHUB_STEP_SUMMARY"
+          echo "matrix=$(jq -cn --argjson packages "$resolved" '{include: $packages}')" >> "$GITHUB_OUTPUT"
+          echo "count=$count" >> "$GITHUB_OUTPUT"
 
   prepare-versions:
     name: Prepare package versions
