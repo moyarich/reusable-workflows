@@ -253,15 +253,11 @@ jobs:
           set -euo pipefail
 
           ACTIONS_REF="$(printf '%s' "$WORKFLOW_REF" | sed 's/.*@//')"
-          TEMPLATE=".github/release-drafter-template.yml"
-
-          if [ ! -f "$TEMPLATE" ]; then
-            TEMPLATE="$RUNNER_TEMP/release-drafter-template.yml"
-            gh api \
-              "repos/moyarich/reusable-workflows/contents/.github/release-drafter-template.yml?ref=$ACTIONS_REF" \
-              --jq '.content' |
-              base64 --decode > "$TEMPLATE"
-          fi
+          TEMPLATE="$RUNNER_TEMP/release-drafter-template.yml"
+          gh api \
+            "repos/moyarich/reusable-workflows/contents/.github/release-drafter-template.yml?ref=$ACTIONS_REF" \
+            --jq '.content' |
+            base64 --decode > "$TEMPLATE"
 
           {
             echo "template=$TEMPLATE"
