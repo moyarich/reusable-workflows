@@ -116,9 +116,8 @@ runs:
       run: |
         set -euo pipefail
 
-        PACKAGE_NAME="$(node -p "require('./package.json').name")"
         if [ ! -f "packages/workspace-tools/package.json" ]; then
-          echo "::error::source=checkout:current is only supported when the checked-out local package is @moyarich/workspace-tools; found $PACKAGE_NAME"
+          echo "::error::source=checkout:current is only supported when the checked-out local package is @moyarich/workspace-tools; expected packages/workspace-tools/package.json"
           exit 1
         fi
 
