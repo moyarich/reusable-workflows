@@ -106,7 +106,7 @@ runs:
         cd "$RUNNER_TEMP/workspace-tools-upstream"
         npm ci --include=optional
         bash -lc "$BUILD_COMMAND"
-        test -f dist/bin/discover-packages.mjs || { echo "::error::Upstream build missing discover-packages CLI"; exit 1; }
+        test -f packages/workspace-tools/dist/bin/discover-packages.mjs || { echo "::error::Upstream build missing discover-packages CLI"; exit 1; }
 
     - name: Build Workspace Tools from current checkout
       if: ${{ steps.typed.outputs.mode == 'current' }}
@@ -116,15 +116,14 @@ runs:
       run: |
         set -euo pipefail
 
-        PACKAGE_NAME="$(node -p "require('./package.json').name")"
-        if [ "$PACKAGE_NAME" != "@moyarich/workspace-tools" ]; then
-          echo "::error::source=checkout:current is only supported when the checked-out local package is @moyarich/workspace-tools; found $PACKAGE_NAME"
+        if [ ! -f "packages/workspace-tools/package.json" ]; then
+          echo "::error::source=checkout:current is only supported when the checked-out local package is @moyarich/workspace-tools; expected packages/workspace-tools/package.json"
           exit 1
         fi
 
         bash -lc "$BUILD_COMMAND"
 
-        if [ ! -d "$GITHUB_WORKSPACE/dist/bin" ]; then
+        if [ ! -d "$GITHUB_WORKSPACE/packages/workspace-tools/dist/bin" ] && [ ! -d "$GITHUB_WORKSPACE/dist/bin" ]; then
           echo "::error::Local build did not produce dist/bin."
           exit 1
         fi
@@ -138,9 +137,9 @@ runs:
         set -euo pipefail
 
         if [ "$SOURCE" = "current" ]; then
-          BIN_DIR="$GITHUB_WORKSPACE/dist/bin"
+          BIN_DIR="$GITHUB_WORKSPACE/packages/workspace-tools/dist/bin"
         elif [ "$SOURCE" = "upstream" ]; then
-          BIN_DIR="$RUNNER_TEMP/workspace-tools-upstream/dist/bin"
+          BIN_DIR="$RUNNER_TEMP/workspace-tools-upstream/packages/workspace-tools/dist/bin"
         else
           RELEASE_BIN="$(command -v workspace-release)"
           RELEASE_TARGET="$(readlink -f "$RELEASE_BIN")"
