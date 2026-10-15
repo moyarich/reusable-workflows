@@ -1,9 +1,8 @@
 name-template: "{{RELEASE_NAME_TEMPLATE}}"
 tag-template: "{{TAG_TEMPLATE}}"
 
-{{PACKAGE_FILTER}}
 categories:
-  - type: pre-exclude
+{{PACKAGE_FILTER}}  - type: pre-exclude
     when:
       labels:
         - skip-changelog
