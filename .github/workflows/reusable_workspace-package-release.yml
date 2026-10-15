@@ -65,7 +65,7 @@ jobs:
       event-name: workflow_dispatch
       after-sha: ${{ github.sha }}
       target-branch: main
-      version-mode: ${{ inputs.version-mode }}
+      version-mode: ${{ inputs.version-mode == 'auto' && 'bump' || inputs.version-mode }}
       version-bump: ${{ inputs.version-bump }}
       exact-version: ${{ inputs.exact-version }}
 
