@@ -93,7 +93,7 @@ jobs:
         working-directory: .github/workspace-tools-runtime
         run: |
           npm ci --include=optional
-          npx vite build --config vite.cli.config.ts --mode workspace-release-identity
+          npm exec --workspace @moyarich/workspace-tools -- vite build --config vite.cli.config.ts --mode workspace-release-identity
       - name: Resolve release versions
         id: versions
         env:
@@ -106,7 +106,7 @@ jobs:
         run: |
           set -euo pipefail
           selected="$(jq -c '.include' <<< "$MATRIX")"
-          resolved="$(node .github/workspace-tools-runtime/dist/bin/workspace-release-identity.mjs resolve-versions \
+          resolved="$(node .github/workspace-tools-runtime/packages/workspace-tools/dist/bin/workspace-release-identity.mjs resolve-versions \
             --packages-json "$selected" \
             --mode "$VERSION_MODE" \
             --bump "$VERSION_BUMP" \
