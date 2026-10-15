@@ -227,6 +227,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.release-tag }}
+          DRY_RUN: ${{ inputs.dry-run }}
         shell: bash
         run: |
           set -euo pipefail
@@ -235,8 +236,13 @@ jobs:
           TARGET_COMMIT="$(git rev-parse HEAD)"
 
           if [ -n "$TAG_COMMIT" ] && [ "$TAG_COMMIT" != "$TARGET_COMMIT" ]; then
-            echo "::error::Immutable tag $RELEASE_TAG already points to $TAG_COMMIT, not $TARGET_COMMIT."
-            exit 1
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "::warning::Dry-run: immutable tag $RELEASE_TAG points to $TAG_COMMIT, not $TARGET_COMMIT. No mutation attempted."
+              echo "tag-conflict=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "::error::Immutable tag $RELEASE_TAG already points to $TAG_COMMIT, not $TARGET_COMMIT."
+              exit 1
+            fi
           fi
 
           RELEASE="$(
@@ -385,6 +391,8 @@ jobs:
           CONTENT_SOURCE: ${{ steps.notes.outputs.source || 'unresolved' }}
           RELEASE_URL: ${{ steps.release.outputs.url }}
           RELEASE_STATUS: ${{ steps.release.outputs.status }}
+          VALIDATION_OUTCOME: ${{ steps.state.outcome }}
+          TAG_CONFLICT: ${{ steps.state.outputs.tag-conflict || 'false' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -405,8 +413,14 @@ jobs:
             printf '| Final release state | **%s** |\n' "${{ inputs.draft && 'draft' || 'published' }}"
             printf '| Release content source | `%s` |\n' "$CONTENT_SOURCE"
 
-            if [ "${{ inputs.dry-run }}" = "true" ]; then
+            if [ "$VALIDATION_OUTCOME" = "failure" ]; then
+              echo "| Result | **failed validation** |"
+              echo "| GitHub Release | _not mutated_ |"
+            elif [ "${{ inputs.dry-run }}" = "true" ]; then
               echo "| Result | **preview** |"
+              if [ "$TAG_CONFLICT" = "true" ]; then
+                echo "| Existing tag | **Points to a different commit; real release would be blocked** |"
+              fi
               echo "| GitHub Release | _not mutated_ |"
             else
               printf '| Result | **%s** |\n' "${RELEASE_STATUS:-unresolved}"
