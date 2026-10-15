@@ -1,0 +1,267 @@
+name: "Reusable · Workspace package releases"
+
+on:
+  workflow_call:
+    inputs:
+      package:
+        type: string
+        required: false
+        default: all
+      version-mode:
+        type: string
+        required: false
+        default: package-json
+      initial-version:
+        type: string
+        required: false
+        default: "0.1.0"
+      version-bump:
+        type: string
+        required: false
+        default: patch
+      exact-version:
+        type: string
+        required: false
+        default: ""
+      update-major-tag:
+        type: boolean
+        required: false
+        default: true
+      draft:
+        type: boolean
+        required: false
+        default: true
+      dry-run:
+        type: boolean
+        required: false
+        default: true
+
+permissions: {}
+
+concurrency:
+  group: workspace-package-release-${{ github.repository }}-${{ inputs.package }}
+  cancel-in-progress: false
+
+jobs:
+  discover-packages:
+    name: Discover publishable packages
+    permissions:
+      contents: read
+    uses: ./.github/workflows/reusable_discover-packages.yml
+    with:
+      packages-directory: packages
+      use-workspaces: true
+      require-publish-config: true
+
+  select-packages:
+    name: Select requested packages
+    needs: discover-packages
+    permissions:
+      contents: read
+    uses: ./.github/workflows/reusable_select-release-packages.yml
+    with:
+      packages-json: ${{ needs.discover-packages.outputs.packages }}
+      package: ${{ inputs.package }}
+      event-name: workflow_dispatch
+      after-sha: ${{ github.sha }}
+      target-branch: main
+      version-mode: ${{ inputs.version-mode }}
+      version-bump: ${{ inputs.version-bump }}
+      exact-version: ${{ inputs.exact-version }}
+
+  select:
+    name: Resolve versions for selected packages
+    needs: select-packages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.versions.outputs.matrix }}
+      count: ${{ steps.versions.outputs.count }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: moyarich/workspace-tools
+          ref: main
+          path: .github/workspace-tools-runtime
+          persist-credentials: false
+      - name: Build shared Workspace Tools version resolver
+        working-directory: .github/workspace-tools-runtime
+        run: |
+          npm ci --include=optional
+          npx vite build --config vite.cli.config.ts --mode workspace-release-identity
+      - name: Resolve release versions
+        id: versions
+        env:
+          MATRIX: ${{ needs.select-packages.outputs.matrix }}
+          VERSION_MODE: ${{ inputs.version-mode }}
+          VERSION_BUMP: ${{ inputs.version-bump }}
+          EXACT_VERSION: ${{ inputs.exact-version }}
+          INITIAL_VERSION: ${{ inputs.initial-version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          selected="$(jq -c '.include' <<< "$MATRIX")"
+          resolved="$(node .github/workspace-tools-runtime/dist/bin/workspace-release-identity.mjs resolve-versions \
+            --packages-json "$selected" \
+            --mode "$VERSION_MODE" \
+            --bump "$VERSION_BUMP" \
+            --exact-version "$EXACT_VERSION" \
+            --initial-version "$INITIAL_VERSION")"
+          count="$(jq 'length' <<< "$resolved")"
+          if [ "$count" -eq 0 ]; then
+            echo "::error::No publishable packages selected"
+            exit 1
+          fi
+          echo "matrix=$(jq -cn --argjson packages "$resolved" '{include: $packages}')" >> "$GITHUB_OUTPUT"
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+
+  prepare-versions:
+    name: Prepare package versions
+    needs: select
+    if: ${{ !inputs.dry-run && inputs.version-mode != 'package-json' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Update selected manifests and lockfile
+        env:
+          PACKAGES: ${{ needs.select.outputs.matrix }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PACKAGES="$PACKAGES" node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from "node:fs";
+          const selected = JSON.parse(process.env.PACKAGES).include;
+          const lockPath = "package-lock.json";
+          const lock = JSON.parse(readFileSync(lockPath, "utf8"));
+          const selectedByName = new Map(selected.map(pkg => [pkg.name, pkg]));
+          const workspaceEntries = Object.entries(lock.packages ?? {})
+            .filter(([directory, meta]) => directory && !directory.startsWith("node_modules/") && meta.name);
+          const files = [];
+          for (const [directory, meta] of workspaceEntries) {
+            const manifestPath = `${directory}/package.json`;
+            const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+            if (manifest.name !== meta.name) throw Error(`Workspace mismatch: ${directory}`);
+            const target = selectedByName.get(manifest.name);
+            if (target) {
+              if (target.directory !== directory) throw Error(`Selected directory mismatch: ${manifest.name}`);
+              manifest.version = target.version;
+              meta.version = target.version;
+            }
+            // Update only local dependencies whose declared range would reject
+            // the selected release version. Preserve compatible caret, tilde,
+            // wildcard, and other ranges to avoid unnecessary manifest churn.
+            const accepts = (range, version) => {
+              if (range === "*" || range === "latest") return true;
+              const parse = text => {
+                const m = text.match(/^([0-9]+)\\.([0-9]+)\\.([0-9]+)(?:-([0-9A-Za-z.-]+))?$/);
+                return m ? m.slice(1, 4).map(Number) : null;
+              };
+              const actual = parse(version);
+              if (!actual) return false;
+              const prefix = range.startsWith("^") || range.startsWith("~") ? range[0] : "";
+              const required = parse(prefix ? range.slice(1) : range);
+              if (!required) return false;
+              const compare = (a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
+              if (!prefix) return range === version;
+              if (compare(actual, required) < 0) return false;
+              if (prefix === "~") return actual[0] === required[0] && actual[1] === required[1];
+              if (required[0] > 0) return actual[0] === required[0];
+              if (required[1] > 0) return actual[0] === 0 && actual[1] === required[1];
+              return actual[0] === 0 && actual[1] === 0 && actual[2] === required[2];
+            };
+            for (const field of ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"]) {
+              if (!manifest[field]) continue;
+              for (const [name, range] of Object.entries(manifest[field])) {
+                const dependency = selectedByName.get(name);
+                if (!dependency || accepts(range, dependency.version)) continue;
+                const prefix = range.startsWith("^") || range.startsWith("~") ? range[0] : "";
+                manifest[field][name] = prefix + dependency.version;
+              }
+            }
+            for (const field of ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"]) {
+              if (manifest[field]) meta[field] = { ...manifest[field] };
+            }
+            files.push([manifestPath, manifest]);
+          }
+          for (const pkg of selected) {
+            if (!workspaceEntries.some(([directory]) => directory === pkg.directory)) {
+              throw Error(`Selected workspace missing from lockfile: ${pkg.directory}`);
+            }
+          }
+          for (const [path, value] of files) writeFileSync(path, JSON.stringify(value, null, 2) + "\n");
+          writeFileSync(lockPath, JSON.stringify(lock, null, 2) + "\n");
+          NODE
+          if ! git diff --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add packages package-lock.json
+            git commit -m "release: prepare selected package versions"
+            git push origin HEAD:main
+          fi
+
+  gate:
+    name: Validate package release
+    needs: [select, prepare-versions]
+    if: ${{ always() && needs.select.result == 'success' && (needs.prepare-versions.result == 'success' || needs.prepare-versions.result == 'skipped') && needs.select.outputs.count != '0' }}
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --include=optional
+      - name: Build workspace dependencies once
+        run: npm run build --workspaces --if-present
+      - name: Validate every selected package tarball
+        env:
+          PACKAGE_MATRIX: ${{ needs.select.outputs.matrix }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -r '.include[].name' <<< "$PACKAGE_MATRIX" | while IFS= read -r package; do
+            echo "::group::Validate $package"
+            npm pack --workspace "$package" --dry-run
+            echo "::endgroup::"
+          done
+
+  release:
+    name: GitHub package release
+    needs: [select, prepare-versions, gate]
+    if: ${{ always() && needs.select.result == 'success' && (needs.prepare-versions.result == 'success' || needs.prepare-versions.result == 'skipped') && needs.gate.result == 'success' && needs.select.outputs.count != '0' }}
+    strategy:
+      fail-fast: false
+      max-parallel: 1 # Avoid concurrent release/tag mutations and GitHub release-index races.
+      matrix: ${{ fromJSON(needs.select.outputs.matrix) }}
+    permissions:
+      contents: write
+    uses: ./.github/workflows/reusable_release.yml
+    with:
+      version: ${{ matrix.version }}
+      release-tag: ${{ format('{0}@{1}', matrix.directory, matrix.version) }}
+      release-name: ${{ format('{0} v{1}', matrix.name, matrix.version) }}
+      changelog-file: ${{ format('{0}/CHANGELOG.md', matrix.directory) }}
+      target-ref: main
+      create-tag: true
+      major-tag: ${{ format('{0}@v{1}', matrix.directory, matrix.major) }}
+      update-major-tag: ${{ inputs.update-major-tag }}
+      draft: ${{ inputs.draft }}
+      dry-run: ${{ inputs.dry-run }}
