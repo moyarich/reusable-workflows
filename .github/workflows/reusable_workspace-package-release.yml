@@ -362,41 +362,27 @@ jobs:
             echo "| --- | --- |"
             if jobs="$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?per_page=100" --jq '.jobs[] | select(.name | contains("GitHub package release") and endswith("job: Release")) | [.name, (.conclusion // .status)] | @tsv' 2>/dev/null)"; then
               if [ -n "$jobs" ]; then
-                while IFS=
-            echo
-            if [[ "$DISCOVER_STATUS" == failure || "$SELECTION_STATUS" == failure || "$SELECT_STATUS" == failure || "$PREPARE_STATUS" == failure || "$VALIDATE_STATUS" == failure || "$RELEASE_STATUS" == failure ]]; then
-              echo "**Failed** — see the unsuccessful job for diagnostics; no success is implied by dry-run mode."
-            elif [[ "$RELEASE_STATUS" == success && "$DRY_RUN" == true ]]; then
-              echo "**Dry-run completed** — release/tag mutations were not requested."
-            elif [[ "$RELEASE_STATUS" == success ]]; then
-              echo "**Release workflow completed.**"
-            else
-              echo "**Incomplete or skipped** — review job outcomes above."
-            fi
-            echo
-            echo "_This is the aggregate stage report. Per-package release details and immutable-tag warnings appear in the individual release job summaries._"
-          } >> "$GITHUB_STEP_SUMMARY"
-\\t' read -r job outcome; do
-                  printf '| %s | **%s** |\\n' "$job" "$outcome"
+                while IFS="$(printf '\t')" read -r job outcome; do
+                  printf '| %s | **%s** |\n' "$job" "$outcome"
                 done <<< "$jobs"
               else
                 echo "| No per-package release jobs ran | skipped |"
               fi
             else
-              echo "| Package-level details | Unable to retrieve job results; refer to the Actions job list |"
+              echo "| Package-level details | Unable to retrieve job results; see the Actions job list |"
             fi
             echo
             echo "## Overall result"
             echo
             if [[ "$DISCOVER_STATUS" == failure || "$SELECTION_STATUS" == failure || "$SELECT_STATUS" == failure || "$PREPARE_STATUS" == failure || "$VALIDATE_STATUS" == failure || "$RELEASE_STATUS" == failure ]]; then
-              echo "**Failed** — see the unsuccessful job for diagnostics; no success is implied by dry-run mode."
+              echo "**Failed** — see unsuccessful jobs above; dry-run mode does not imply success."
             elif [[ "$RELEASE_STATUS" == success && "$DRY_RUN" == true ]]; then
-              echo "**Dry-run completed** — release/tag mutations were not requested."
+              echo "**Dry-run completed** — no release or tag mutations requested."
             elif [[ "$RELEASE_STATUS" == success ]]; then
               echo "**Release workflow completed.**"
             else
-              echo "**Incomplete or skipped** — review job outcomes above."
+              echo "**Incomplete or skipped** — review the job outcomes above."
             fi
             echo
-            echo "_This is the aggregate stage report. Per-package release details and immutable-tag warnings appear in the individual release job summaries._"
+            echo "_Per-package release details and immutable-tag warnings remain available in the individual job summaries._"
           } >> "$GITHUB_STEP_SUMMARY"
