@@ -253,15 +253,11 @@ jobs:
           set -euo pipefail
 
           ACTIONS_REF="$(printf '%s' "$WORKFLOW_REF" | sed 's/.*@//')"
-          TEMPLATE="$TEMPLATE_PATH"
-
-          if [ ! -f "$TEMPLATE" ]; then
-            TEMPLATE="$RUNNER_TEMP/release-drafter-template.yml"
-            gh api \
-              "repos/moyarich/reusable-workflows/contents/$TEMPLATE_PATH?ref=$ACTIONS_REF" \
-              --jq '.content' |
-              base64 --decode > "$TEMPLATE"
-          fi
+          TEMPLATE="$RUNNER_TEMP/release-drafter-template.yml"
+          gh api \
+            "repos/moyarich/reusable-workflows/contents/.github/release-drafter-template.yml?ref=$ACTIONS_REF" \
+            --jq '.content' |
+            base64 --decode > "$TEMPLATE"
 
           {
             echo "template=$TEMPLATE"
@@ -528,7 +524,24 @@ jobs:
             .join("\n");
 
           const template = readFileSync(process.env.SOURCE_TEMPLATE, "utf8");
+          const scoped = Boolean(
+            process.env.PACKAGE_NAME ||
+            (packageDirectory && packageDirectory !== ".") ||
+            configuredPaths.length > 0
+          );
+          const packageFilter = scoped
+            ? "  - type: pre-include\n    when:\n      paths:\n" + packagePathsYaml + "\n\n"
+            : "";
+          const packageMarker = process.env.PACKAGE_NAME
+            ? "  <!-- release-draft-sync:candidate package=" + process.env.PACKAGE_NAME + " -->\n\n"
+            : "";
+          const installSection = process.env.PACKAGE_NAME
+            ? "\n  ## Install\n\n  " + "\x60\x60\x60" + "sh\n  npm install " + process.env.PACKAGE_NAME + "@$RESOLVED_VERSION\n  " + "\x60\x60\x60" + "\n"
+            : "";
           const config = template
+            .replaceAll("{{PACKAGE_FILTER}}", packageFilter)
+            .replaceAll("{{PACKAGE_MARKER}}", packageMarker)
+            .replaceAll("{{INSTALL_SECTION}}", installSection)
             .replaceAll("{{PACKAGE_NAME}}", process.env.PACKAGE_NAME)
             .replaceAll("{{PACKAGE_DIRECTORY}}", packageDirectory)
             .replaceAll("{{PACKAGE_PATHS}}", packagePathsYaml)
