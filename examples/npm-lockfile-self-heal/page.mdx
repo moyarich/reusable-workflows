@@ -18,3 +18,11 @@ import reusableWorkflow from "../../.github/workflows/reusable_npm-package-lock.
     },
   ]}
 />
+
+## Concurrent branch updates
+
+When `commit: true` and the recreated `package-lock.json` changes, the workflow commits the result to the caller's branch. Before pushing, it fetches the latest branch state and rebases the lockfile commit onto it. If another push arrives during the attempt, the workflow retries the fetch/rebase/push sequence up to **three times**.
+
+It **never force-pushes** or discards newer branch commits. If the generated lockfile conflicts with changes pushed in the meantime, the workflow aborts the rebase and fails with an actionable error; rerun self-heal against the latest branch state. After three rejected push attempts, it also fails rather than overwriting work.
+
+To avoid concurrent formatting and lockfile commits in a consuming repository, use the same branch-scoped `concurrency.group` for both callers with `cancel-in-progress: false`.

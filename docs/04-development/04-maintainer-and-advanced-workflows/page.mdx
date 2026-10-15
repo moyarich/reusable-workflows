@@ -189,6 +189,14 @@ Use `mode: check` for a read-only CI formatting gate and `mode: fix` to run
 and invokes the consumer's lockfile-resolved `node_modules/.bin/prettier`.
 It does not invoke autofix.ci or fetch an unpinned Prettier version.
 
+## Concurrent branch updates
+
+When `commit: true` and the recreated `package-lock.json` changes, the workflow commits the result to the caller's branch. Before pushing, it fetches the latest branch state and rebases the lockfile commit onto it. If another push arrives during the attempt, the workflow retries the fetch/rebase/push sequence up to **three times**.
+
+It **never force-pushes** or discards newer branch commits. If the generated lockfile conflicts with changes pushed in the meantime, the workflow aborts the rebase and fails with an actionable error; rerun self-heal against the latest branch state. After three rejected push attempts, it also fails rather than overwriting work.
+
+To avoid concurrent formatting and lockfile commits in a consuming repository, use the same branch-scoped `concurrency.group` for both callers with `cancel-in-progress: false`.
+
 ## Guarded CI self-healing
 
 The reusable `reusable_ci-self-heal.yml` accepts a failed default-branch CI run, applies recognized repair recipes, and pushes a candidate branch. Its verification job invokes the versioned reusable Node CI workflow to validate the candidate before opening a reviewable pull request. It never automatically merges.
