@@ -1,6 +1,7 @@
 name-template: "{{RELEASE_NAME_TEMPLATE}}"
 tag-template: "{{TAG_TEMPLATE}}"
 
+{{PACKAGE_FILTER}}
 categories:
   - type: pre-exclude
     when:
@@ -49,6 +50,7 @@ change-template: "- $TITLE (#$NUMBER) @$AUTHOR <!-- release-draft-sync:pr=$NUMBE
 no-changes-template: ""
 
 template: |
-  ## Release notes
+{{PACKAGE_MARKER}}  ## Release notes
 
   $CHANGES
+{{INSTALL_SECTION}}
