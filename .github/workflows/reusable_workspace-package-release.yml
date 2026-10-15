@@ -201,8 +201,8 @@ jobs:
               throw Error(`Selected workspace missing from lockfile: ${pkg.directory}`);
             }
           }
-          for (const [path, value] of files) writeFileSync(path, JSON.stringify(value, null, 2) + "\\n");
-          writeFileSync(lockPath, JSON.stringify(lock, null, 2) + "\\n");
+          for (const [path, value] of files) writeFileSync(path, JSON.stringify(value, null, 2) + "\n");
+          writeFileSync(lockPath, JSON.stringify(lock, null, 2) + "\n");
           NODE
           if ! git diff --quiet; then
             git config user.name "github-actions[bot]"
