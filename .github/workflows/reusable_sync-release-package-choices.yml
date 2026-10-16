@@ -59,6 +59,9 @@ jobs:
           ref: main
           persist-credentials: false
 
+      - name: Install YAML parser
+        run: python3 -m pip install --quiet 'ruamel.yaml>=0.18,<0.20'
+
       - name: Sync selected workflow choices
         id: choices
         shell: bash
@@ -70,56 +73,55 @@ jobs:
           python3 - <<'PY'
           import json
           import os
-          import pathlib
-          import re
+          from pathlib import Path
+          from ruamel.yaml import YAML
 
-          requested = json.loads(os.environ["WORKFLOW_FILES"])
-          if not isinstance(requested, list) or any(not isinstance(v, str) for v in requested):
-              raise SystemExit("workflow-files must be an array of strings")
-          files = requested or [os.environ["WORKFLOW_FILE"]]
+          files = json.loads(os.environ["WORKFLOW_FILES"]) or [os.environ["WORKFLOW_FILE"]]
           packages = json.loads(os.environ["PACKAGES_JSON"])
-          if not isinstance(packages, list) or not packages:
+          if not packages:
               raise SystemExit("Refusing to erase choices: no publishable packages found")
-          directories = sorted({p["directory"] for p in packages})
-          if any(not isinstance(d, str) or not re.fullmatch(r"[A-Za-z0-9_./-]+", d) or d.startswith("/") or ".." in pathlib.PurePosixPath(d).parts for d in directories):
-              raise SystemExit("Invalid discovered package directory")
+          directories = sorted({package["directory"] for package in packages})
+          options = ["all", *directories]
+          yaml = YAML()
+          yaml.preserve_quotes = True
+          yaml.indent(mapping=2, sequence=4, offset=2)
+
           for filename in files:
-              path = pathlib.Path(filename)
-              if path.is_absolute() or ".." in path.parts or path.suffix not in (".yml", ".yaml") or not str(path).startswith(".github/workflows/"):
-                  raise SystemExit("Invalid workflow file path")
-              source = path.read_text()
-              lines = source.splitlines(keepends=True)
-              sections = ("on:", "  workflow_dispatch:", "    inputs:", "      package:")
-              positions = []
-              start = 0
-              for heading in sections:
-                  try:
-                      index = next(i for i in range(start, len(lines)) if lines[i].rstrip() == heading)
-                  except StopIteration:
-                      raise SystemExit(f"Expected workflow entry missing: {heading}")
-                  positions.append(index)
-                  start = index + 1
-              begin = positions[-1]
-              end = next((i for i in range(begin + 1, len(lines))
-                          if re.match(r"^      [A-Za-z0-9_-]+:\s*(?:#.*)?$", lines[i])), None)
-              if end is None:
-                  raise SystemExit("Could not find next input after package")
-              replacement = [
-                  "      package:\n",
-                  "        description: Select a publishable workspace package\n",
-                  "        required: true\n",
-                  "        type: choice\n",
-                  "        default: all\n",
-                  "        options:\n",
-                  "          - all\n",
-                  *[f"          - {directory}\n" for directory in directories],
-              ]
-              updated = "".join(lines[:begin] + replacement + lines[end:])
-              if updated != source:
-                  path.write_text(updated)
-                  print("Updated package options:", ", ".join(["all", *directories]))
+              path = Path(filename)
+              if (not isinstance(filename, str) or path.is_absolute()
+                      or ".." in path.parts or path.suffix not in (".yml", ".yaml")
+                      or path.parts[:2] != (".github", "workflows")):
+                  raise SystemExit(f"Invalid workflow path: {filename}")
+              original = path.read_text(encoding="utf-8")
+              workflow = yaml.load(original)
+              try:
+                  package_input = workflow["on"]["workflow_dispatch"]["inputs"]["package"]
+              except (KeyError, TypeError):
+                  raise SystemExit(f"Missing workflow_dispatch.inputs.package: {filename}")
+              if not isinstance(package_input, dict):
+                  raise SystemExit(f"Invalid package input: {filename}")
+              if (package_input.get("description") == "Select a publishable workspace package"
+                      and package_input.get("required") is True
+                      and package_input.get("type") == "choice"
+                      and package_input.get("default") == "all"
+                      and list(package_input.get("options", [])) == options):
+                  print(f"Already current: {filename}")
+                  continue
+              package_input["description"] = "Select a publishable workspace package"
+              package_input["required"] = True
+              package_input["type"] = "choice"
+              package_input["default"] = "all"
+              package_input["options"] = options
+
+              from io import StringIO
+              stream = StringIO()
+              yaml.dump(workflow, stream)
+              updated = stream.getvalue()
+              if updated != original:
+                  path.write_text(updated, encoding="utf-8")
+                  print(f"Updated {filename}: {', '.join(options)}")
               else:
-                  print("Package options already current")
+                  print(f"Already current: {filename}")
           PY
 
       - name: Commit changed package choices
