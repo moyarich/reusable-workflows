@@ -153,10 +153,10 @@ jobs:
 
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             case "$VERSION_MODE" in
-              bump|package-json|exact)
+              auto|bump|package-json|exact)
                 ;;
               *)
-                echo "::error::Version mode must be bump, package-json, or exact."
+                echo "::error::Version mode must be auto, bump, package-json, or exact."
                 exit 1
                 ;;
             esac
