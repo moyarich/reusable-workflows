@@ -18,6 +18,35 @@ The `reusable_npm-prepare-release.yml`, `reusable_npm-release.yml`, and `reusabl
 The npm/CLI implementation is released separately as `@moyarich/workspace-tools`. The `0.2.0` reference below is the Workspace Tools CLI version, not the reusable-workflows release version.
 
 
+## Workflow-file token for dynamic package dropdowns
+
+The reusable `reusable_sync-release-package-choices.yml` workflow discovers publishable workspace packages and updates the `workflow_dispatch` choices in release-draft, release, and publish YAML files. Because it **writes under `.github/workflows/`**, a standard `GITHUB_TOKEN` with `contents: write` is not sufficient for the failed GitHub App push scenario; provide a credential authorized to modify workflows.
+
+1. Open [GitHub personal access tokens](https://github.com/settings/tokens). Choose **Generate new token (classic)**, give it a descriptive name and suitable expiration, and select the `repo` and `workflow` scopes. Alternatively, use a fine-grained token with repository **Contents: Read and write** and **Workflows: Read and write** permissions, if supported for the target repository.
+2. In the **calling** repository, open **Settings → Secrets and variables → Actions → New repository secret**. Store the token value as `_WORKFLOW_TOKEN` (or any preferred secret name). Never commit the actual token.
+3. Map that repository secret to the **stable reusable workflow interface** `workflow-token`:
+
+```yaml
+jobs:
+  sync:
+    permissions:
+      contents: write
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_sync-release-package-choices.yml@main
+    with:
+      workflow-files: '[".github/workflows/release-draft.yml",".github/workflows/release.yml",".github/workflows/publish.yml"]'
+      packages-directory: packages
+      use-workspaces: true
+      require-publish-config: true
+    secrets:
+      workflow-token: ${{ secrets._WORKFLOW_TOKEN }}
+```
+
+The *left* side (`workflow-token`) is the reusable workflow's declared secret. The *right* side (`secrets._WORKFLOW_TOKEN`) is the caller's secret name, which can be different in each repository. Use **explicit mapping**, not `secrets: inherit`, when callers should choose independent secret names.
+
+The reusable workflow reads `${{ secrets.workflow-token }}` only when a changed workflow file must be pushed. A missing authorized token produces a clear error; discovering packages or running an unchanged synchronization does not require it. Do not replace the secret with `${{ github.token }}` for this write operation. Grant the token access only to necessary repositories, rotate it routinely, and protect the calling workflow from untrusted pull-request execution.
+
+To verify, run **Actions → Sync release package choices → Run workflow** in the calling repository. Confirm the log reports a successful update (or no change), then open the **Run workflow** forms for Release Draft, Release, and Publish and check the package choices.
+
 ## Workspace Tools source
 
 Reusable workflows that need Workspace Tools default to the published package:
