@@ -8,6 +8,11 @@ on:
         type: string
         required: false
         default: .github/workflows/release.yml
+      workflow-files:
+        description: JSON array of workflow files to synchronize
+        type: string
+        required: false
+        default: "[]"
       packages-directory:
         type: string
         required: false
@@ -55,6 +60,7 @@ jobs:
         env:
           PACKAGES_JSON: ${{ needs.discover.outputs.packages }}
           WORKFLOW_FILE: ${{ inputs.workflow-file }}
+          WORKFLOW_FILES: ${{ inputs.workflow-files }}
         run: |
           python3 - <<'PY'
           import json
@@ -62,62 +68,69 @@ jobs:
           import pathlib
           import re
 
-          path = pathlib.Path(os.environ["WORKFLOW_FILE"])
-          if path.is_absolute() or ".." in path.parts or path.suffix not in (".yml", ".yaml"):
-              raise SystemExit("Invalid workflow file path")
+          requested = json.loads(os.environ["WORKFLOW_FILES"])
+          if not isinstance(requested, list) or any(not isinstance(v, str) for v in requested):
+              raise SystemExit("workflow-files must be an array of strings")
+          files = requested or [os.environ["WORKFLOW_FILE"]]
           packages = json.loads(os.environ["PACKAGES_JSON"])
           if not isinstance(packages, list) or not packages:
               raise SystemExit("Refusing to erase choices: no publishable packages found")
           directories = sorted({p["directory"] for p in packages})
           if any(not isinstance(d, str) or not re.fullmatch(r"[A-Za-z0-9_./-]+", d) or d.startswith("/") or ".." in pathlib.PurePosixPath(d).parts for d in directories):
               raise SystemExit("Invalid discovered package directory")
-          source = path.read_text()
-          lines = source.splitlines(keepends=True)
-          sections = ("on:", "  workflow_dispatch:", "    inputs:", "      package:")
-          positions = []
-          start = 0
-          for heading in sections:
-              try:
-                  index = next(i for i in range(start, len(lines)) if lines[i].rstrip() == heading)
-              except StopIteration:
-                  raise SystemExit(f"Expected workflow entry missing: {heading}")
-              positions.append(index)
-              start = index + 1
-          begin = positions[-1]
-          end = next((i for i in range(begin + 1, len(lines))
-                      if re.match(r"^      [A-Za-z0-9_-]+:\s*(?:#.*)?$", lines[i])), None)
-          if end is None:
-              raise SystemExit("Could not find next input after package")
-          replacement = [
-              "      package:\n",
-              "        description: Select a publishable workspace package\n",
-              "        required: true\n",
-              "        type: choice\n",
-              "        default: all\n",
-              "        options:\n",
-              "          - all\n",
-              *[f"          - {directory}\n" for directory in directories],
-          ]
-          updated = "".join(lines[:begin] + replacement + lines[end:])
-          if updated != source:
-              path.write_text(updated)
-              print("Updated package options:", ", ".join(["all", *directories]))
-          else:
-              print("Package options already current")
+          for filename in files:
+              path = pathlib.Path(filename)
+              if path.is_absolute() or ".." in path.parts or path.suffix not in (".yml", ".yaml") or not str(path).startswith(".github/workflows/"):
+                  raise SystemExit("Invalid workflow file path")
+              source = path.read_text()
+              lines = source.splitlines(keepends=True)
+              sections = ("on:", "  workflow_dispatch:", "    inputs:", "      package:")
+              positions = []
+              start = 0
+              for heading in sections:
+                  try:
+                      index = next(i for i in range(start, len(lines)) if lines[i].rstrip() == heading)
+                  except StopIteration:
+                      raise SystemExit(f"Expected workflow entry missing: {heading}")
+                  positions.append(index)
+                  start = index + 1
+              begin = positions[-1]
+              end = next((i for i in range(begin + 1, len(lines))
+                          if re.match(r"^      [A-Za-z0-9_-]+:\s*(?:#.*)?$", lines[i])), None)
+              if end is None:
+                  raise SystemExit("Could not find next input after package")
+              replacement = [
+                  "      package:\n",
+                  "        description: Select a publishable workspace package\n",
+                  "        required: true\n",
+                  "        type: choice\n",
+                  "        default: all\n",
+                  "        options:\n",
+                  "          - all\n",
+                  *[f"          - {directory}\n" for directory in directories],
+              ]
+              updated = "".join(lines[:begin] + replacement + lines[end:])
+              if updated != source:
+                  path.write_text(updated)
+                  print("Updated package options:", ", ".join(["all", *directories]))
+              else:
+                  print("Package options already current")
           PY
 
       - name: Commit changed package choices
         shell: bash
         env:
           WORKFLOW_FILE: ${{ inputs.workflow-file }}
+          WORKFLOW_FILES: ${{ inputs.workflow-files }}
         run: |
           set -euo pipefail
-          if git diff --quiet -- "$WORKFLOW_FILE"; then
+          files=$(python3 -c 'import json,os; print(" ".join(json.loads(os.environ["WORKFLOW_FILES"]) or [os.environ["WORKFLOW_FILE"]]))')
+          if git diff --quiet -- $files; then
             echo "Package choices are already up to date"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- "$WORKFLOW_FILE"
+          git add -- $files
           git commit -m "chore(actions): synchronize release package choices"
           git push origin HEAD:main
