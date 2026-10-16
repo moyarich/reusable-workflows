@@ -4,6 +4,23 @@ User-facing changes to the reusable workflows and standalone GitHub Actions are 
 
 ## Unreleased
 
+## [0.2.3]
+
+### Publishing and registries
+
+- **Unified npm publishing** — Use the registry matrix as the single publishing path, including dry-run checks and accurate reporting for versions already published.
+- **Config-driven registry credentials** — Resolve npm and VS Code registry authentication through configured `token-source` values, including GitHub-provided tokens and caller secrets.
+- **VS Code extension publishing** — Configure Marketplace and Open VSX destinations through registry files, consolidate extension publishing, and attach VSIX artifacts to draft releases.
+- **Reliable package publishing** — Build workspace dependencies before packaging, read package changelogs correctly, and improve publication checks when optional credentials are unavailable.
+
+### Releases and CI
+
+- **Consolidated workspace releases** — Reuse shared release orchestration and restore detailed multi-package release summaries.
+- **Improved release previews** — Report immutable Git tag conflicts and handle unavailable release-note label permissions without failing release drafting.
+- **Safer automated repairs** — Retry npm lockfile and Prettier self-healing after concurrent branch updates.
+- **Current GitHub Actions support** — Update official Actions and Node.js compatibility; validate release orchestration with actionlint.
+
+
 ## [0.2.2]
 
 ### Multi-package publishing
