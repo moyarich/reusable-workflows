@@ -124,7 +124,7 @@ jobs:
           WORKFLOW_FILES: ${{ inputs.workflow-files }}
         run: |
           set -euo pipefail
-          mapfile -t files < <(python3 -c 'import json,os; print("\\n".join(json.loads(os.environ["WORKFLOW_FILES"]) or [os.environ["WORKFLOW_FILE"]]))')
+          mapfile -t files < <(python3 -c 'import json,os; print("\n".join(json.loads(os.environ["WORKFLOW_FILES"]) or [os.environ["WORKFLOW_FILE"]]))')
           if git diff --quiet -- "${files[@]}"; then
             echo "Package choices are already up to date"
             exit 0
