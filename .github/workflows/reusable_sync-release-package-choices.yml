@@ -99,6 +99,13 @@ jobs:
                   raise SystemExit(f"Missing workflow_dispatch.inputs.package: {filename}")
               if not isinstance(package_input, dict):
                   raise SystemExit(f"Invalid package input: {filename}")
+              if (package_input.get("description") == "Select a publishable workspace package"
+                      and package_input.get("required") is True
+                      and package_input.get("type") == "choice"
+                      and package_input.get("default") == "all"
+                      and list(package_input.get("options", [])) == options):
+                  print(f"Already current: {filename}")
+                  continue
               package_input["description"] = "Select a publishable workspace package"
               package_input["required"] = True
               package_input["type"] = "choice"
