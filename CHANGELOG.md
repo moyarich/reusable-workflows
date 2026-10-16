@@ -4,6 +4,12 @@ User-facing changes to the reusable workflows and standalone GitHub Actions are 
 
 ## Unreleased
 
+### Workspace package selection
+
+- **Discoverable release and publish choices** — Automatically synchronize publishable workspace package options for manual Release Draft, Release, and Publish workflows, including adding new packages and removing options no longer publishable. Keep `all` available and leave unchanged selectors untouched.
+- **Authorized workflow updates** — Support a caller-mapped `workflow-token` secret for safely updating GitHub Actions workflow files, independent of the caller's secret naming convention.
+- **Synchronization visibility** — Display discovered packages, targeted workflow files, update status, and resulting commit in the GitHub Actions job summary. Support both manual synchronization and repository-triggered updates.
+
 ## [0.2.3]
 
 ### Publishing and registries
