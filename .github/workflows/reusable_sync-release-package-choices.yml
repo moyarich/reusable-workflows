@@ -1,0 +1,136 @@
+name: "Reusable · Sync release package choices"
+
+on:
+  workflow_call:
+    inputs:
+      workflow-file:
+        description: Caller workflow to update
+        type: string
+        required: false
+        default: .github/workflows/release.yml
+      workflow-files:
+        description: JSON array of workflow files to synchronize
+        type: string
+        required: false
+        default: "[]"
+      packages-directory:
+        type: string
+        required: false
+        default: packages
+      use-workspaces:
+        type: boolean
+        required: false
+        default: true
+      require-publish-config:
+        type: boolean
+        required: false
+        default: true
+
+permissions: {}
+
+concurrency:
+  group: sync-release-package-choices-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/reusable_discover-packages.yml
+    with:
+      packages-directory: ${{ inputs.packages-directory }}
+      use-workspaces: ${{ inputs.use-workspaces }}
+      require-publish-config: ${{ inputs.require-publish-config }}
+
+  sync:
+    name: Update manual release package choices
+    needs: discover
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: true
+
+      - name: Sync selected workflow choices
+        id: choices
+        shell: bash
+        env:
+          PACKAGES_JSON: ${{ needs.discover.outputs.packages }}
+          WORKFLOW_FILE: ${{ inputs.workflow-file }}
+          WORKFLOW_FILES: ${{ inputs.workflow-files }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+          import re
+
+          requested = json.loads(os.environ["WORKFLOW_FILES"])
+          if not isinstance(requested, list) or any(not isinstance(v, str) for v in requested):
+              raise SystemExit("workflow-files must be an array of strings")
+          files = requested or [os.environ["WORKFLOW_FILE"]]
+          packages = json.loads(os.environ["PACKAGES_JSON"])
+          if not isinstance(packages, list) or not packages:
+              raise SystemExit("Refusing to erase choices: no publishable packages found")
+          directories = sorted({p["directory"] for p in packages})
+          if any(not isinstance(d, str) or not re.fullmatch(r"[A-Za-z0-9_./-]+", d) or d.startswith("/") or ".." in pathlib.PurePosixPath(d).parts for d in directories):
+              raise SystemExit("Invalid discovered package directory")
+          for filename in files:
+              path = pathlib.Path(filename)
+              if path.is_absolute() or ".." in path.parts or path.suffix not in (".yml", ".yaml") or not str(path).startswith(".github/workflows/"):
+                  raise SystemExit("Invalid workflow file path")
+              source = path.read_text()
+              lines = source.splitlines(keepends=True)
+              sections = ("on:", "  workflow_dispatch:", "    inputs:", "      package:")
+              positions = []
+              start = 0
+              for heading in sections:
+                  try:
+                      index = next(i for i in range(start, len(lines)) if lines[i].rstrip() == heading)
+                  except StopIteration:
+                      raise SystemExit(f"Expected workflow entry missing: {heading}")
+                  positions.append(index)
+                  start = index + 1
+              begin = positions[-1]
+              end = next((i for i in range(begin + 1, len(lines))
+                          if re.match(r"^      [A-Za-z0-9_-]+:\s*(?:#.*)?$", lines[i])), None)
+              if end is None:
+                  raise SystemExit("Could not find next input after package")
+              replacement = [
+                  "      package:\n",
+                  "        description: Select a publishable workspace package\n",
+                  "        required: true\n",
+                  "        type: choice\n",
+                  "        default: all\n",
+                  "        options:\n",
+                  "          - all\n",
+                  *[f"          - {directory}\n" for directory in directories],
+              ]
+              updated = "".join(lines[:begin] + replacement + lines[end:])
+              if updated != source:
+                  path.write_text(updated)
+                  print("Updated package options:", ", ".join(["all", *directories]))
+              else:
+                  print("Package options already current")
+          PY
+
+      - name: Commit changed package choices
+        shell: bash
+        env:
+          WORKFLOW_FILE: ${{ inputs.workflow-file }}
+          WORKFLOW_FILES: ${{ inputs.workflow-files }}
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(python3 -c 'import json,os; print("\n".join(json.loads(os.environ["WORKFLOW_FILES"]) or [os.environ["WORKFLOW_FILE"]]))')
+          if git diff --quiet -- "${files[@]}"; then
+            echo "Package choices are already up to date"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- "${files[@]}"
+          git commit -m "chore(actions): synchronize release package choices"
+          git push origin HEAD:main
