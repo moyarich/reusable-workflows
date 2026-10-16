@@ -84,6 +84,7 @@ jobs:
           options = ["all", *directories]
           yaml = YAML()
           yaml.preserve_quotes = True
+          yaml.indent(mapping=2, sequence=4, offset=2)
 
           for filename in files:
               path = Path(filename)
