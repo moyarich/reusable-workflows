@@ -278,12 +278,12 @@ jobs:
     uses: ./.github/workflows/reusable_release.yml
     with:
       version: ${{ matrix.version }}
-      release-tag: ${{ format('{0}@{1}', matrix.directory, matrix.version) }}
+      release-tag: ${{ format('{0}@{1}', matrix.name, matrix.version) }}
       release-name: ${{ format('{0} v{1}', matrix.name, matrix.version) }}
       changelog-file: ${{ format('{0}/CHANGELOG.md', matrix.directory) }}
       target-ref: main
       create-tag: true
-      major-tag: ${{ format('{0}@v{1}', matrix.directory, matrix.major) }}
+      major-tag: ${{ format('{0}@v{1}', matrix.name, matrix.major) }}
       update-major-tag: ${{ inputs.update-major-tag }}
       draft: ${{ inputs.draft }}
       dry-run: ${{ inputs.dry-run }}
@@ -353,7 +353,7 @@ jobs:
               printf 'Selected: **%s**\n\n' "$(jq '.include | length' <<< "$PACKAGE_MATRIX")"
               echo "| Package | Directory | Release version | Expected Git tag |"
               echo "| --- | --- | --- | --- |"
-              jq -r '.include[] | "| `" + .name + "` | `" + .directory + "` | `" + .version + "` | `" + .directory + "@" + .version + "` |"' <<< "$PACKAGE_MATRIX"
+              jq -r '.include[] | "| `" + .name + "` | `" + .directory + "` | `" + .version + "` | `" + .name + "@" + .version + "` |"' <<< "$PACKAGE_MATRIX"
             else
               echo "Selection or version resolution did not complete."
             fi
