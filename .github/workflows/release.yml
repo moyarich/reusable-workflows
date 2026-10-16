@@ -9,7 +9,7 @@ on:
       version-mode:
         description: Version mode
         required: true
-        default: package-json
+        default: auto
         type: choice
         options:
           - auto
