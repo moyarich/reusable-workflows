@@ -185,10 +185,10 @@ jobs:
               output.write(f"\\n**Publishable packages:** {len(packages)}\\n\\n")
               output.write("| Package | Directory | Version |\\n| --- | --- | --- |\\n")
               for package in packages:
-                  output.write(f"| \`{package.get('name', '')}\` | \`{package.get('directory', '')}\` | \`{package.get('version', '')}\` |\\n")
+                  output.write(f"| `{package.get('name', '')}` | `{package.get('directory', '')}` | `{package.get('version', '')}` |\\n")
               output.write("\\n**Updated selectors:**\\n\\n")
               for filename in files:
-                  output.write(f"- \`{filename}\`\\n")
+                  output.write(f"- `{filename}`\\n")
               if os.environ.get("COMMIT_SHA"):
-                  output.write(f"\\n**Commit:** \`{os.environ['COMMIT_SHA']}\`\\n")
+                  output.write(f"\\n**Commit:** `{os.environ['COMMIT_SHA']}`\\n")
           PY
