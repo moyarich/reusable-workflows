@@ -38,23 +38,22 @@ jobs:
           import fs from "node:fs";
           import { execFileSync } from "node:child_process";
           const git=(args)=>execFileSync("git",args,{encoding:"utf8"}).trim();
-          // The PR merge event supplies the exact base and merged head. A merge
-          // commit uses its first parent; squash uses its parent; rebase may
-          // introduce multiple commits. Compare with the merge-base of the
-          // approved PR's original base SHA, not HEAD^1 alone.
+          // Compare the final merged tree with the exact PR base SHA.
+          // Using merge-base may include unrelated changes from main.
           const event=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,"utf8"));
           const before=event.pull_request?.base?.sha;
           if (!/^[0-9a-f]{40}$/.test(before ?? "")) throw Error("Missing PR base SHA");
-          const base=git(["merge-base",before,"HEAD"]);
+          const base=before;
+          git(["cat-file","-e",base+"^{commit}"]);
           const changed=git(["diff","--name-only",base,"HEAD"]).split("\n");
           const selected=[];
           const names=new Set();
           for(const file of changed) {
             if(!/^(?:packages\/|apps\/)[a-zA-Z0-9_./-]+\/package\.json$/.test(file) || file.includes("..")) continue;
-            let before;
-            try { before=JSON.parse(git(["show",base+":"+file])); } catch { continue; }
+            let previous;
+            try { previous=JSON.parse(git(["show",base+":"+file])); } catch { previous=null; }
             const after=JSON.parse(fs.readFileSync(file,"utf8"));
-            if(before.version===after.version) continue;
+            if(previous?.version===after.version) continue;
             if(after.private || typeof after.name!=="string" || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(after.version)) throw Error("Invalid publishable package version in "+file);
             if(names.has(after.name))throw Error("Duplicate changed workspace package: "+after.name);
             names.add(after.name);
