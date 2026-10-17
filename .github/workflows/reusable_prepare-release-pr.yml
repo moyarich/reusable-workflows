@@ -77,18 +77,25 @@ jobs:
               }
             if(changed)fs.writeFileSync(file,JSON.stringify(doc,null,2)+"\n");
           }
-          fs.mkdirSync(".release",{recursive:true});
+          fs.mkdirSync(process.env.RUNNER_TEMP+"/release-preparation",{recursive:true});
           const manifest={schemaVersion:1,packages:selected.map(p=>({name:p.name,directory:p.location,version:versions.get(p.name)}))};
-          fs.writeFileSync(".release/prepared.json",JSON.stringify(manifest,null,2)+"\n");
+          fs.writeFileSync(process.env.RUNNER_TEMP+"/release-preparation/manifest.json",JSON.stringify(manifest,null,2)+"\n");
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,"## Release preparation\n\n"+manifest.packages.map(p=>"- "+p.name+"@"+p.version).join("\n")+"\n");
           NODE
           npm install --package-lock-only --ignore-scripts --no-audit --no-fund
           git diff --check
+      - name: Upload proposed release manifest
+        uses: actions/upload-artifact@v7
+        with:
+          name: prepared-release-manifest
+          path: ${{ runner.temp }}/release-preparation/manifest.json
+          retention-days: 30
+          if-no-files-found: error
       - name: Open preparation pull request
         if: ${{ !inputs.dry-run }}
         id: pr
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.workflow-token || github.token }}
           BASE: ${{ inputs.target-branch }}
         shell: bash
         run: |
@@ -101,6 +108,6 @@ jobs:
           git diff --cached --quiet && { echo "No release changes"; exit 0; }
           git commit -m "release: prepare selected workspace versions"
           git push "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git" "HEAD:refs/heads/$branch"
-          gh pr create --base "$BASE" --head "$branch" --title "release: prepare packages" --body "Review workspace versions, dependency ranges, lockfile and .release/prepared.json. Merge only after CI passes."
+          gh pr create --base "$BASE" --head "$branch" --title "release: prepare packages" --body "Review workspace versions, dependency ranges and lockfile. The proposed manifest is attached to the preparation workflow run; merge only after CI passes."
           pr="$(gh pr list --head "$branch" --base "$BASE" --state open --json number --jq '.[0].number')"
           echo "number=$pr" >> "$GITHUB_OUTPUT"
