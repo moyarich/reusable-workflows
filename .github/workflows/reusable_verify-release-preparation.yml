@@ -7,28 +7,28 @@ on:
         default: main
     outputs:
       manifest:
-        value: ${{ jobs.verify.outputs.manifest }
+        value: ${{ jobs.verify.outputs.manifest }}
       packages:
-        value: ${{ jobs.verify.outputs.packages }
+        value: ${{ jobs.verify.outputs.packages }}
 permissions: {}
 jobs:
   verify:
-    if: ${{ github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/prepare-') && github.event.pull_request.base.ref == inputs.expected-base }
+    if: ${{ github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/prepare-') && github.event.pull_request.base.ref == inputs.expected-base }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
     outputs:
-      manifest: ${{ steps.validate.outputs.manifest }
-      packages: ${{ steps.validate.outputs.packages }
+      manifest: ${{ steps.validate.outputs.manifest }}
+      packages: ${{ steps.validate.outputs.packages }}
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.pull_request.merge_commit_sha }
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
           persist-credentials: false
       - name: Verify release manifest matches merged workspace manifests
         id: validate
         env:
-          EXPECTED_SHA: ${{ github.event.pull_request.merge_commit_sha }
+          EXPECTED_SHA: ${{ github.event.pull_request.merge_commit_sha }}
         shell: bash
         run: |
           set -euo pipefail
