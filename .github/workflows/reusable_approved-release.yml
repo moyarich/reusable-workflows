@@ -24,6 +24,9 @@ jobs:
     name: Verify approved merged preparation
     permissions:
       contents: read
+      checks: read
+      statuses: read
+      pull-requests: read
     uses: ./.github/workflows/reusable_verify-release-preparation.yml
     with:
       expected-base: ${{ inputs.expected-base }}
