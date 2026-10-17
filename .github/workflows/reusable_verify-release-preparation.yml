@@ -5,6 +5,10 @@ on:
       expected-base:
         type: string
         default: main
+      required-workflows:
+        description: Comma-separated paths to CI workflows required to succeed on the PR head SHA
+        type: string
+        default: ''
     outputs:
       manifest:
         value: ${{ jobs.verify.outputs.manifest }}
@@ -51,6 +55,36 @@ jobs:
             exit 1
           }
           echo "Verified successful head SHA checks for $HEAD_SHA" >> "$GITHUB_STEP_SUMMARY"
+      - name: Require designated CI workflows on the approved head
+        if: ${{ inputs.required-workflows != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REQUIRED_WORKFLOWS: ${{ inputs.required-workflows }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          IFS=',' read -ra paths <<< "$REQUIRED_WORKFLOWS"
+          for entry in "${paths[@]}"; do
+            workflow="$(printf '%s' "$entry" | xargs)"
+            [[ "$workflow" =~ ^\.github/workflows/[A-Za-z0-9_.-]+\.ya?ml$ ]] || {
+              echo "::error::Invalid required workflow path: $workflow"
+              exit 1
+            }
+            workflow_file="${workflow##*/}"
+            runs="$(gh api "repos/$GH_REPO/actions/workflows/$workflow_file/runs?head_sha=$HEAD_SHA&per_page=100")"
+            jq -e --arg sha "$HEAD_SHA" --arg path "$workflow" '
+              any(.workflow_runs[]?;
+                .head_sha == $sha and .path == $path and
+                .status == "completed" and .conclusion == "success" and
+                (.event == "pull_request" or .event == "pull_request_target")
+              )' <<< "$runs" >/dev/null || {
+              echo "::error::Required CI workflow $workflow has no successful completed PR run for head $HEAD_SHA."
+              exit 1
+            }
+            echo "Required CI workflow passed: $workflow" >> "$GITHUB_STEP_SUMMARY"
+          done
       - name: Resolve final approved package versions
         id: validate
         env:
