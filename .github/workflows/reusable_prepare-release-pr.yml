@@ -52,7 +52,7 @@ jobs:
           import fs from "node:fs";
           import {execFileSync} from "node:child_process";
           const workspaces=JSON.parse(execFileSync("npm",["query",".workspace","--json"],{encoding:"utf8"}));
-          const packages=workspaces.filter(p=>!p.private&&p.name&&p.location&&p.publishConfig);
+          const packages=workspaces.filter(p=>!p.private&&p.name&&p.location);
           const selected=process.env.SELECTOR==="all"?packages:packages.filter(p=>p.name===process.env.SELECTOR||p.location===process.env.SELECTOR);
           if (!selected.length) throw Error("Unknown publishable package selector");
           if (!["patch","minor","major"].includes(process.env.BUMP)) throw Error("Unsupported version bump");
@@ -104,7 +104,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"
-          git add --all
+          git add -- package.json package-lock.json npm-shrinkwrap.json packages apps 2>/dev/null || git add -u
           git diff --cached --quiet && { echo "No release changes"; exit 0; }
           git commit -m "release: prepare selected workspace versions"
           git push "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git" "HEAD:refs/heads/$branch"
