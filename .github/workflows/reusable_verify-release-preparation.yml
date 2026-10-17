@@ -40,6 +40,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD: ${{ github.event.pull_request.head.ref }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           REQUIRED_WORKFLOWS: ${{ inputs.required-workflows }}
         shell: bash
         run: |
@@ -61,9 +62,9 @@ jobs:
             # Match the PR association and head branch, and reject any more recent non-passing run.
             runs="$(gh api --paginate --slurp "repos/$GH_REPO/actions/workflows/$workflow_file/runs?event=pull_request&per_page=100" |
               jq -c '[.[] | .workflow_runs[]?]')"
-            jq -e --argjson number "$PR_NUMBER" --arg branch "$PR_HEAD" --arg path "$workflow" '
+            jq -e --argjson number "$PR_NUMBER" --arg branch "$PR_HEAD" --arg sha "$PR_HEAD_SHA" --arg path "$workflow" '
               [.[] | select(.path == $path and .head_branch == $branch and
-                any(.pull_requests[]?; .number == $number))] |
+                any(.pull_requests[]?; .number == $number and .head.sha == $sha))] |
               length > 0 and (sort_by(.created_at, .run_attempt, .id) | last |
                 .status == "completed" and .conclusion == "success")
             ' <<< "$runs" >/dev/null || {
