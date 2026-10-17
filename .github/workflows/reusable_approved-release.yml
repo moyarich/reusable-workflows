@@ -6,6 +6,9 @@ on:
       expected-base:
         type: string
         default: main
+      required-workflows:
+        type: string
+        default: ''
       dry-run:
         type: boolean
         default: false
@@ -25,11 +28,13 @@ jobs:
     permissions:
       contents: read
       checks: read
+      actions: read
       statuses: read
       pull-requests: read
     uses: ./.github/workflows/reusable_verify-release-preparation.yml
     with:
       expected-base: ${{ inputs.expected-base }}
+      required-workflows: ${{ inputs.required-workflows }}
 
   plan:
     name: Gate automatic publishing
