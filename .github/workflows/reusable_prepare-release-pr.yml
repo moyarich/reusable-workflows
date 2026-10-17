@@ -52,7 +52,7 @@ jobs:
           import fs from "node:fs";
           import {execFileSync} from "node:child_process";
           const workspaces=JSON.parse(execFileSync("npm",["query",".workspace","--json"],{encoding:"utf8"}));
-          const packages=workspaces.filter(p=>!p.private&&p.name&&p.location);
+          const packages=workspaces.filter(p=>!p.private&&p.name&&p.location&&p.publishConfig);
           const selected=process.env.SELECTOR==="all"?packages:packages.filter(p=>p.name===process.env.SELECTOR||p.location===process.env.SELECTOR);
           if (!selected.length) throw Error("Unknown publishable package selector");
           if (!["patch","minor","major"].includes(process.env.BUMP)) throw Error("Unsupported version bump");
