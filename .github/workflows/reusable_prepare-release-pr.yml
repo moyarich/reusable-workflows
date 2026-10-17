@@ -19,10 +19,10 @@ on:
         required: false
     outputs:
       pr-number:
-        value: ${{ jobs.prepare.outputs.pr-number }
+        value: ${{ jobs.prepare.outputs.pr-number }}
 permissions: {}
 concurrency:
-  group: prepare-release-${{ github.repository }-${{ inputs.target-branch }
+  group: prepare-release-${{ github.repository }}-${{ inputs.target-branch }}
   cancel-in-progress: false
 jobs:
   prepare:
@@ -31,11 +31,11 @@ jobs:
       contents: write
       pull-requests: write
     outputs:
-      pr-number: ${{ steps.pr.outputs.number }
+      pr-number: ${{ steps.pr.outputs.number }}
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.target-branch }
+          ref: ${{ inputs.target-branch }}
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
@@ -43,8 +43,8 @@ jobs:
           cache: npm
       - name: Prepare workspace versions and manifest
         env:
-          SELECTOR: ${{ inputs.package }
-          BUMP: ${{ inputs.version-bump }
+          SELECTOR: ${{ inputs.package }}
+          BUMP: ${{ inputs.version-bump }}
         shell: bash
         run: |
           set -euo pipefail
@@ -85,11 +85,11 @@ jobs:
           npm install --package-lock-only --ignore-scripts --no-audit --no-fund
           git diff --check
       - name: Open preparation pull request
-        if: ${{ !inputs.dry-run }
+        if: ${{ !inputs.dry-run }}
         id: pr
         env:
-          GH_TOKEN: ${{ github.token }
-          BASE: ${{ inputs.target-branch }
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ inputs.target-branch }}
         shell: bash
         run: |
           set -euo pipefail
