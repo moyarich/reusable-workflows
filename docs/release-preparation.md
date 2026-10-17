@@ -32,11 +32,11 @@ jobs:
       pull-requests: write
     uses: moyarich/reusable-workflows/.github/workflows/reusable_prepare-release-pr.yml@main
     with:
-      package: ${{ inputs.package }
-      version-bump: ${{ inputs.version-bump }
-      dry-run: ${{ inputs.dry-run }
+      package: ${{ inputs.package }}
+      version-bump: ${{ inputs.version-bump }}
+      dry-run: ${{ inputs.dry-run }}
     secrets:
-      workflow-token: ${{ secrets._WORKFLOW_TOKEN }
+      workflow-token: ${{ secrets._WORKFLOW_TOKEN }}
 ~~~
 
 Use a GitHub App installation token or PAT with contents/pull-request write permissions. A PR pushed using only the default GITHUB_TOKEN does not trigger ordinary PR CI; a dedicated workflow-token enables CI. No token is required in dry-run.
@@ -52,7 +52,7 @@ on:
 permissions: {}
 jobs:
   validate:
-    if: ${{ github.event.pull_request.merged && startsWith(github.event.pull_request.head.ref, 'release/prepare-') }
+    if: ${{ github.event.pull_request.merged && startsWith(github.event.pull_request.head.ref, 'release/prepare-') }}
     permissions:
       contents: read
     uses: moyarich/reusable-workflows/.github/workflows/reusable_verify-release-preparation.yml@main
