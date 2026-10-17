@@ -34,38 +34,22 @@ jobs:
           ref: ${{ github.event.pull_request.merge_commit_sha }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Require passing pull request checks before release
+      - name: Require successful designated pull request CI
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          [[ "$HEAD_SHA" =~ ^[a-f0-9]{40}$ ]]
-          checks="$(gh api --paginate --slurp "repos/$GH_REPO/commits/$HEAD_SHA/check-runs?per_page=100" |
-            jq -c '[.[] | .check_runs[]? | {name, status, conclusion}]')"
-          jq -e 'length > 0 and any(.[]; .status == "completed" and .conclusion == "success") and
-            all(.[]; .status == "completed" and (.conclusion == "success" or .conclusion == "neutral" or .conclusion == "skipped"))' <<< "$checks" >/dev/null || {
-            echo "::error::Release preparation PR does not have exclusively completed, passing CI check runs."
-            exit 1
-          }
-          statuses="$(gh api "repos/$GH_REPO/commits/$HEAD_SHA/status")"
-          jq -e '(.statuses | length == 0) or .state == "success"' <<< "$statuses" >/dev/null || {
-            echo "::error::Commit status checks are not successful."
-            exit 1
-          }
-          echo "Verified successful head SHA checks for $HEAD_SHA" >> "$GITHUB_STEP_SUMMARY"
-      - name: Require designated CI workflows on the approved head
-        if: ${{ inputs.required-workflows != '' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD: ${{ github.event.pull_request.head.ref }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           REQUIRED_WORKFLOWS: ${{ inputs.required-workflows }}
         shell: bash
         run: |
           set -euo pipefail
+          [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]
+          [[ -n "$REQUIRED_WORKFLOWS" ]] || {
+            echo "::error::required-workflows must identify the CI workflows that approve publication."
+            exit 1
+          }
           IFS=',' read -ra paths <<< "$REQUIRED_WORKFLOWS"
           for entry in "${paths[@]}"; do
             workflow="$(printf '%s' "$entry" | xargs)"
@@ -74,17 +58,20 @@ jobs:
               exit 1
             }
             workflow_file="${workflow##*/}"
-            runs="$(gh api "repos/$GH_REPO/actions/workflows/$workflow_file/runs?head_sha=$HEAD_SHA&per_page=100")"
-            jq -e --arg sha "$HEAD_SHA" --arg path "$workflow" '
-              any(.workflow_runs[]?;
-                .head_sha == $sha and .path == $path and
-                .status == "completed" and .conclusion == "success" and
-                (.event == "pull_request" or .event == "pull_request_target")
-              )' <<< "$runs" >/dev/null || {
-              echo "::error::Required CI workflow $workflow has no successful completed PR run for head $HEAD_SHA."
+            # PR CI typically runs on refs/pull/<number>/merge, not the PR's head SHA.
+            # Match the PR association and head branch, and reject any more recent non-passing run.
+            runs="$(gh api --paginate --slurp "repos/$GH_REPO/actions/workflows/$workflow_file/runs?event=pull_request&per_page=100" |
+              jq -c '[.[] | .workflow_runs[]?]')"
+            jq -e --argjson number "$PR_NUMBER" --arg branch "$PR_HEAD" --arg sha "$PR_HEAD_SHA" --arg path "$workflow" '
+              [.[] | select(.path == $path and .head_branch == $branch and
+                any(.pull_requests[]?; .number == $number and .head.sha == $sha))] |
+              length > 0 and (sort_by(.created_at, .run_attempt, .id) | last |
+                .status == "completed" and .conclusion == "success")
+            ' <<< "$runs" >/dev/null || {
+              echo "::error::Latest PR CI run for $workflow is missing, pending, or unsuccessful."
               exit 1
             }
-            echo "Required CI workflow passed: $workflow" >> "$GITHUB_STEP_SUMMARY"
+            echo "Required CI workflow passed for PR #$PR_NUMBER: $workflow" >> "$GITHUB_STEP_SUMMARY"
           done
       - name: Resolve final approved package versions
         id: validate
