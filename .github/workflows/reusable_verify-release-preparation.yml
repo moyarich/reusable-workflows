@@ -38,9 +38,17 @@ jobs:
           import fs from "node:fs";
           import { execFileSync } from "node:child_process";
           const git=(args)=>execFileSync("git",args,{encoding:"utf8"}).trim();
-          const base=git(["rev-parse","HEAD^1"]);
+          // The PR merge event supplies the exact base and merged head. A merge
+          // commit uses its first parent; squash uses its parent; rebase may
+          // introduce multiple commits. Compare with the merge-base of the
+          // approved PR's original base SHA, not HEAD^1 alone.
+          const event=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,"utf8"));
+          const before=event.pull_request?.base?.sha;
+          if (!/^[0-9a-f]{40}$/.test(before ?? "")) throw Error("Missing PR base SHA");
+          const base=git(["merge-base",before,"HEAD"]);
           const changed=git(["diff","--name-only",base,"HEAD"]).split("\n");
           const selected=[];
+          const names=new Set();
           for(const file of changed) {
             if(!/^(?:packages\/|apps\/)[a-zA-Z0-9_./-]+\/package\.json$/.test(file) || file.includes("..")) continue;
             let before;
@@ -48,6 +56,8 @@ jobs:
             const after=JSON.parse(fs.readFileSync(file,"utf8"));
             if(before.version===after.version) continue;
             if(after.private || typeof after.name!=="string" || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(after.version)) throw Error("Invalid publishable package version in "+file);
+            if(names.has(after.name))throw Error("Duplicate changed workspace package: "+after.name);
+            names.add(after.name);
             selected.push({name:after.name,directory:file.slice(0,-"/package.json".length),version:after.version});
           }
           if(!selected.length) throw Error("No publishable workspace versions changed in approved merge");
