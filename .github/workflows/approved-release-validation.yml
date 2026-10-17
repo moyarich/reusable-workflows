@@ -1,0 +1,24 @@
+name: Approved release workflow syntax
+on:
+  pull_request:
+    paths:
+      - .github/workflows/reusable_verify-release-preparation.yml
+      - .github/workflows/reusable_approved-release.yml
+      - .github/workflows/approved-release-validation.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  actionlint:
+    name: Lint approved-release reusable workflows
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Validate reusable workflow syntax
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.7 -shellcheck= \
+            .github/workflows/reusable_verify-release-preparation.yml \
+            .github/workflows/reusable_approved-release.yml \
+            .github/workflows/approved-release-validation.yml
