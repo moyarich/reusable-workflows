@@ -13,7 +13,7 @@ on:
 permissions: {}
 jobs:
   verify:
-    if: ${{ github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/prepare-') && github.event.pull_request.base.ref == inputs.expected-base }}
+    if: ${{ github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.event.pull_request.head.ref, 'release/prepare-') && github.event.pull_request.base.ref == inputs.expected-base }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -24,32 +24,34 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
           persist-credentials: false
-      - name: Verify release manifest matches merged workspace manifests
+      - name: Resolve final approved package versions
         id: validate
         env:
           EXPECTED_SHA: ${{ github.event.pull_request.merge_commit_sha }}
         shell: bash
         run: |
           set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
           node --input-type=module <<'NODE'
           import fs from "node:fs";
-          import path from "node:path";
-          const file=".release/prepared.json";
-          const manifest=JSON.parse(fs.readFileSync(file,"utf8"));
-          if(manifest.schemaVersion!==1||!Array.isArray(manifest.packages)||!manifest.packages.length)throw Error("Invalid release manifest");
-          const seen=new Set();
-          for(const pkg of manifest.packages){
-            if(typeof pkg.name!=="string"||typeof pkg.version!=="string"||typeof pkg.directory!=="string")throw Error("Malformed package");
-            if(!/^packages\/[A-Za-z0-9/_-]+$/.test(pkg.directory))throw Error("Unsafe package directory: "+pkg.directory);
-            if(!/^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$/.test(pkg.version))throw Error("Invalid version: "+pkg.version);
-            if(seen.has(pkg.name))throw Error("Duplicate package");
-            seen.add(pkg.name);
-            const source=path.join(pkg.directory,"package.json");
-            const actual=JSON.parse(fs.readFileSync(source,"utf8"));
-            if(actual.private||actual.name!==pkg.name||actual.version!==pkg.version)throw Error("Release manifest mismatch: "+pkg.name);
+          import { execFileSync } from "node:child_process";
+          const git=(args)=>execFileSync("git",args,{encoding:"utf8"}).trim();
+          const base=git(["rev-parse","HEAD^1"]);
+          const changed=git(["diff","--name-only",base,"HEAD"]).split("\n");
+          const selected=[];
+          for(const file of changed) {
+            if(!/^(?:packages\/|apps\/)[a-zA-Z0-9_./-]+\/package\.json$/.test(file) || file.includes("..")) continue;
+            let before;
+            try { before=JSON.parse(git(["show",base+":"+file])); } catch { continue; }
+            const after=JSON.parse(fs.readFileSync(file,"utf8"));
+            if(before.version===after.version) continue;
+            if(after.private || typeof after.name!=="string" || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(after.version)) throw Error("Invalid publishable package version in "+file);
+            selected.push({name:after.name,directory:file.slice(0,-"/package.json".length),version:after.version});
           }
-          fs.appendFileSync(process.env.GITHUB_OUTPUT,"manifest="+JSON.stringify(manifest)+"\n");
-          fs.appendFileSync(process.env.GITHUB_OUTPUT,"packages="+JSON.stringify(manifest.packages)+"\n");
-          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,"## Approved release candidate\n\nMerged commit: "+process.env.EXPECTED_SHA+"\n\n"+manifest.packages.map(p=>"- "+p.name+"@"+p.version).join("\n")+"\n");
+          if(!selected.length) throw Error("No publishable workspace versions changed in approved merge");
+          const manifest={schemaVersion:1,packages:selected};
+          fs.appendFileSync(process.env.GITHUB_OUTPUT,"manifest="+JSON.stringify(manifest)+"\npackages="+JSON.stringify(selected)+"\n");
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,"## Approved merged package versions\n\n"+selected.map(p=>"- "+p.name+"@"+p.version).join("\n")+"\n");
           NODE
