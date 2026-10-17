@@ -58,7 +58,7 @@ jobs:
             workflow_file="${workflow##*/}"
             # GitHub may return pull_requests: [] for completed PR workflow runs.
             # Match workflow identity, exact source head SHA and source branch directly.
-            runs="$(gh api --paginate --slurp "repos/$GH_REPO/actions/workflows/$workflow_file/runs?event=pull_request&per_page=100" |
+            runs="$(gh api --paginate --slurp "repos/$GH_REPO/actions/workflows/$workflow_file/runs?event=pull_request&head_sha=$PR_HEAD_SHA&per_page=100" |
               jq -c '[.[] | .workflow_runs[]?]')"
             jq -e --arg branch "$PR_HEAD" --arg sha "$PR_HEAD_SHA" --arg path "$workflow" '
               [.[] | select(.path == $path and .head_branch == $branch and
