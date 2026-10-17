@@ -2,8 +2,8 @@
 
 Two new reusable workflows:
 
-1. reusable_prepare-release-pr.yml selects publishable npm workspaces, bumps versions, updates internal dependency ranges and the lockfile, and creates a reviewed release PR with a .release/prepared.json manifest.
-2. reusable_verify-release-preparation.yml checks that a merged preparation PR's package names and versions match the checked-out merge commit.
+1. reusable_prepare-release-pr.yml selects publishable npm workspaces, bumps versions, updates internal dependency ranges and the lockfile, and creates a reviewed release PR. The proposed manifest is uploaded as an Actions artifact, not committed.
+2. reusable_verify-release-preparation.yml derives the final approved package versions from the merged changes to publishable workspace package.json files. Manual changes made to the PR are therefore respected.
 
 ## Caller example: Console
 
@@ -63,3 +63,7 @@ jobs:
 These two workflows prepare and verify; they intentionally do NOT automatically release or publish yet. The follow-up orchestration must gate publication on the validated merge SHA and exact approved package set, then reuse the existing workspace release and staged npm publish jobs. Never publish all workspace packages for a PR that approved only a subset. Keep manual Release and Publish workflows as recovery options.
 
 Preparation is reviewable and uses a fresh branch per run; it never force-pushes a reviewed branch. Dry-run is the default.
+
+## Updating an existing release PR
+
+The proposed manifest artifact is informational and may become stale after manually editing the PR. Never publish directly from that artifact. The merge verifier derives approved package versions from the **final merged package.json changes** so manual amendments take precedence. Release branches may be updated from main; changes must pass CI again. This verifier currently compares the merged commit with its first parent and therefore needs additional coverage for non-squash/rebase merge strategies before production activation.
