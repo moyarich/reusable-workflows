@@ -1,0 +1,114 @@
+name: "Reusable · Prepare release PR"
+on:
+  workflow_call:
+    inputs:
+      package:
+        type: string
+        default: all
+      version-bump:
+        type: string
+        default: patch
+      target-branch:
+        type: string
+        default: main
+      dry-run:
+        type: boolean
+        default: true
+    secrets:
+      workflow-token:
+        required: false
+    outputs:
+      pr-number:
+        value: ${{ jobs.prepare.outputs.pr-number }}
+permissions: {}
+concurrency:
+  group: prepare-release-${{ github.repository }}-${{ inputs.target-branch }}
+  cancel-in-progress: false
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      pr-number: ${{ steps.pr.outputs.number }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.target-branch }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Prepare workspace versions and manifest
+        env:
+          SELECTOR: ${{ inputs.package }}
+          BUMP: ${{ inputs.version-bump }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          import {execFileSync} from "node:child_process";
+          const workspaces=JSON.parse(execFileSync("npm",["query",".workspace","--json"],{encoding:"utf8"}));
+          const packages=workspaces.filter(p=>!p.private&&p.name&&p.location);
+          const selected=process.env.SELECTOR==="all"?packages:packages.filter(p=>p.name===process.env.SELECTOR||p.location===process.env.SELECTOR);
+          if (!selected.length) throw Error("Unknown publishable package selector");
+          if (!["patch","minor","major"].includes(process.env.BUMP)) throw Error("Unsupported version bump");
+          const bump=(v)=>{
+            const m=/^(\d+)\.(\d+)\.(\d+)$/.exec(v);
+            if(!m)throw Error("Stable semver required: "+v);
+            const [a,b,c]=m.slice(1).map(Number);
+            return process.env.BUMP==="major"?[a+1,0,0].join("."):process.env.BUMP==="minor"?[a,b+1,0].join("."):[a,b,c+1].join(".");
+          };
+          const versions=new Map(selected.map(p=>[p.name,bump(p.version)]));
+          for(const p of workspaces){
+            const file=p.location+"/package.json";
+            const doc=JSON.parse(fs.readFileSync(file,"utf8"));
+            let changed=false;
+            if(versions.has(p.name)){doc.version=versions.get(p.name);changed=true;}
+            for(const field of ["dependencies","devDependencies","optionalDependencies","peerDependencies"])
+              for(const [name,version] of versions){
+                const prior=doc[field]?.[name];
+                if(!prior||prior.startsWith("file:")||prior.startsWith("workspace:"))continue;
+                const prefix=prior.startsWith("^")?"^":prior.startsWith("~")?"~":"";
+                if(prior!==prefix+version){doc[field][name]=prefix+version;changed=true;}
+              }
+            if(changed)fs.writeFileSync(file,JSON.stringify(doc,null,2)+"\n");
+          }
+          fs.mkdirSync(process.env.RUNNER_TEMP+"/release-preparation",{recursive:true});
+          const manifest={schemaVersion:1,packages:selected.map(p=>({name:p.name,directory:p.location,version:versions.get(p.name)}))};
+          fs.writeFileSync(process.env.RUNNER_TEMP+"/release-preparation/manifest.json",JSON.stringify(manifest,null,2)+"\n");
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,"## Release preparation\n\n"+manifest.packages.map(p=>"- "+p.name+"@"+p.version).join("\n")+"\n");
+          NODE
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          git diff --check
+      - name: Upload proposed release manifest
+        uses: actions/upload-artifact@v7
+        with:
+          name: prepared-release-manifest
+          path: ${{ runner.temp }}/release-preparation/manifest.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: Open preparation pull request
+        if: ${{ !inputs.dry-run }}
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.workflow-token || github.token }}
+          BASE: ${{ inputs.target-branch }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch="release/prepare-$GITHUB_RUN_ID"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          # Checkout is clean; stage only tracked version/lockfile edits.
+          git add -u
+          git diff --cached --quiet && { echo "No release changes"; exit 0; }
+          git commit -m "release: prepare selected workspace versions"
+          git push "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git" "HEAD:refs/heads/$branch"
+          gh pr create --base "$BASE" --head "$branch" --title "release: prepare packages" --body "Review workspace versions, dependency ranges and lockfile. The proposed manifest is attached to the preparation workflow run; merge only after CI passes."
+          pr="$(gh pr list --head "$branch" --base "$BASE" --state open --json number --jq '.[0].number')"
+          echo "number=$pr" >> "$GITHUB_OUTPUT"

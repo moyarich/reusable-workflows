@@ -1,0 +1,66 @@
+name: "Reusable · Validate merged release preparation"
+on:
+  workflow_call:
+    inputs:
+      expected-base:
+        type: string
+        default: main
+    outputs:
+      manifest:
+        value: ${{ jobs.verify.outputs.manifest }}
+      packages:
+        value: ${{ jobs.verify.outputs.packages }}
+permissions: {}
+jobs:
+  verify:
+    if: ${{ github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.event.pull_request.head.ref, 'release/prepare-') && github.event.pull_request.base.ref == inputs.expected-base }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      manifest: ${{ steps.validate.outputs.manifest }}
+      packages: ${{ steps.validate.outputs.packages }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Resolve final approved package versions
+        id: validate
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          import { execFileSync } from "node:child_process";
+          const git=(args)=>execFileSync("git",args,{encoding:"utf8"}).trim();
+          // Compare the final merged tree with the exact PR base SHA.
+          // Using merge-base may include unrelated changes from main.
+          const event=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,"utf8"));
+          const before=event.pull_request?.base?.sha;
+          if (!/^[0-9a-f]{40}$/.test(before ?? "")) throw Error("Missing PR base SHA");
+          const base=before;
+          git(["cat-file","-e",base+"^{commit}"]);
+          const changed=git(["diff","--name-only",base,"HEAD"]).split("\n");
+          const selected=[];
+          const names=new Set();
+          for(const file of changed) {
+            if(!/^(?:packages\/|apps\/)[a-zA-Z0-9_./-]+\/package\.json$/.test(file) || file.includes("..")) continue;
+            let previous;
+            try { previous=JSON.parse(git(["show",base+":"+file])); } catch { previous=null; }
+            const after=JSON.parse(fs.readFileSync(file,"utf8"));
+            if(previous?.version===after.version) continue;
+            if(after.private || typeof after.name!=="string" || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(after.version)) throw Error("Invalid publishable package version in "+file);
+            if(names.has(after.name))throw Error("Duplicate changed workspace package: "+after.name);
+            names.add(after.name);
+            selected.push({name:after.name,directory:file.slice(0,-"/package.json".length),version:after.version});
+          }
+          if(!selected.length) throw Error("No publishable workspace versions changed in approved merge");
+          const manifest={schemaVersion:1,packages:selected};
+          fs.appendFileSync(process.env.GITHUB_OUTPUT,"manifest="+JSON.stringify(manifest)+"\npackages="+JSON.stringify(selected)+"\n");
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,"## Approved merged package versions\n\n"+selected.map(p=>"- "+p.name+"@"+p.version).join("\n")+"\n");
+          NODE
