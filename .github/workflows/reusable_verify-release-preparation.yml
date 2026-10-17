@@ -62,7 +62,7 @@ jobs:
               jq -c '[.[] | .workflow_runs[]?]')"
             jq -e --arg branch "$PR_HEAD" --arg sha "$PR_HEAD_SHA" --arg path "$workflow" '
               [.[] | select(.path == $path and .head_branch == $branch and
-                .head_sha == $sha)]] |
+                .head_sha == $sha)] |
               length > 0 and (sort_by(.created_at, .run_attempt, .id) | last |
                 .status == "completed" and .conclusion == "success")
             ' <<< "$runs" >/dev/null || {
