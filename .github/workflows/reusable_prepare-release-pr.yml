@@ -14,6 +14,9 @@ on:
       dry-run:
         type: boolean
         default: true
+    secrets:
+      workflow-token:
+        required: false
     outputs:
       pr-number:
         value: ${{ jobs.prepare.outputs.pr-number }
