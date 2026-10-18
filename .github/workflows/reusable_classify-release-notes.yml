@@ -18,6 +18,11 @@ on:
         default: '^packages/[^/]+/(src|vite-plugin|bin)/'
         type: string
 
+    secrets:
+      classification-token:
+        description: Optional token with pull-request read and issue-label write access.
+        required: false
+
 permissions: {}
 
 jobs:
@@ -30,7 +35,7 @@ jobs:
     steps:
       - name: Exclude internal-only changes
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.classification-token || github.token }}
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ inputs.pr-number }}
           EXCLUDE_LABEL: ${{ inputs.exclude-label }}
