@@ -57,6 +57,10 @@ jobs:
             public_code=true
           fi
           if [[ "$internal_title" == true || "$public_code" == false ]]; then
+            if jq -e --arg label "$EXCLUDE_LABEL" 'any(.labels[]?; .name == $label)' <<< "$pr" >/dev/null; then
+              echo "PR #$PR_NUMBER already has $EXCLUDE_LABEL; no label write required."
+              exit 0
+            fi
             # Some repositories restrict GITHUB_TOKEN writes, even when permissions
             # are requested. Classification must not block build/test CI.
             if gh api --method POST "repos/$GH_REPO/issues/$PR_NUMBER/labels" \
