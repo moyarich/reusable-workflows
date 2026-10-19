@@ -127,6 +127,15 @@ jobs:
           registry-url: https://registry.npmjs.org
           scope: "@moyarich"
 
+      - name: Validate local Workspace Tools source
+        if: ${{ inputs.workspace-tools-source == 'checkout:current' }}
+        shell: bash
+        run: |
+          if [ ! -f packages/workspace-tools/package.json ]; then
+            echo "::error::checkout:current requires the caller to contain packages/workspace-tools/package.json; use checkout:upstream;branch:main or registry:npm:<version> in other repositories"
+            exit 1
+          fi
+
       - name: Install local Workspace Tools build dependencies
         if: ${{ inputs.workspace-tools-source == 'checkout:current' }}
         shell: bash
