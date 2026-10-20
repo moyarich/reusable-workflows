@@ -55,7 +55,10 @@ test("auto uses published release, not ahead-of-release package.json", () => {
   assert.strictEqual(resolve("", "0.2.1", "v0.2.0"), "version=0.2.1");
 });
 test("manifest and explicit bump modes retain their behavior", () => {
-  assert.strictEqual(resolve("package-json", "0.3.0", "v0.2.0"), "version=0.3.0");
+  assert.strictEqual(
+    resolve("package-json", "0.3.0", "v0.2.0"),
+    "version=0.3.0",
+  );
   assert.strictEqual(resolve("bump", "0.3.0", "v0.2.0"), "version=0.3.1");
   assert.strictEqual(resolve("auto", "0.3.0", ""), "version=0.1.0");
 });
