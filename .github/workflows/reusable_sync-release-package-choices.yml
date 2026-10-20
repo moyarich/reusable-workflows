@@ -203,15 +203,14 @@ jobs:
           for file in "${files[@]}"; do
             if [ -f "$file" ]; then
               present+=("$file")
-            elif [ "$file" = ".github/workflows/publish-vscode-vsx.yml" ]; then
-              echo "Skipping optional VS Code extension workflow: $file"
             else
-              echo "::error::Configured workflow file not found: $file"
-              exit 1
+              echo "::notice title=Workflow skipped::Configured workflow file '$file' does not exist; skipping."
             fi
           done
           if [ "${#present[@]}" -gt 0 ]; then
             npx --yes prettier@3.6.2 --write "${present[@]}"
+          else
+            echo "::notice title=No workflows to format::All configured workflow files are missing; formatting skipped."
           fi
 
       - name: Commit changed package choices
