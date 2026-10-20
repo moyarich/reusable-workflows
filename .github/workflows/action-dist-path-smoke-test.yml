@@ -1,0 +1,37 @@
+name: Shared action dist path smoke test
+
+on:
+  pull_request:
+    paths:
+      - "actions/**"
+      - ".github/workflows/action-dist-path-smoke-test.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  local-path:
+    name: Local sibling distribution path
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Execute action from sibling dist
+        uses: ./actions/path-smoke-test
+        id: smoke
+      - name: Assert action output
+        env:
+          RESULT: ${{ steps.smoke.outputs.shared-dist-supported }}
+        run: test "$RESULT" = true
+
+  remote-path:
+    name: Remote action sibling distribution path
+    runs-on: ubuntu-latest
+    steps:
+      - name: Execute same repository at this commit as a remote action
+        uses: moyarich/reusable-workflows/actions/path-smoke-test@${{ github.event.pull_request.head.sha || github.sha }}
+        id: smoke
+      - name: Assert remote action output
+        env:
+          RESULT: ${{ steps.smoke.outputs.shared-dist-supported }}
+        run: test "$RESULT" = true
