@@ -322,7 +322,7 @@ jobs:
         id: workspace-tools
         uses: ./.github/reusable-workflows-runtime/actions/setup-workspace-tools
         with:
-          source: ${{ inputs.workspace-tools-source || 'registry:npm:latest' }}
+          workspace-tools-source: ${{ inputs.workspace-tools-source || 'registry:npm:latest' }}
 
       - name: Export workspace tools CLI path
         shell: bash
