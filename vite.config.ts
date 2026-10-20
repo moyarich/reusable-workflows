@@ -1,8 +1,7 @@
 import { defineConfig } from "vite";
 import { githubActions } from "@moyarich/vite-github-actions";
 
-export default defineConfig(({ mode }) => {
-  if (mode === "test") return { test: { environment: "node" } };
+export default defineConfig(() => {
   return {
     plugins: [
       githubActions({
