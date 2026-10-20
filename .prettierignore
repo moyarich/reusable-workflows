@@ -10,3 +10,6 @@ apps/playground/dist/
 
 # Temporary tooling output
 .prettier-self-heal.ignore
+
+# Template contains unresolved YAML fragments replaced before parsing.
+.github/release-drafter-template.yml
