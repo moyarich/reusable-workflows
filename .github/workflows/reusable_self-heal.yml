@@ -210,7 +210,7 @@ jobs:
           wait-for-completion: true
           wait-for-completion-timeout: 30m
       - name: Validate completed required workflow run
-        if: ${{ always() && steps.validate.outputs.workflow-id != '' }}
+        if: ${{ always() && steps.head.outcome == 'success' }}
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ steps.validate.outputs.workflow-id }}
@@ -223,6 +223,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]] || { echo "::error::Missing dispatched workflow run ID"; exit 1; }
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" > "$RUNNER_TEMP/required-run.json"
           jq -e \
             --arg correlation "$CORRELATION_VALUE" \
@@ -242,7 +243,7 @@ jobs:
               exit 1
             }
       - name: Require verified successful workflow
-        if: ${{ always() && steps.head.outcome == 'success' && (steps.validate.outcome != 'success' || steps.validate.outputs.workflow-conclusion != 'success') }}
+        if: ${{ always() && steps.head.outcome == 'success' && (steps.validate.outcome != 'success' || steps.validate.outputs.workflow-conclusion != 'success' || steps.workflow-inputs.outcome != 'success') }}
         run: |
           echo "::error::The dispatched required workflow did not complete successfully"
           exit 1
