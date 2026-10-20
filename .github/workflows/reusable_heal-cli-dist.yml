@@ -16,6 +16,10 @@ on:
         required: false
         default: "24"
         type: string
+      commit:
+        description: Commit generated files to the target branch
+        type: boolean
+        default: true
       expected-sha:
         description: Expected branch SHA produced by preceding repair stage
         required: false
@@ -83,6 +87,7 @@ jobs:
           DIST_PATH: ${{ inputs.dist-path }}
           TARGET_BRANCH: ${{ inputs.target-branch }}
           GH_TOKEN: ${{ github.token }}
+          COMMIT_CHANGES: ${{ inputs.commit }}
         shell: bash
         run: |
           set -euo pipefail
@@ -102,8 +107,12 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "build: update CLI dist"
           echo "changed=true" >> "$GITHUB_OUTPUT"
+          if [[ "$COMMIT_CHANGES" != "true" ]]; then
+            echo "Preview mode: generated distribution was not committed."
+            exit 0
+          fi
+          git commit -m "build: update CLI dist"
           git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)" push origin "HEAD:refs/heads/$TARGET_BRANCH"
       - name: Record exact healed commit
         id: head
