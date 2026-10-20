@@ -13,6 +13,11 @@ on:
         required: false
         type: string
         default: npm run build
+      install-command:
+        description: Command used to install build dependencies.
+        required: false
+        type: string
+        default: npm ci --ignore-scripts
       node-version:
         description: Node.js version passed to actions/setup-node.
         required: false
@@ -50,7 +55,12 @@ jobs:
           cache: ${{ inputs.node-caching }}
 
       - name: Install dependencies
-        run: npm ci --ignore-scripts
+        shell: bash
+        env:
+          INSTALL_COMMAND: ${{ inputs.install-command }}
+        run: |
+          set -euo pipefail
+          bash -lc "$INSTALL_COMMAND"
 
       - name: Rebuild distribution output
         env:
@@ -87,6 +97,7 @@ jobs:
         env:
           DIST_PATH: ${{ inputs.dist-path }}
           BUILD_COMMAND: ${{ inputs.build-command }}
+          INSTALL_COMMAND: ${{ inputs.install-command }}
           NODE_VERSION: ${{ inputs.node-version }}
           ARTIFACT_NAME: ${{ inputs.artifact-name }}
           DIFF_RESULT: ${{ steps.diff.conclusion }}
@@ -99,6 +110,7 @@ jobs:
             echo "| Setting | Value |"
             echo "| --- | --- |"
             printf '| Distribution path | `%s` |\n' "$DIST_PATH"
+            printf '| Install command | `%s` |\n' "$INSTALL_COMMAND"
             printf '| Build command | `%s` |\n' "$BUILD_COMMAND"
             printf '| Node.js | `%s` |\n' "$NODE_VERSION"
             printf '| Result | **%s** |\n' "$JOB_RESULT"
