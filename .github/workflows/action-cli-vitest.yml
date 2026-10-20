@@ -30,15 +30,15 @@ jobs:
       - name: Export generated setup bundle for committing
         run: |
           printf 'SETUP_BUNDLE_BASE64='
-          base64 -w0 actions/setup-workspace-tools/dist/setup-workspace-tools.mjs
+          base64 -w0 actions/dist/setup-workspace-tools.mjs
           printf '\\n'
       - name: Run Vitest tests
         id: test
         run: npm run test:cli
       - name: Verify tracked action distributions
         run: |
-          git diff --exit-code -- actions/setup-workspace-tools/dist/ actions/release-draft-sync/index.mjs actions/validate-release-identity/index.mjs
-          test -f actions/setup-workspace-tools/dist/setup-workspace-tools.mjs
+          git diff --exit-code -- actions/dist/
+          test -f actions/dist/setup-workspace-tools.mjs
       - name: Write verification summary
         if: always()
         env:
