@@ -1,0 +1,122 @@
+name: Dispatch workflow and wait
+description: Dispatch another workflow, wait for its completion, and publish a linked job summary.
+inputs:
+  workflow:
+    description: Workflow filename (for example ci.yml)
+    required: true
+  ref:
+    description: Branch or tag on which to dispatch
+    required: true
+  token:
+    description: Token with actions write and actions read permissions
+    required: true
+  expected-sha:
+    description: Commit SHA expected for the dispatched run (defaults to resolved ref)
+    required: false
+    default: ""
+  timeout-minutes:
+    description: Maximum time to wait for the run
+    required: false
+    default: "30"
+outputs:
+  run-id:
+    description: Dispatched workflow run ID
+    value: ${{ steps.dispatch.outputs.run-id }}
+  run-url:
+    description: Dispatched workflow run URL
+    value: ${{ steps.dispatch.outputs.run-url }}
+  conclusion:
+    description: Dispatched workflow conclusion
+    value: ${{ steps.dispatch.outputs.conclusion }}
+  head-sha:
+    description: SHA validated by the dispatched run
+    value: ${{ steps.dispatch.outputs.head-sha }}
+runs:
+  using: composite
+  steps:
+    - id: dispatch
+      name: Dispatch, await, and summarize
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        WORKFLOW: ${{ inputs.workflow }}
+        TARGET_REF: ${{ inputs.ref }}
+        EXPECTED_SHA: ${{ inputs.expected-sha }}
+        TIMEOUT_MINUTES: ${{ inputs.timeout-minutes }}
+      run: |
+        set -euo pipefail
+        started="$(date +%s)"
+        deadline=$((started + TIMEOUT_MINUTES * 60))
+        run_id=""
+        run_url=""
+        conclusion="unknown"
+        head_sha=""
+        finish() {
+          result="$?"
+          {
+            echo "## Dispatched workflow"
+            echo
+            echo "| Item | Value |"
+            echo "| --- | --- |"
+            echo "| Workflow | \`$WORKFLOW\` |"
+            echo "| Ref | \`$TARGET_REF\` |"
+            echo "| Commit | \`$head_sha\` |"
+            echo "| Result | $conclusion |"
+            if [[ -n "$run_url" ]]; then
+              echo "| Run | [View dispatched workflow]($run_url) |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "conclusion=$conclusion" >> "$GITHUB_OUTPUT"
+          echo "head-sha=$head_sha" >> "$GITHUB_OUTPUT"
+          exit "$result"
+        }
+        trap finish EXIT
+        if [[ ! "$WORKFLOW" =~ ^[a-zA-Z0-9_-]+[.]ya?ml$ ]]; then
+          echo "::error::workflow must be a .yml/.yaml filename"
+          exit 1
+        fi
+        if [[ ! "$TIMEOUT_MINUTES" =~ ^[0-9]+$ ]] || (( TIMEOUT_MINUTES < 1 || TIMEOUT_MINUTES > 360 )); then
+          echo "::error::timeout-minutes must be 1..360"
+          exit 1
+        fi
+        if [[ "$WORKFLOW" == "$GITHUB_WORKFLOW_REF" ]]; then
+          echo "::error::Cannot dispatch the calling workflow"
+          exit 1
+        fi
+        head_sha="$EXPECTED_SHA"
+        if [[ -z "$head_sha" ]]; then
+          head_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TARGET_REF" --jq .sha)"
+        fi
+        if [[ ! "$head_sha" =~ ^[0-9a-f]{40}$ ]]; then
+          echo "::error::Expected a 40-character commit SHA"
+          exit 1
+        fi
+        # GitHub's dispatch endpoint doesn't return a run ID; correlate using
+        # workflow ID, exact head SHA, dispatch event, and run creation time.
+        created_after="$(date -u -d "@$((started - 5))" +%Y-%m-%dT%H:%M:%SZ)"
+        gh workflow run "$WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$TARGET_REF"
+        while (( $(date +%s) < deadline )); do
+          run_id="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$WORKFLOW" --event workflow_dispatch --limit 50 --json databaseId,headSha,createdAt --jq '[.[] | select(.headSha == "'"$head_sha"'" and .createdAt >= "'"$created_after"'")] | sort_by(.createdAt) | last | .databaseId // empty')"
+          [[ -n "$run_id" ]] && break
+          sleep 5
+        done
+        if [[ -z "$run_id" ]]; then
+          conclusion="not-found"
+          echo "::error::Dispatched workflow run was not found"
+          exit 1
+        fi
+        run_url="https://github.com/$GITHUB_REPOSITORY/actions/runs/$run_id"
+        echo "run-id=$run_id" >> "$GITHUB_OUTPUT"
+        echo "run-url=$run_url" >> "$GITHUB_OUTPUT"
+        while (( $(date +%s) < deadline )); do
+          state="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" --jq .status)"
+          if [[ "$state" == completed ]]; then
+            conclusion="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" --jq .conclusion)"
+            [[ "$conclusion" == success ]] || { echo "::error::Dispatched workflow concluded $conclusion"; exit 1; }
+            exit 0
+          fi
+          sleep 10
+        done
+        conclusion="timed-out"
+        echo "::error::Timed out waiting for dispatched workflow"
+        exit 1
