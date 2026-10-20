@@ -4,7 +4,7 @@ on:
     inputs:
       workspace-tools-source:
         type: string
-        default: registry:npm:0.2.0
+        default: registry:npm:latest
       package:
         type: string
         default: all
