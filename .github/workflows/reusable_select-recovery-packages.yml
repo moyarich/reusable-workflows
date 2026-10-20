@@ -57,6 +57,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          PACKAGES_JSON="$(jq -c '.included' <<< "$PACKAGES_JSON")"
           if [ "$SELECTOR" = all ]; then
             SELECTED="$PACKAGES_JSON"
           else
