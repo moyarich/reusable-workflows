@@ -51,8 +51,9 @@ jobs:
           node --input-type=module <<'NODE'
           import fs from "node:fs";
           import {execFileSync} from "node:child_process";
-          const workspaces=JSON.parse(execFileSync("npm",["query",".workspace","--workspaces","--include-workspace-root","--json"],{encoding:"utf8"}));
           const root=JSON.parse(fs.readFileSync("package.json","utf8"));
+          const patterns=Array.isArray(root.workspaces)?root.workspaces:root.workspaces?.packages??[];
+          const workspaces=patterns.length?JSON.parse(execFileSync("npm",["query",".workspace","--workspaces","--include-workspace-root","--json"],{encoding:"utf8"})):[];
           const rootPackage={...root,location:"."};
           const candidates=[...workspaces.filter(p=>p.location!==".")];
           if(root.name && root.version && root.private!==true) candidates.unshift(rootPackage);
