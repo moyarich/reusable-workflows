@@ -187,11 +187,12 @@ jobs:
                   scope = pkg.get("scope", "") if pkg.get("scoped") else "Unscoped"
                   reasons = list(dict.fromkeys(item.get("reasons", [])))
                   current = "; ".join(reasons) if reasons else "Matches the selected discovery filters"
-                  if pkg.get("private"):
-                      current = "Private package (intentional for non-published apps); " + current
+                  is_private = bool(pkg.get("private")) or any("private: true" in str(r) for r in reasons)
+                  if is_private:
+                      current = "Private package (often intentional for apps); " + current
                   guidance = []
                   if not pkg.get("publishable"):
-                      if pkg.get("private"):
+                      if is_private:
                           guidance.append("Only if publishing is intended: set private to false or remove it")
                       if not pkg.get("publishConfig") and any("publishConfig" in str(r) for r in reasons):
                           guidance.append("Only if using the require-publish-config discovery filter: add publishConfig")
