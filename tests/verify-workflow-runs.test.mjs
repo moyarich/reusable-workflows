@@ -79,7 +79,8 @@ test("verifier selects exact latest success and returns metadata", async () => {
 });
 
 test("invalid inputs fail closed", async () => {
-  await expect(verify({
+  await expect(
+    verify({
       workflows: ["../ci.yml"],
       repository: "example/repo",
       sha,
@@ -90,5 +91,6 @@ test("invalid inputs fail closed", async () => {
       request: async () => {
         throw Error("should not call API");
       },
-    })).rejects.toThrow(/Required workflow paths/);
+    }),
+  ).rejects.toThrow(/Required workflow paths/);
 });

@@ -73,34 +73,41 @@ test("dispatch uses returned run ID and accepts exact successful run", async () 
 });
 
 test("fails closed if dispatch doesn't return a run ID", async () => {
-  await expect(dispatchAndWait({ ...config, request: async () => response({}) })).rejects.toThrow(/workflow_run_id/);
+  await expect(
+    dispatchAndWait({ ...config, request: async () => response({}) }),
+  ).rejects.toThrow(/workflow_run_id/);
 });
 
 test("fails on non-success conclusion", async () => {
   let n = 0;
-  await expect(dispatchAndWait({
+  await expect(
+    dispatchAndWait({
       ...config,
       request: async () =>
         ++n === 1
           ? response({ workflow_run_id: 123 })
           : response({ ...run, conclusion: "neutral" }),
-    })).rejects.toThrow(/concluded neutral/);
+    }),
+  ).rejects.toThrow(/concluded neutral/);
 });
 
 test("fails closed on another run's SHA", async () => {
   let n = 0;
-  await expect(dispatchAndWait({
+  await expect(
+    dispatchAndWait({
       ...config,
       request: async () =>
         ++n === 1
           ? response({ workflow_run_id: 123 })
           : response({ ...run, head_sha: "b".repeat(40) }),
-    })).rejects.toThrow(/does not match/);
+    }),
+  ).rejects.toThrow(/does not match/);
 });
 
 test("times out without cancelling the dispatched run", async () => {
   let n = 0;
-  await expect(dispatchAndWait({
+  await expect(
+    dispatchAndWait({
       ...config,
       timeoutSeconds: 0.001,
       pollSeconds: 0.001,
@@ -109,5 +116,6 @@ test("times out without cancelling the dispatched run", async () => {
           ? response({ workflow_run_id: 123 })
           : response({ ...run, status: "in_progress", conclusion: null }),
       pause: async () => new Promise((resolve) => setTimeout(resolve, 3)),
-    })).rejects.toThrow(/timed out/);
+    }),
+  ).rejects.toThrow(/timed out/);
 });
