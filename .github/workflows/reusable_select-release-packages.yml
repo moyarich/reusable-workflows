@@ -94,6 +94,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          PACKAGES_JSON="$(jq -c '.included' <<< "$PACKAGES_JSON")"
 
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             if [ "$INPUT_PACKAGE" = "all" ]; then
