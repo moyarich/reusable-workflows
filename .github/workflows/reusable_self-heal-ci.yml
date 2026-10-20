@@ -7,6 +7,10 @@ on:
         description: Failed CI workflow run ID on the caller's default branch
         required: true
         type: number
+      ci-workflow:
+        description: CI workflow filename to dispatch and await on the repaired branch (must support workflow_dispatch)
+        type: string
+        default: ci.yml
       node-version:
         type: string
         default: "24"
@@ -110,15 +114,44 @@ jobs:
   verify:
     needs: repair
     if: needs.repair.outputs.changed == 'true'
+    runs-on: ubuntu-latest
     permissions:
+      actions: write
       contents: read
-      packages: read
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_node-ci.yml@v0.2.1
-    with:
-      checkout-ref: automation/ci-self-heal
-      package-directory: ${{ inputs.package-directory }}
-      node-version: ${{ inputs.node-version }}
-      browser-tests: ${{ inputs.browser-tests }}
+    steps:
+      - name: Dispatch and await caller CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_WORKFLOW: ${{ inputs.ci-workflow }}
+          REPAIR_BRANCH: automation/ci-self-heal
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$CI_WORKFLOW" =~ ^[A-Za-z0-9_-]+\\.ya?ml$ ]]; then
+            echo "::error::ci-workflow must be a workflow filename such as ci.yml"
+            exit 1
+          fi
+
+          repaired_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$REPAIR_BRANCH" --jq '.object.sha')"
+          started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          gh workflow run "$CI_WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$REPAIR_BRANCH"
+
+          run_id=""
+          for attempt in {1..30}; do
+            run_id="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$CI_WORKFLOW" \\
+              --branch "$REPAIR_BRANCH" --event workflow_dispatch \\
+              --json databaseId,headSha,createdAt --limit 20 \\
+              --jq '[.[] | select(.headSha == "'"$repaired_sha"'" and .createdAt >= "'"$started_at"'")] | first | .databaseId // empty')"
+            [[ -n "$run_id" ]] && break
+            sleep 5
+          done
+
+          if [[ -z "$run_id" ]]; then
+            echo "::error::Could not identify the dispatched CI run"
+            exit 1
+          fi
+          echo "Validating repaired commit $repaired_sha in run $run_id"
+          gh run watch "$run_id" --repo "$GITHUB_REPOSITORY" --exit-status
 
   propose:
     needs: [repair, verify]
@@ -138,7 +171,7 @@ jobs:
           if [[ -z "$existing" ]]; then
             gh pr create --repo "$GITHUB_REPOSITORY" --head "$branch" --base "$GITHUB_REF_NAME" \
               --title "fix(ci): self-heal recognized CI failure" \
-              --body "Automated repair for failed [CI run](https://github.com/$GITHUB_REPOSITORY/actions/runs/$RUN_ID), verified by reusable Node CI. Review required; no automatic merge."
+              --body "Automated repair for failed [CI run](https://github.com/$GITHUB_REPOSITORY/actions/runs/$RUN_ID), verified by the caller CI workflow. Review required; no automatic merge."
           else
-            gh pr comment "$existing" --repo "$GITHUB_REPOSITORY" --body "Updated repair verified by reusable Node CI for [CI run](https://github.com/$GITHUB_REPOSITORY/actions/runs/$RUN_ID)."
+            gh pr comment "$existing" --repo "$GITHUB_REPOSITORY" --body "Updated repair verified by caller CI for [CI run](https://github.com/$GITHUB_REPOSITORY/actions/runs/$RUN_ID)."
           fi
