@@ -4,14 +4,14 @@ Composite action to resolve the `@moyarich/workspace-tools` CLI for GitHub Actio
 
 ## Source policy
 
-| `workspace-tools-source` | Use case |
-| --- | --- |
-| `registry:npm:latest` | Default for reusable workflows; installs the npm `latest` dist-tag |
-| `registry:npm:0.2.2` | Example of a caller-selected, pinned npm release |
-| `checkout:current` | Build from the current checkout of the Workspace Tools repository |
-| `checkout:upstream;branch:main` | Explicitly test unreleased upstream changes |
-| `checkout:upstream;tag:<tag>` | Build from a specified upstream Git tag |
-| `checkout:upstream;sha:<40-character-sha>` | Build from an exact upstream commit |
+| `workspace-tools-source`                   | Use case                                                           |
+| ------------------------------------------ | ------------------------------------------------------------------ |
+| `registry:npm:latest`                      | Default for reusable workflows; installs the npm `latest` dist-tag |
+| `registry:npm:0.2.2`                       | Example of a caller-selected, pinned npm release                   |
+| `checkout:current`                         | Build from the current checkout of the Workspace Tools repository  |
+| `checkout:upstream;branch:main`            | Explicitly test unreleased upstream changes                        |
+| `checkout:upstream;tag:<tag>`              | Build from a specified upstream Git tag                            |
+| `checkout:upstream;sha:<40-character-sha>` | Build from an exact upstream commit                                |
 
 `registry:npm:latest` follows the npm dist-tag and may change between runs. Caller workflows can pin a tested version for reproducibility. The action does not silently fall back to a different source.
 
@@ -69,17 +69,17 @@ GitHub Actions choice inputs have static options. For an arbitrary pinned npm ve
 
 ## Inputs
 
-| Input | Default | Description |
-| --- | --- | --- |
+| Input                    | Default               | Description                                                                      |
+| ------------------------ | --------------------- | -------------------------------------------------------------------------------- |
 | `workspace-tools-source` | `registry:npm:latest` | npm dist-tag/version, local Workspace Tools checkout, or upstream branch/tag/SHA |
-| `build-command` | `npm run build` | Build command for checkout-based sources; not used for npm registry installs |
+| `build-command`          | `npm run build`       | Build command for checkout-based sources; not used for npm registry installs     |
 
 ## Outputs
 
-| Output | Description |
-| --- | --- |
+| Output    | Description                                                                                                                             |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | `bin-dir` | Absolute directory containing CLI entry points, including `discover-packages.mjs`, `workspace-release.mjs`, and `workspace-publish.mjs` |
-| `source` | Original selected source string |
+| `source`  | Original selected source string                                                                                                         |
 
 ## Requirements and behavior
 

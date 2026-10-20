@@ -9,7 +9,7 @@ Two new reusable workflows:
 
 Create a manual prepare-release.yml workflow in the calling repository:
 
-~~~yaml
+```yaml
 name: Prepare Release
 on:
   workflow_dispatch:
@@ -37,13 +37,13 @@ jobs:
       dry-run: ${{ inputs.dry-run }}
     secrets:
       workflow-token: ${{ secrets._WORKFLOW_TOKEN }}
-~~~
+```
 
 Use a GitHub App installation token or PAT with contents/pull-request write permissions. A PR pushed using only the default GITHUB_TOKEN does not trigger ordinary PR CI; a dedicated workflow-token enables CI. No token is required in dry-run.
 
 Create a merge trigger in the calling repository:
 
-~~~yaml
+```yaml
 name: Validate Merged Release
 on:
   pull_request:
@@ -56,7 +56,7 @@ jobs:
     permissions:
       contents: read
     uses: moyarich/reusable-workflows/.github/workflows/reusable_verify-release-preparation.yml@main
-~~~
+```
 
 ## Publication boundary
 

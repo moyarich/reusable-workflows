@@ -22,7 +22,9 @@ function resolveMdxHref(page: ContentPage, href?: string) {
     else segments.push(segment);
   }
 
-  const match = allPages.find((candidate) => candidate.sourcePath === segments.join("/"));
+  const match = allPages.find(
+    (candidate) => candidate.sourcePath === segments.join("/"),
+  );
   return match ? `${match.route}${fragment ? `#${fragment}` : ""}` : null;
 }
 
@@ -34,15 +36,21 @@ function MdxLink({
 }: ComponentPropsWithoutRef<"a"> & { page: ContentPage }) {
   const route = resolveMdxHref(page, href);
   return route ? (
-    <Link to={route} {...props}>{children}</Link>
+    <Link to={route} {...props}>
+      {children}
+    </Link>
   ) : (
-    <a href={href} {...props}>{children}</a>
+    <a href={href} {...props}>
+      {children}
+    </a>
   );
 }
 
 function ContentRoute() {
   const location = useLocation();
-  const page = allPages.find((candidate) => candidate.route === location.pathname);
+  const page = allPages.find(
+    (candidate) => candidate.route === location.pathname,
+  );
 
   if (!page) {
     return (
@@ -78,9 +86,14 @@ export function App() {
         <div>
           <p className="eyebrow">moyarich/reusable-workflows</p>
           <h1>Reusable GitHub Workflows</h1>
-          <p>Documentation and real, copyable caller workflows for the supported workflow and action surface.</p>
+          <p>
+            Documentation and real, copyable caller workflows for the supported
+            workflow and action surface.
+          </p>
         </div>
-        <a href="https://github.com/moyarich/reusable-workflows">GitHub repository</a>
+        <a href="https://github.com/moyarich/reusable-workflows">
+          GitHub repository
+        </a>
       </header>
 
       <div className="playground-layout">
@@ -91,7 +104,9 @@ export function App() {
               <p>{section.description}</p>
               <nav>
                 {section.pages.map((page) => (
-                  <Link key={page.route} to={page.route}>{page.title}</Link>
+                  <Link key={page.route} to={page.route}>
+                    {page.title}
+                  </Link>
                 ))}
               </nav>
             </section>

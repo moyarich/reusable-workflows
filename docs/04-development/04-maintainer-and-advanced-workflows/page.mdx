@@ -17,7 +17,6 @@ The `reusable_npm-prepare-release.yml`, `reusable_npm-release.yml`, and `reusabl
 
 The npm/CLI implementation is released separately as `@moyarich/workspace-tools`. The `0.2.0` reference below is the Workspace Tools CLI version, not the reusable-workflows release version.
 
-
 ## Workflow-file token for dynamic package dropdowns
 
 The reusable `reusable_sync-release-package-choices.yml` workflow discovers publishable workspace packages and updates the `workflow_dispatch` choices in release-draft, release, and publish YAML files. Because it **writes under `.github/workflows/`**, a standard `GITHUB_TOKEN` with `contents: write` is not sufficient for the failed GitHub App push scenario; provide a credential authorized to modify workflows.
@@ -41,7 +40,7 @@ jobs:
       workflow-token: ${{ secrets._WORKFLOW_TOKEN }}
 ```
 
-The *left* side (`workflow-token`) is the reusable workflow's declared secret. The *right* side (`secrets._WORKFLOW_TOKEN`) is the caller's secret name, which can be different in each repository. Use **explicit mapping**, not `secrets: inherit`, when callers should choose independent secret names.
+The _left_ side (`workflow-token`) is the reusable workflow's declared secret. The _right_ side (`secrets._WORKFLOW_TOKEN`) is the caller's secret name, which can be different in each repository. Use **explicit mapping**, not `secrets: inherit`, when callers should choose independent secret names.
 
 The reusable workflow reads `${{ secrets.workflow-token }}` only when a changed workflow file must be pushed. A missing authorized token produces a clear error; discovering packages or running an unchanged synchronization does not require it. Do not replace the secret with `${{ github.token }}` for this write operation. Grant the token access only to necessary repositories, rotate it routinely, and protect the calling workflow from untrusted pull-request execution.
 
@@ -76,7 +75,6 @@ moyarich/reusable-workflows
   ↓
 @moyarich/workspace-tools
 ```
-
 
 ## Playground
 

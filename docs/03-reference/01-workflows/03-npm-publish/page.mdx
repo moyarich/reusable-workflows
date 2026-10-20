@@ -51,17 +51,17 @@ The `npm-token` secret is required when publishing to npm using token authentica
 
 ## Common inputs
 
-| Input | Default | Purpose |
-| --- | --- | --- |
-| `package-directory` | Required for reusable calls | Root `.`, workspace directory, or package name |
-| `version-mode` | `package-json` | `package-json` or `exact` |
-| `exact-version` | Empty | Required with `version-mode: exact` |
-| `registry` | `github` | `npm`, `github`, or `all` |
-| `tag` | Suggested | npm distribution tag override |
-| `dry-run` | `true` | Preview without publishing |
-| `verify-git-tag` | `true` | Verify canonical Git tag |
-| `workspace-tools-source` | `registry:npm:0.2.0` | Workspace Tools CLI source |
-| `show-input-summary` | `false` (reusable call) | Optional additional parameter summary |
+| Input                    | Default                     | Purpose                                        |
+| ------------------------ | --------------------------- | ---------------------------------------------- |
+| `package-directory`      | Required for reusable calls | Root `.`, workspace directory, or package name |
+| `version-mode`           | `package-json`              | `package-json` or `exact`                      |
+| `exact-version`          | Empty                       | Required with `version-mode: exact`            |
+| `registry`               | `github`                    | `npm`, `github`, or `all`                      |
+| `tag`                    | Suggested                   | npm distribution tag override                  |
+| `dry-run`                | `true`                      | Preview without publishing                     |
+| `verify-git-tag`         | `true`                      | Verify canonical Git tag                       |
+| `workspace-tools-source` | `registry:npm:0.2.0`        | Workspace Tools CLI source                     |
+| `show-input-summary`     | `false` (reusable call)     | Optional additional parameter summary          |
 
 The reusable workflow default registry remains `github`; the example explicitly selects `npm`.
 

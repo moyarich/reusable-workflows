@@ -11,4 +11,4 @@ jobs:
       packages-json: '[{"directory":".","name":"example","version":"0.1.0","private":false,"publishable":true}]'
       package: all
       event-name: workflow_dispatch
-      after-sha: '${{ github.sha }}'
+      after-sha: "${{ github.sha }}"

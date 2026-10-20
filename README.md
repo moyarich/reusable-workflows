@@ -45,14 +45,14 @@ For additional configuration, permissions, and workflow inputs, see the [Getting
 
 **[Explore the documentation](https://moyarich.github.io/reusable-workflows/)**
 
-| Resource | Description |
-|---|---|
-| [Getting Started](docs/01-getting-started/page.mdx) | Set up your first reusable workflow. |
-| [Available Workflows](docs/02-workflows/page.mdx) | Discover workflows by purpose and capability. |
+| Resource                                                      | Description                                                  |
+| ------------------------------------------------------------- | ------------------------------------------------------------ |
+| [Getting Started](docs/01-getting-started/page.mdx)           | Set up your first reusable workflow.                         |
+| [Available Workflows](docs/02-workflows/page.mdx)             | Discover workflows by purpose and capability.                |
 | [Workflow Reference](docs/03-reference/01-workflows/page.mdx) | Explore supported inputs, secrets, permissions, and outputs. |
-| [Examples](examples/) | Browse practical, copyable workflow configurations. |
-| [Release Drafter](docs/release-drafter-dispatch/page.mdx) | Configure release drafting and synchronization. |
-| [CI Self-Healing](examples/ci-self-heal/page.mdx) | Explore automated CI recovery and safeguards. |
+| [Examples](examples/)                                         | Browse practical, copyable workflow configurations.          |
+| [Release Drafter](docs/release-drafter-dispatch/page.mdx)     | Configure release drafting and synchronization.              |
+| [CI Self-Healing](examples/ci-self-heal/page.mdx)             | Explore automated CI recovery and safeguards.                |
 
 ## Releases
 

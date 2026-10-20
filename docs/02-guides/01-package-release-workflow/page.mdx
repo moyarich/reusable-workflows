@@ -575,9 +575,9 @@ Release tooling should preserve these invariants:
 
 The repository has independent public release lines.
 
-| Surface                    | Version source          | Immutable tag                         | Changelog                |
-| -------------------------- | ----------------------- | ------------------------------------- | ------------------------ |
-| npm package                | `package.json`          | `@moyarich/workspace-tools@<version>` | `CHANGELOG.md`           |
+| Surface                    | Version source    | Immutable tag                         | Changelog      |
+| -------------------------- | ----------------- | ------------------------------------- | -------------- |
+| npm package                | `package.json`    | `@moyarich/workspace-tools@<version>` | `CHANGELOG.md` |
 | reusable workflows/actions | `release version` | `workflows-v<version>`                | `CHANGELOG.md` |
 
 Reusable workflow releases also use `reusable_release.yml`, but their release identity is resolved by `workflows-release.yml`. The workflow release remains a GitHub Release draft after tagging, and the optional `workflows-v<major>` alias points consumers at the latest compatible workflow release.

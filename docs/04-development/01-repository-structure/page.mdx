@@ -165,11 +165,11 @@ The remaining `reusable_*.yml` workflows stay as workflows for now. Their shell/
 
 Reusable Workflows has three separate consumer-facing surfaces:
 
-| Surface           | Repository location                | Consumer syntax                                                   |
-| ----------------- | ---------------------------------- | ----------------------------------------------------------------- |
+| Surface           | Repository location                | Consumer syntax                                                      |
+| ----------------- | ---------------------------------- | -------------------------------------------------------------------- |
 | Reusable workflow | `.github/workflows/reusable_*.yml` | `moyarich/reusable-workflows/.github/workflows/reusable_*.yml@<ref>` |
 | GitHub Action     | `actions/<action>/action.yml`      | `moyarich/reusable-workflows/actions/<action>@<ref>`                 |
-| npm CLI           | `dist/bin/*.mjs`                   | installed through `@moyarich/workspace-tools`                     |
+| npm CLI           | `dist/bin/*.mjs`                   | installed through `@moyarich/workspace-tools`                        |
 
 Action manifests are intentionally separate from compiled runtimes. The manifest declares the GitHub Action interface, while `dist/actions/<action>/index.mjs` is the committed Node.js bundle executed by GitHub.
 

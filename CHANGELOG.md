@@ -26,7 +26,6 @@ User-facing changes to the reusable workflows and standalone GitHub Actions are 
 - **Safer automated repairs** — Retry npm lockfile and Prettier self-healing after concurrent branch updates.
 - **Current GitHub Actions support** — Update official Actions and Node.js compatibility; validate release orchestration with actionlint.
 
-
 ## [0.2.2]
 
 ### Multi-package publishing
