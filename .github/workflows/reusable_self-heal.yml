@@ -18,14 +18,6 @@ on:
         description: Workflow filename (not the self-heal caller) to dispatch and await after successful repairs
         type: string
         required: true
-      required-workflow-run-name:
-        description: Optional filter against API workflow run .name (not display_title); leave empty unless the workflow's name is known
-        type: string
-        default: ''
-      required-workflow-correlation-input:
-        description: Optional dispatch input for a unique run token; target must use this input in top-level run-name
-        type: string
-        default: ''
       required-workflow-sha-input:
         description: Optional workflow_dispatch input name used to pass the healed commit SHA; empty disables injection
         type: string
@@ -157,96 +149,18 @@ jobs:
             exit 1
           fi
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
-      - name: Build required workflow inputs
-        id: workflow-inputs
-        env:
-          INPUTS: ${{ inputs.required-workflow-inputs }}
-          SHA_INPUT: ${{ inputs.required-workflow-sha-input }}
-          HEALED_SHA: ${{ steps.head.outputs.sha }}
-          CORRELATION_INPUT: ${{ inputs.required-workflow-correlation-input }}
-          CORRELATION_VALUE: ${{ github.run_id }}-${{ github.run_attempt }}
-          REQUIRED_WORKFLOW: ${{ inputs.required-workflow }}
-        run: |
-          set -euo pipefail
-          jq -e 'type == "object" and (all(.[]; type == "string" or type == "number" or type == "boolean"))' <<< "$INPUTS" >/dev/null || {
-            echo "::error::Required workflow inputs must be a JSON object of scalar values"
-            exit 1
-          }
-          INPUTS="$(jq -c 'with_entries(.value |= tostring)' <<< "$INPUTS")"
-          [[ "$REQUIRED_WORKFLOW" =~ ^[A-Za-z0-9_.-]+[.]ya?ml$ ]] || {
-            echo "::error::required-workflow must be a workflow filename"
-            exit 1
-          }
-          case "$REQUIRED_WORKFLOW" in
-            reusable_self-heal.yml|self-heal-ci.yml|self-heal-auto.yml|self-heal.yml)
-              echo "::error::Refusing to dispatch self-heal recursively"
-              exit 1 ;;
-          esac
-          if [[ -n "$SHA_INPUT" ]]; then
-            [[ "$SHA_INPUT" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]] || {
-              echo "::error::Invalid required-workflow-sha-input"; exit 1;
-            }
-            result="$(jq -cn --argjson obj "$INPUTS" --arg key "$SHA_INPUT" --arg sha "$HEALED_SHA" '$obj + {($key): $sha}')"
-          else
-            result="$(jq -c . <<< "$INPUTS")"
-          fi
-          if [[ -n "$CORRELATION_INPUT" ]]; then
-            [[ "$CORRELATION_INPUT" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]] || {
-              echo "::error::Invalid required-workflow-correlation-input"
-              exit 1
-            }
-            result="$(jq -cn --argjson obj "$result" --arg key "$CORRELATION_INPUT" --arg val "$CORRELATION_VALUE" '$obj + {($key): $val}')"
-          fi
-          echo "json=$result" >> "$GITHUB_OUTPUT"
-      - name: Dispatch required workflow for healed head and wait
+      - name: Dispatch and verify required workflow
         id: validate
-        uses: the-actions-org/workflow-dispatch@3133c5d135c7dbe4be4f9793872b6ef331b53bc7 # v4
+        uses: moyarich/reusable-workflows/actions/workflow-dispatch@fix/self-heal-branch-sha-guard
         with:
           workflow: ${{ inputs.required-workflow }}
-          run-name: ${{ inputs.required-workflow-run-name }}
-          ref: ${{ inputs.target-branch }}
-          inputs: ${{ steps.workflow-inputs.outputs.json }}
+          branch: ${{ inputs.target-branch }}
+          sha: ${{ steps.head.outputs.sha }}
+          inputs: ${{ inputs.required-workflow-inputs }}
+          sha-input: ${{ inputs.required-workflow-sha-input }}
           token: ${{ github.token }}
-          wait-for-completion: true
-          wait-for-completion-timeout: 5m
-      - name: Validate completed required workflow run
-        if: ${{ always() && steps.head.outcome == 'success' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RUN_ID: ${{ steps.validate.outputs.workflow-id }}
-          EXPECTED_SHA: ${{ steps.head.outputs.sha }}
-          TARGET_BRANCH: ${{ inputs.target-branch }}
-          REQUIRED_WORKFLOW: ${{ inputs.required-workflow }}
-          REPORTED_CONCLUSION: ${{ steps.validate.outputs.workflow-conclusion }}
-          CORRELATION_INPUT: ${{ inputs.required-workflow-correlation-input }}
-          CORRELATION_VALUE: ${{ github.run_id }}-${{ github.run_attempt }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          [[ "$RUN_ID" =~ ^[0-9]+$ ]] || { echo "::error::Missing dispatched workflow run ID"; exit 1; }
-          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" > "$RUNNER_TEMP/required-run.json"
-          jq -e \
-            --arg correlation "$CORRELATION_VALUE" \
-            --arg correlation_input "$CORRELATION_INPUT" \
-            --arg sha "$EXPECTED_SHA" \
-            --arg branch "$TARGET_BRANCH" \
-            --arg workflow ".github/workflows/$REQUIRED_WORKFLOW" \
-            --argjson id "$RUN_ID" \
-            --arg reported "$REPORTED_CONCLUSION" \
-            '.id == $id and .event == "workflow_dispatch" and
-             .path == $workflow and .head_sha == $sha and
-             .head_branch == $branch and .status == "completed" and
-             .conclusion == "success" and $reported == "success" and
-             ($correlation_input == "" or (.display_title | contains($correlation)))' \
-            "$RUNNER_TEMP/required-run.json" >/dev/null || {
-              echo "::error::Required workflow identity, SHA, branch, or success conclusion mismatch"
-              exit 1
-            }
-      - name: Require verified successful workflow
-        if: ${{ always() && steps.head.outcome == 'success' && (steps.validate.outcome != 'success' || steps.validate.outputs.workflow-conclusion != 'success' || steps.workflow-inputs.outcome != 'success') }}
-        run: |
-          echo "::error::The dispatched required workflow did not complete successfully"
-          exit 1
+          timeout-seconds: '300'
+          poll-seconds: '15'
       - name: Link required workflow report
         if: always()
         env:
