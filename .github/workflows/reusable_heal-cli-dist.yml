@@ -127,15 +127,24 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ steps.validation.outputs.workflow-id }}
           EXPECTED_SHA: ${{ steps.head.outputs.sha }}
+          REQUIRED_WORKFLOW: ${{ inputs.required-workflow }}
+          TARGET_BRANCH: ${{ inputs.target-branch }}
         shell: bash
         run: |
           set -euo pipefail
           [[ "$RUN_ID" =~ ^[0-9]+$ ]] || { echo "::error::Missing required workflow run ID"; exit 1; }
-          actual="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq '.head_sha')"
-          if [[ "$actual" != "$EXPECTED_SHA" ]]; then
-            echo "::error::Required workflow ran at $actual instead of $EXPECTED_SHA"
-            exit 1
-          fi
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" > "$RUNNER_TEMP/required-run.json"
+          jq -e --arg sha "$EXPECTED_SHA" \
+            --arg path ".github/workflows/$REQUIRED_WORKFLOW" \
+            --arg branch "$TARGET_BRANCH" \
+            --argjson id "$RUN_ID" \
+            '.id == $id and .path == $path and .event == "workflow_dispatch" and
+             .head_branch == $branch and .head_sha == $sha and
+             .status == "completed" and .conclusion == "success"' \
+            "$RUNNER_TEMP/required-run.json" >/dev/null || {
+              echo "::error::Required workflow identity, SHA, or success conclusion mismatch"
+              exit 1
+            }
 
       - name: Write healing summary
         if: always()
