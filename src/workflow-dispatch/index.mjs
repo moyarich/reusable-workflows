@@ -96,11 +96,12 @@ export async function dispatchAndWait({
     try {
       const response = await request(`${base}/actions/runs/${id}`, { headers });
       if (!response.ok) throw new Error(`Run lookup HTTP ${response.status}`);
-      run = assertRun(await response.json(), { id, sha, branch, workflow });
       failures = 0;
+      run = await response.json();
     } catch (error) {
       if (++failures >= 3) throw error;
     }
+    if (run) assertRun(run, { id, sha, branch, workflow });
     if (run?.status === "completed") {
       if (run.conclusion !== "success")
         throw new Error(`Required workflow ${id} concluded ${run.conclusion}`);
