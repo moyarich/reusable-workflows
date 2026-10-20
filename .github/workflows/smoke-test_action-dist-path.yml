@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - "actions/**"
-      - ".github/workflows/action-dist-path-smoke-test.yml"
+      - ".github/workflows/smoke-test_action-dist-path.yml"
   workflow_dispatch:
 
 permissions:
