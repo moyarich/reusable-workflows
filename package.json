@@ -8,9 +8,9 @@
   "scripts": {
     "dev": "npm run dev --workspace @moyarich/reusable-workflows-playground",
     "build:playground": "npm run build --workspace @moyarich/reusable-workflows-playground",
-    "build:cli": "vite build --config vite.config.ts",
+    "build:cli": "vite build --config vite.config.ts --mode setup-workspace-tools && vite build --config vite.config.ts --mode release-draft-sync && vite build --config vite.config.ts --mode validate-release-identity",
     "test:cli": "vitest run tests/setup-workspace-tools.test.ts",
-    "check:cli-dist": "npm run build:cli && git diff --exit-code -- dist/bin/"
+    "check:cli-dist": "npm run build:cli && git diff --exit-code -- actions/setup-workspace-tools/dist/ actions/release-draft-sync/index.mjs actions/validate-release-identity/index.mjs"
   },
   "engines": {
     "node": ">=24"
