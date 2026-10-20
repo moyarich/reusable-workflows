@@ -32,7 +32,7 @@ runs:
       shell: bash
       env:
         SOURCE: ${{ inputs.workspace-tools-source }}
-        SETUP_CLI: ${{ github.action_path }}/../../dist/bin/setup-workspace-tools.mjs
+        SETUP_CLI: ${{ github.action_path }}/dist/setup-workspace-tools.mjs
       run: node "$SETUP_CLI" --workspace-tools-source "$SOURCE" --mode resolve
 
     - name: Setup Node.js for published package
@@ -114,7 +114,7 @@ runs:
       shell: bash
       env:
         SOURCE: ${{ inputs.workspace-tools-source }}
-        SETUP_CLI: ${{ github.action_path }}/../../dist/bin/setup-workspace-tools.mjs
+        SETUP_CLI: ${{ github.action_path }}/dist/setup-workspace-tools.mjs
       run: |
         set -euo pipefail
         args=(--workspace-tools-source "$SOURCE" --mode bin-dir)
