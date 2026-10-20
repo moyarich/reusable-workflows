@@ -4,7 +4,7 @@ on:
     paths:
       - config/vscode-registries.yml
       - .github/workflows/reusable_vscode-publish.yml
-      - .github/workflows/extension-registry-self-test.yml
+      - .github/workflows/self-test_extension-registry.yml
 permissions:
   contents: read
 jobs:
@@ -15,7 +15,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Lint VSIX publication workflow
-        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.9 -ignore 'shellcheck reported issue' .github/workflows/reusable_vscode-publish.yml .github/workflows/extension-registry-self-test.yml
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.9 -ignore 'shellcheck reported issue' .github/workflows/reusable_vscode-publish.yml .github/workflows/self-test_extension-registry.yml
       - name: Validate extension registries and caller overrides
         shell: bash
         run: |
