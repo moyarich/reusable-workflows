@@ -153,3 +153,8 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Committed shared JavaScript action bundles
+!/actions/dist/
+/actions/dist/*
+!/actions/dist/path-smoke-test.mjs
