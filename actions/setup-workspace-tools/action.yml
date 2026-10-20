@@ -5,7 +5,7 @@ inputs:
   source:
     description: "registry:npm:<version>, checkout:current, or checkout:upstream;branch:<ref> (tag: and sha: also supported)"
     required: false
-    default: registry:npm:0.2.0
+    default: registry:npm:latest
   build-command:
     description: Build command used when source is checkout:current or checkout:upstream.
     required: false
@@ -34,7 +34,7 @@ runs:
           registry:npm:*)
             mode=registry
             value="${SOURCE#registry:npm:}"
-            [[ "$value" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.+-]+)?$ ]] || { echo "::error::Expected an explicit npm version"; exit 1; }
+            [[ "$value" == "latest" || "$value" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.+-]+)?$ ]] || { echo "::error::Expected npm latest or an explicit npm version"; exit 1; }
             ;;
           checkout:upstream\;branch:*|checkout:upstream\;tag:*|checkout:upstream\;sha:*)
             mode=upstream
