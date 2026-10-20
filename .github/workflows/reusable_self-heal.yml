@@ -208,7 +208,7 @@ jobs:
           inputs: ${{ steps.workflow-inputs.outputs.json }}
           token: ${{ github.token }}
           wait-for-completion: true
-          wait-for-completion-timeout: 30m
+          wait-for-completion-timeout: 5m
       - name: Validate completed required workflow run
         if: ${{ always() && steps.head.outcome == 'success' }}
         env:
