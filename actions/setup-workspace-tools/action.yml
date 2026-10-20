@@ -3,9 +3,9 @@ description: Resolve @moyarich/workspace-tools from the npm registry, current ch
 
 inputs:
   workspace-tools-source:
-    description: "registry:npm:<version>, checkout:current, or checkout:upstream;branch:<ref> (tag: and sha: also supported)"
+    description: "auto (current in moyarich/workspace-tools, upstream main elsewhere), registry:npm:<version>, checkout:current, or checkout:upstream;branch:<ref>"
     required: false
-    default: registry:npm:latest
+    default: auto
   build-command:
     description: Build command used when source is checkout:current or checkout:upstream.
     required: false
@@ -27,11 +27,30 @@ runs:
       with:
         node-version: "24"
 
+    - name: Choose Workspace Tools source
+      id: source
+      shell: bash
+      env:
+        REQUESTED_SOURCE: ${{ steps.source.outputs.source }}
+        CALLER_REPOSITORY: ${{ github.repository }}
+      run: |
+        set -euo pipefail
+        source="$REQUESTED_SOURCE"
+        if [[ -z "$source" || "$source" == auto ]]; then
+          if [[ "$CALLER_REPOSITORY" == moyarich/workspace-tools ]]; then
+            source=checkout:current
+          else
+            source='checkout:upstream;branch:main'
+          fi
+        fi
+        echo "source=$source" >> "$GITHUB_OUTPUT"
+        echo "Workspace Tools source: $source"
+
     - name: Resolve typed source
       id: typed
       shell: bash
       env:
-        SOURCE: ${{ inputs.workspace-tools-source }}
+        SOURCE: ${{ steps.source.outputs.source }}
         SETUP_CLI: ${{ github.action_path }}/../dist/setup-workspace-tools.mjs
       run: node "$SETUP_CLI" --workspace-tools-source "$SOURCE" --mode resolve
 
@@ -113,7 +132,7 @@ runs:
       name: Resolve CLI directory
       shell: bash
       env:
-        SOURCE: ${{ inputs.workspace-tools-source }}
+        SOURCE: ${{ steps.source.outputs.source }}
         SETUP_CLI: ${{ github.action_path }}/../dist/setup-workspace-tools.mjs
       run: |
         set -euo pipefail
