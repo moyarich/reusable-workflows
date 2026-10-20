@@ -57,7 +57,7 @@ on:
       workspace-tools-source:
         description: Workspace Tools source — published package or current caller checkout
         required: true
-        default: registry:npm:latest
+        default: auto
         type: string
       node-version:
         description: Node.js version
@@ -103,7 +103,7 @@ on:
       workspace-tools-source:
         description: Workspace Tools source — published package or current caller checkout
         required: false
-        default: registry:npm:latest
+        default: auto
         type: string
       node-version:
         required: false
