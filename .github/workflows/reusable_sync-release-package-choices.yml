@@ -124,14 +124,16 @@ jobs:
           yaml.indent(mapping=2, sequence=4, offset=2)
 
           for filename in files:
-              packages = publish_packages if Path(filename).name == "publish.yml" else release_packages
+              if not isinstance(filename, str):
+                  raise SystemExit(f"Invalid workflow path: {filename}")
+              path = Path(filename)
+              packages = publish_packages if path.name == "publish.yml" else release_packages
               if not packages:
                   print(f"Preserved {filename}: no packages matched the selection policy")
                   continue
               directories = sorted({package["directory"] for package in packages})
               options = ["all", *directories]
-              path = Path(filename)
-              if (not isinstance(filename, str) or path.is_absolute()
+              if (path.is_absolute()
                       or ".." in path.parts or path.suffix not in (".yml", ".yaml")
                       or path.parts[:2] != (".github", "workflows")):
                   raise SystemExit(f"Invalid workflow path: {filename}")
