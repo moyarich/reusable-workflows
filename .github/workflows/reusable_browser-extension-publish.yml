@@ -24,6 +24,10 @@ on:
         description: chrome, firefox, or all
         type: string
         default: all
+      chrome-publisher-id:
+        description: Chrome Web Store publisher ID for API V2
+        type: string
+        default: ""
       chrome-extension-id:
         description: Chrome Web Store extension ID
         type: string
@@ -148,22 +152,33 @@ jobs:
       - name: Publish Chrome Web Store
         if: ${{ !inputs.dry-run && (inputs.registry == 'chrome' || inputs.registry == 'all') }}
         env:
+          PUBLISHER_ID: ${{ inputs.chrome-publisher-id }}
           EXTENSION_ID: ${{ inputs.chrome-extension-id }}
           CLIENT_ID: ${{ secrets.chrome-client-id }}
           CLIENT_SECRET: ${{ secrets.chrome-client-secret }}
           REFRESH_TOKEN: ${{ secrets.chrome-refresh-token }}
         run: |
           set -euo pipefail
-          for value in "$EXTENSION_ID" "$CLIENT_ID" "$CLIENT_SECRET" "$REFRESH_TOKEN"; do
+          for value in "$PUBLISHER_ID" "$EXTENSION_ID" "$CLIENT_ID" "$CLIENT_SECRET" "$REFRESH_TOKEN"; do
             test -n "$value" || { echo "::error::Chrome publishing credentials and extension ID required"; exit 1; }
           done
           token_response="$(curl --fail-with-body -sS -X POST https://oauth2.googleapis.com/token --data-urlencode "client_id=$CLIENT_ID" --data-urlencode "client_secret=$CLIENT_SECRET" --data-urlencode "refresh_token=$REFRESH_TOKEN" --data-urlencode "grant_type=refresh_token")"
           token="$(jq -r '.access_token // empty' <<< "$token_response")"
           test -n "$token" || { echo "::error::No Chrome OAuth access token"; exit 1; }
-          response="$(curl --fail-with-body -sS -X PUT -H "Authorization: Bearer $token" -H "x-goog-api-version: 2" -H "Content-Type: application/zip" --data-binary @extension.zip "https://www.googleapis.com/upload/chromewebstore/v1.1/items/$EXTENSION_ID")"
-          status="$(jq -r '.uploadState // empty' <<< "$response")"
-          test "$status" = SUCCESS || { echo "::error::Chrome upload not successful: $status"; exit 1; }
-          curl --fail-with-body -sS -X POST -H "Authorization: Bearer $token" -H "x-goog-api-version: 2" "https://www.googleapis.com/chromewebstore/v1.1/items/$EXTENSION_ID/publish" | jq -e '.status | index("OK") or index("PUBLISHED_WITH_FRICTION")'
+          response="$(curl --fail-with-body -sS -X POST -H "Authorization: Bearer $token" -H "Content-Type: application/zip" --data-binary @extension.zip "https://chromewebstore.googleapis.com/upload/v2/publishers/$PUBLISHER_ID/items/$EXTENSION_ID:upload")"
+          state="$(jq -r '.uploadState // empty' <<< "$response")"
+          if [ "$state" = UPLOAD_IN_PROGRESS ]; then
+            for attempt in {1..30}; do
+              sleep 10
+              response="$(curl --fail-with-body -sS -H "Authorization: Bearer $token" "https://chromewebstore.googleapis.com/v2/publishers/$PUBLISHER_ID/items/$EXTENSION_ID:fetchStatus")"
+              state="$(jq -r '.lastAsyncUploadState // .uploadState // empty' <<< "$response")"
+              [ "$state" != UPLOAD_IN_PROGRESS ] && break
+            done
+          fi
+          [ "$state" = SUCCESS ] || { echo "::error::Chrome upload did not succeed: $state"; exit 1; }
+          curl --fail-with-body -sS -X POST -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"publishType":"DEFAULT_PUBLISH"}' "https://chromewebstore.googleapis.com/v2/publishers/$PUBLISHER_ID/items/$EXTENSION_ID:publish" > /tmp/chrome-publish-response.json
+          jq . /tmp/chrome-publish-response.json
+
       - name: Submit Firefox Add-ons listing
         if: ${{ !inputs.dry-run && (inputs.registry == 'firefox' || inputs.registry == 'all') }}
         env:
