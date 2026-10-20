@@ -14,7 +14,7 @@ on:
       node-version:
         type: string
         default: "24"
-      ci-workflow:
+      required-workflow:
         type: string
         default: ci.yml
       dist-path:
@@ -144,7 +144,7 @@ jobs:
         id: validate
         uses: the-actions-org/workflow-dispatch@v4
         with:
-          workflow: ${{ inputs.ci-workflow }}
+          workflow: ${{ inputs.required-workflow }}
           ref: ${{ inputs.target-branch }}
           inputs: >-
             {"checkout-sha":"${{ steps.head.outputs.sha }}"}
