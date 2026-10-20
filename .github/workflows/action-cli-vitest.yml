@@ -27,14 +27,6 @@ jobs:
       - name: Build action CLI distributions
         id: build
         run: npm run build:cli
-      - name: Export generated bundles for committing
-        run: |
-          for file in actions/dist/*.mjs; do
-            echo "BUNDLE-BEGIN:$file"
-            base64 -w0 "$file"
-            echo
-            echo "BUNDLE-END:$file"
-          done
       - name: Run Vitest tests
         id: test
         run: npm run test:cli
@@ -42,6 +34,9 @@ jobs:
         run: |
           git diff --exit-code -- actions/dist/
           test -f actions/dist/setup-workspace-tools.mjs
+          test -f actions/dist/release-draft-sync.mjs
+          test -f actions/dist/validate-release-identity.mjs
+          test -z "$(git ls-files --others --exclude-standard -- actions/dist/)"
       - name: Write verification summary
         if: always()
         env:
@@ -51,7 +46,7 @@ jobs:
           {
             echo "## Action CLI build and Vitest"
             echo
-            echo 'Source: `src/` | Output: `actions/*`'
+            echo 'Source: `src/actions/` | Output: `actions/dist/`'
             echo
             echo "Build and tests are run against Node.js 24."
           } >> "$GITHUB_STEP_SUMMARY"
