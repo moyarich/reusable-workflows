@@ -25,8 +25,10 @@ jobs:
       - name: Install dependencies
         run: npm install --ignore-scripts --no-package-lock --no-audit --no-fund
       - name: Build action CLI distributions
+        id: build
         run: npm run build:cli
       - name: Run Vitest tests
+        id: test
         run: npm run test:cli
       - name: Verify tracked action distributions
         run: |
