@@ -26,10 +26,10 @@ on:
         required: false
         default: registry:npm:latest
       require-publish-config:
-        description: Applies only to npm publishing selectors.
+        description: Require publishConfig for npm choices (opt-in; npm does not require it).
         type: boolean
         required: false
-        default: true
+        default: false
       include-private-release:
         description: Include private packages in GitHub Release selectors.
         type: boolean
