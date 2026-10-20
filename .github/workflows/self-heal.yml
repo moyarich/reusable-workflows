@@ -7,6 +7,8 @@ on:
       - "src/build-actions.mjs"
       - "vite.config.ts"
       - "package.json"
+      - ".prettierignore"
+      - "tests/**"
       - "actions/dist/**"
       - ".github/workflows/self-heal.yml"
   workflow_dispatch:
@@ -39,6 +41,18 @@ jobs:
       - name: Install build dependencies
         run: npm install --ignore-scripts --no-package-lock --no-audit --no-fund
 
+      - name: Format editable action sources with Prettier
+        id: prettier
+        shell: bash
+        run: |
+          set -euo pipefail
+          node_modules/.bin/prettier --write src/actions/ src/build-actions.mjs vite.config.ts tests/ --ignore-path .prettierignore
+          if [ -n "$(git status --porcelain -- src/actions/ src/build-actions.mjs vite.config.ts tests/)" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build action distribution
         run: npm run build:cli
 
@@ -51,6 +65,7 @@ jobs:
         run: |
           set -euo pipefail
           git add -f -- actions/dist/
+          git add -- src/actions/ src/build-actions.mjs vite.config.ts tests/
           if git diff --cached --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "Action distribution is already current."
@@ -59,7 +74,7 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "build: update action distribution"
+          git commit -m "style(build): format sources and update action distribution"
           git push origin "HEAD:refs/heads/${GITHUB_REF_NAME}"
           echo "changed=true" >> "$GITHUB_OUTPUT"
 
@@ -77,6 +92,7 @@ jobs:
         shell: bash
         env:
           BUILD: ${{ steps.commit.outcome }}
+          FORMATTED: ${{ steps.prettier.outputs.changed }}
           CHANGED: ${{ steps.commit.outputs.changed }}
           RESULT: ${{ job.status }}
         run: |
@@ -87,6 +103,7 @@ jobs:
             echo "| --- | --- |"
             echo '| Source | `src/actions/` |'
             echo '| Distribution | `actions/dist/` |'
+            echo "| Source formatting changed | ${FORMATTED:-not completed} |"
             echo "| Commit step | $BUILD |"
             echo "| Distribution updated | ${CHANGED:-not completed} |"
             echo "| Result | $RESULT |"
