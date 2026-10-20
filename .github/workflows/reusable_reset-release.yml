@@ -21,6 +21,10 @@ on:
         required: false
         default: main
         type: string
+      tag-prefix:
+        description: Optional release tag prefix override, e.g. v for root VS Code extensions
+        type: string
+        default: ""
       match-mode:
         description: Find release by package version or exact tag
         required: false
@@ -68,6 +72,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           SELECTOR: ${{ inputs.package }}
           TARGET_BRANCH: ${{ inputs.target-branch }}
+          CUSTOM_TAG_PREFIX: ${{ inputs.tag-prefix }}
         shell: bash
         run: |
           set -euo pipefail
@@ -98,7 +103,9 @@ jobs:
           VERSION="$(jq -er '.version' <<< "$MANIFEST")"
           PACKAGE_NAME="$(jq -er '.name' <<< "$MANIFEST")"
           DIRECTORY="${MANIFEST_PATH%/package.json}"
-          if [ "$MANIFEST_PATH" = package.json ]; then
+          if [ -n "$CUSTOM_TAG_PREFIX" ]; then
+            TAG="$CUSTOM_TAG_PREFIX$VERSION"
+          elif [ "$MANIFEST_PATH" = package.json ]; then
             TAG="$PACKAGE_NAME@$VERSION"
           else
             TAG="$DIRECTORY@$VERSION"
@@ -179,6 +186,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           MATCH_MODE: ${{ inputs.match-mode }}
           EXACT_TAG: ${{ inputs.exact-tag }}
+          CUSTOM_TAG_PREFIX: ${{ inputs.tag-prefix }}
         shell: bash
         run: |
           set -euo pipefail
@@ -229,6 +237,10 @@ jobs:
           else
             CHANGELOG_PATH="$PACKAGE_DIRECTORY/CHANGELOG.md"
             TAG_PREFIX="$PACKAGE_DIRECTORY@"
+          fi
+
+          if [ -n "$CUSTOM_TAG_PREFIX" ]; then
+            TAG_PREFIX="$CUSTOM_TAG_PREFIX"
           fi
 
           RELEASE_TAG="$TAG_PREFIX$PACKAGE_VERSION"

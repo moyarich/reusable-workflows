@@ -51,8 +51,13 @@ jobs:
           node --input-type=module <<'NODE'
           import fs from "node:fs";
           import {execFileSync} from "node:child_process";
-          const workspaces=JSON.parse(execFileSync("npm",["query",".workspace","--json"],{encoding:"utf8"}));
-          const packages=workspaces.filter(p=>!p.private&&p.name&&p.location);
+          const root=JSON.parse(fs.readFileSync("package.json","utf8"));
+          const patterns=Array.isArray(root.workspaces)?root.workspaces:root.workspaces?.packages??[];
+          const workspaces=patterns.length?JSON.parse(execFileSync("npm",["query",".workspace","--workspaces","--include-workspace-root","--json"],{encoding:"utf8"})):[];
+          const rootPackage={...root,location:"."};
+          const candidates=[...workspaces.filter(p=>p.location!==".")];
+          if(root.name && root.version && root.private!==true) candidates.unshift(rootPackage);
+          const packages=candidates.filter(p=>!p.private&&p.name&&p.version&&p.location);
           const selected=process.env.SELECTOR==="all"?packages:packages.filter(p=>p.name===process.env.SELECTOR||p.location===process.env.SELECTOR);
           if (!selected.length) throw Error("Unknown publishable package selector");
           if (!["patch","minor","major"].includes(process.env.BUMP)) throw Error("Unsupported version bump");
@@ -63,8 +68,8 @@ jobs:
             return process.env.BUMP==="major"?[a+1,0,0].join("."):process.env.BUMP==="minor"?[a,b+1,0].join("."):[a,b,c+1].join(".");
           };
           const versions=new Map(selected.map(p=>[p.name,bump(p.version)]));
-          for(const p of workspaces){
-            const file=p.location+"/package.json";
+          for(const p of candidates){
+            const file=p.location==="."?"package.json":p.location+"/package.json";
             const doc=JSON.parse(fs.readFileSync(file,"utf8"));
             let changed=false;
             if(versions.has(p.name)){doc.version=versions.get(p.name);changed=true;}
