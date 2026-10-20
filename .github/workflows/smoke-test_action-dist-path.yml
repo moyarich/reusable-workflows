@@ -1,9 +1,11 @@
-name: "Smoke-test · Action distribution path"
+name: "Smoke-test · Setup Workspace Tools distribution"
 
 on:
   pull_request:
     paths:
-      - "actions/**"
+      - "src/actions/setup-workspace-tools/**"
+      - "actions/setup-workspace-tools/**"
+      - "actions/dist/setup-workspace-tools.mjs"
       - ".github/workflows/smoke-test_action-dist-path.yml"
   workflow_dispatch:
 
@@ -12,58 +14,68 @@ permissions:
 
 jobs:
   local-path:
-    name: Local sibling distribution path
+    name: Local bundled resolver
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Execute action from sibling dist
-        uses: ./actions/path-smoke-test
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Execute committed setup-workspace-tools bundle
         id: smoke
-      - name: Assert action output
-        env:
-          RESULT: ${{ steps.smoke.outputs.shared-dist-supported }}
-        run: test "$RESULT" = true
+        shell: bash
+        run: |
+          set -euo pipefail
+          node actions/dist/setup-workspace-tools.mjs \
+            --workspace-tools-source registry:npm:latest \
+            --mode resolve
+          grep -qx 'mode=registry' "$GITHUB_OUTPUT"
+          grep -qx 'value=latest' "$GITHUB_OUTPUT"
       - name: Write local verification summary
         if: always()
         env:
-          RESULT: ${{ steps.smoke.outputs.shared-dist-supported }}
-          ASSERTION: ${{ steps.smoke.outcome }}
+          RESULT: ${{ steps.smoke.outcome }}
         run: |
           {
-            echo "## Shared action distribution — local"
+            echo "## Setup Workspace Tools — local bundle"
             echo
-            echo "| Check | Result |"
-            echo "| --- | --- |"
-            echo '| Entry point | `actions/path-smoke-test/action.yml` |'
-            echo '| runs.main | `../dist/path-smoke-test.mjs` |'
-            echo "| Action execution | $ASSERTION |"
-            echo "| Output assertion | ${RESULT:-missing} |"
+            echo '| Entry point | `actions/dist/setup-workspace-tools.mjs` |'
+            echo '| --- | --- |'
+            echo "| Result | $RESULT |"
           } >> "$GITHUB_STEP_SUMMARY"
 
   remote-path:
-    name: Remote action sibling distribution path
+    name: Remote composite action with shared bundle
     runs-on: ubuntu-latest
     steps:
-      - name: Execute same repository at this commit as a remote action
-        uses: moyarich/reusable-workflows/actions/path-smoke-test@fix/require-structured-discovery-json
+      - name: Execute published-style action from this PR branch
+        uses: moyarich/reusable-workflows/actions/setup-workspace-tools@fix/require-structured-discovery-json
+        id: setup
+        with:
+          workspace-tools-source: registry:npm:latest
+      - name: Assert remote action outputs and executable
         id: smoke
-      - name: Assert remote action output
+        shell: bash
         env:
-          RESULT: ${{ steps.smoke.outputs.shared-dist-supported }}
-        run: test "$RESULT" = true
+          SOURCE: ${{ steps.setup.outputs.source }}
+          BIN_DIR: ${{ steps.setup.outputs.bin-dir }}
+        run: |
+          set -euo pipefail
+          test "$SOURCE" = registry:npm:latest
+          test -f "$BIN_DIR/workspace-release.mjs"
+          test -f "$BIN_DIR/workspace-publish.mjs"
       - name: Write remote verification summary
         if: always()
         env:
-          RESULT: ${{ steps.smoke.outputs.shared-dist-supported }}
+          SETUP: ${{ steps.setup.outcome }}
           ASSERTION: ${{ steps.smoke.outcome }}
         run: |
           {
-            echo "## Shared action distribution — remote"
+            echo "## Setup Workspace Tools — remote action"
             echo
-            echo "| Check | Result |"
-            echo "| --- | --- |"
-            echo '| Action | `moyarich/reusable-workflows/actions/path-smoke-test` |'
-            echo '| runs.main | `../dist/path-smoke-test.mjs` |'
-            echo "| Action execution | $ASSERTION |"
-            echo "| Output assertion | ${RESULT:-missing} |"
+            echo '| Action | `actions/setup-workspace-tools` |'
+            echo '| --- | --- |'
+            echo '| Bundle | `../dist/setup-workspace-tools.mjs` |'
+            echo "| Composite action | $SETUP |"
+            echo "| CLI validation | $ASSERTION |"
           } >> "$GITHUB_STEP_SUMMARY"
