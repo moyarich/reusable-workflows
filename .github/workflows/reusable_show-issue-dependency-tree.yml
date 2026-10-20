@@ -33,7 +33,7 @@ jobs:
     steps:
       - id: tree
         name: Render dependency tree
-        uses: moyarich/reusable-workflows/actions/issue-dependency-tree@v0
+        uses: moyarich/reusable-workflows/actions/issue-dependency-tree@main
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
