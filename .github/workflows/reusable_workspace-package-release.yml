@@ -265,7 +265,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          jq -r '.include[] | [.name, .directory] | @tsv' <<< "$PACKAGE_MATRIX" | while IFS=
+          jq -r '.include[] | [.name, .directory] | @tsv' <<< "$PACKAGE_MATRIX" | while IFS="$(printf '\\t')" read -r package directory; do
             echo "::group::Validate $package"
             if [ "$directory" = "." ]; then npm pack --dry-run; else npm pack --workspace "$package" --dry-run; fi
             echo "::endgroup::"
