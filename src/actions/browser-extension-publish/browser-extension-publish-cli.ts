@@ -6,7 +6,8 @@ import process from "node:process";
 
 import { validate, safeDir, type Store } from "./manifest";
 const store = (value: string): Store => {
-  if (!["chrome", "firefox", "all"].includes(value)) throw new InvalidArgumentError("registry must be chrome, firefox, or all");
+  if (!["chrome", "firefox", "all"].includes(value))
+    throw new InvalidArgumentError("registry must be chrome, firefox, or all");
   return value as Store;
 };
 async function jsonRequest(url: string, init: RequestInit) {

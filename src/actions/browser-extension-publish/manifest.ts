@@ -6,7 +6,13 @@ export function safeDir(value: string) {
   const root = process.cwd();
   const absolute = resolve(root, value);
   const rel = relative(root, absolute);
-  if (rel === ".." || rel.startsWith("../") || rel.startsWith("..\\") || rel.startsWith("/")) throw new Error("Directory must be inside the workspace");
+  if (
+    rel === ".." ||
+    rel.startsWith("../") ||
+    rel.startsWith("..\\") ||
+    rel.startsWith("/")
+  )
+    throw new Error("Directory must be inside the workspace");
   return absolute;
 }
 export function validate(directory: string, registry: Store, firefoxId = "") {
