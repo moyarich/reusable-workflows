@@ -92,7 +92,7 @@ jobs:
           from ruamel.yaml import YAML
 
           files = json.loads(os.environ["WORKFLOW_FILES"]) or [os.environ["WORKFLOW_FILE"]]
-          packages = json.loads(os.environ["PACKAGES_JSON"])
+          packages = json.loads(os.environ["PACKAGES_JSON"])["included"]
           if not packages:
               raise SystemExit("Refusing to erase choices: no publishable packages found")
           directories = sorted({package["directory"] for package in packages})
@@ -190,7 +190,7 @@ jobs:
               except (ValueError, TypeError):
                   return fallback
 
-          packages = parse_json(os.environ.get("PACKAGES_JSON"), [])
+          packages = parse_json(os.environ.get("PACKAGES_JSON"), {}).get("included", [])
           files = parse_json(os.environ.get("WORKFLOW_FILES"), []) or [os.environ["WORKFLOW_FILE"]]
           result = os.environ.get("SYNC_RESULT") or "failed or skipped"
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as output:
