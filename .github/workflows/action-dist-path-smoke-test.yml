@@ -23,6 +23,22 @@ jobs:
         env:
           RESULT: ${{ steps.smoke.outputs.shared-dist-supported }}
         run: test "$RESULT" = true
+      - name: Write local verification summary
+        if: always()
+        env:
+          RESULT: ${{ steps.smoke.outputs.shared-dist-supported }}
+          ASSERTION: ${{ steps.smoke.outcome }}
+        run: |
+          {
+            echo "## Shared action distribution — local"
+            echo
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+            echo '| Entry point | `actions/path-smoke-test/action.yml` |'
+            echo '| runs.main | `../dist/path-smoke-test.mjs` |'
+            echo "| Action execution | $ASSERTION |"
+            echo "| Output assertion | ${RESULT:-missing} |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   remote-path:
     name: Remote action sibling distribution path
@@ -35,3 +51,19 @@ jobs:
         env:
           RESULT: ${{ steps.smoke.outputs.shared-dist-supported }}
         run: test "$RESULT" = true
+      - name: Write remote verification summary
+        if: always()
+        env:
+          RESULT: ${{ steps.smoke.outputs.shared-dist-supported }}
+          ASSERTION: ${{ steps.smoke.outcome }}
+        run: |
+          {
+            echo "## Shared action distribution — remote"
+            echo
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+            echo '| Action | `moyarich/reusable-workflows/actions/path-smoke-test` |'
+            echo '| runs.main | `../dist/path-smoke-test.mjs` |'
+            echo "| Action execution | $ASSERTION |"
+            echo "| Output assertion | ${RESULT:-missing} |"
+          } >> "$GITHUB_STEP_SUMMARY"
