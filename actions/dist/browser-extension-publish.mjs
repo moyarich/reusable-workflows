@@ -1,4 +1,4 @@
-import { C as Command, I as InvalidArgumentError } from "./assets/esm-C5EVGJJV.mjs";
+import { C as Command, I as InvalidArgumentError } from "./assets/esm-C5EVGJJV.js";
 import { readFileSync, appendFileSync, existsSync, mkdirSync } from "node:fs";
 import { join, resolve, relative } from "node:path";
 import { execFileSync } from "node:child_process";
