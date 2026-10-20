@@ -1,0 +1,184 @@
+name: "Reusable · Publish browser extensions"
+
+on:
+  workflow_call:
+    inputs:
+      package-directory:
+        description: Workspace containing the browser extension
+        type: string
+        default: "."
+      build-directory:
+        description: Built extension folder relative to repository root
+        type: string
+        default: dist
+      install-command:
+        type: string
+        default: npm ci --include=optional
+      build-command:
+        type: string
+        default: npm run build --if-present
+      node-version:
+        type: string
+        default: "24"
+      registry:
+        description: chrome, firefox, or all
+        type: string
+        default: all
+      chrome-extension-id:
+        description: Chrome Web Store extension ID
+        type: string
+        default: ""
+      firefox-addon-id:
+        description: Firefox Add-on ID (checked against manifest browser_specific_settings.gecko.id)
+        type: string
+        default: ""
+      release-environment:
+        type: string
+        default: release
+      dry-run:
+        type: boolean
+        default: true
+    secrets:
+      chrome-client-id:
+        required: false
+      chrome-client-secret:
+        required: false
+      chrome-refresh-token:
+        required: false
+      firefox-api-key:
+        required: false
+      firefox-api-secret:
+        required: false
+    outputs:
+      extension-version:
+        value: ${{ jobs.package.outputs.version }}
+  workflow_dispatch:
+    inputs:
+      registry:
+        description: Destination
+        type: choice
+        options: [chrome, firefox, all]
+        default: all
+      dry-run:
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  approval:
+    if: ${{ !inputs.dry-run }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.release-environment || 'release' }}
+    steps:
+      - run: echo "Browser extension store submission authorized" >> "$GITHUB_STEP_SUMMARY"
+
+  package:
+    needs: approval
+    if: ${{ always() && (inputs.dry-run || needs.approval.result == 'success') }}
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.identity.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version || '24' }}
+          cache: npm
+      - name: Validate inputs
+        env:
+          PACKAGE_DIR: ${{ inputs.package-directory || '.' }}
+          BUILD_DIR: ${{ inputs.build-directory || 'dist' }}
+          REGISTRY: ${{ inputs.registry || 'all' }}
+        run: |
+          set -euo pipefail
+          case "$REGISTRY" in chrome|firefox|all) ;; *) echo "::error::Unknown registry"; exit 1;; esac
+          for dir in "$PACKAGE_DIR" "$BUILD_DIR"; do
+            case "$dir" in /*|..|../*|*/../*|*/..) echo "::error::Unsafe relative path: $dir"; exit 1;; esac
+          done
+          test -f "$PACKAGE_DIR/package.json"
+      - name: Install
+        env:
+          COMMAND: ${{ inputs.install-command || 'npm ci --include=optional' }}
+        run: bash -euo pipefail -c "$COMMAND"
+      - name: Build
+        if: ${{ inputs.build-command != '' }}
+        env:
+          COMMAND: ${{ inputs.build-command }}
+        run: bash -euo pipefail -c "$COMMAND"
+      - name: Verify browser extension manifest
+        id: identity
+        env:
+          BUILD_DIR: ${{ inputs.build-directory || 'dist' }}
+          REGISTRY: ${{ inputs.registry || 'all' }}
+          FIREFOX_ID: ${{ inputs.firefox-addon-id }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const dir = process.env.BUILD_DIR;
+          const manifest = JSON.parse(fs.readFileSync(path.join(dir, 'manifest.json'), 'utf8'));
+          if (![2, 3].includes(manifest.manifest_version) || !manifest.name || !/^\d+\.\d+\.\d+(?:\.\d+)?$/.test(manifest.version)) {
+            throw new Error('Built manifest requires a name, numeric extension version and supported manifest_version');
+          }
+          const gecko = manifest.browser_specific_settings?.gecko?.id || manifest.applications?.gecko?.id;
+          if (['firefox', 'all'].includes(process.env.REGISTRY) && !gecko) throw new Error('Firefox publishing requires browser_specific_settings.gecko.id');
+          if (process.env.FIREFOX_ID && process.env.FIREFOX_ID !== gecko) throw new Error('Firefox Add-on ID does not match built manifest');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'version=' + manifest.version + '\n');
+          console.log('Validated extension:', manifest.name, manifest.version);
+          NODE
+      - name: Archive built extension
+        env:
+          BUILD_DIR: ${{ inputs.build-directory || 'dist' }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/browser-extension"
+          (cd "$BUILD_DIR" && zip -q -r "$RUNNER_TEMP/browser-extension/extension.zip" .)
+          unzip -t "$RUNNER_TEMP/browser-extension/extension.zip" >/dev/null
+          test -s "$RUNNER_TEMP/browser-extension/extension.zip"
+          cp "$RUNNER_TEMP/browser-extension/extension.zip" extension.zip
+      - uses: actions/upload-artifact@v7
+        with:
+          name: browser-extension-zip
+          path: extension.zip
+          if-no-files-found: error
+      - name: Publish Chrome Web Store
+        if: ${{ !inputs.dry-run && (inputs.registry == 'chrome' || inputs.registry == 'all') }}
+        env:
+          EXTENSION_ID: ${{ inputs.chrome-extension-id }}
+          CLIENT_ID: ${{ secrets.chrome-client-id }}
+          CLIENT_SECRET: ${{ secrets.chrome-client-secret }}
+          REFRESH_TOKEN: ${{ secrets.chrome-refresh-token }}
+        run: |
+          set -euo pipefail
+          for value in "$EXTENSION_ID" "$CLIENT_ID" "$CLIENT_SECRET" "$REFRESH_TOKEN"; do
+            test -n "$value" || { echo "::error::Chrome publishing credentials and extension ID required"; exit 1; }
+          done
+          token_response="$(curl --fail-with-body -sS -X POST https://oauth2.googleapis.com/token --data-urlencode "client_id=$CLIENT_ID" --data-urlencode "client_secret=$CLIENT_SECRET" --data-urlencode "refresh_token=$REFRESH_TOKEN" --data-urlencode "grant_type=refresh_token")"
+          token="$(jq -r '.access_token // empty' <<< "$token_response")"
+          test -n "$token" || { echo "::error::No Chrome OAuth access token"; exit 1; }
+          response="$(curl --fail-with-body -sS -X PUT -H "Authorization: Bearer $token" -H "x-goog-api-version: 2" -H "Content-Type: application/zip" --data-binary @extension.zip "https://www.googleapis.com/upload/chromewebstore/v1.1/items/$EXTENSION_ID")"
+          status="$(jq -r '.uploadState // empty' <<< "$response")"
+          test "$status" = SUCCESS || { echo "::error::Chrome upload not successful: $status"; exit 1; }
+          curl --fail-with-body -sS -X POST -H "Authorization: Bearer $token" -H "x-goog-api-version: 2" "https://www.googleapis.com/chromewebstore/v1.1/items/$EXTENSION_ID/publish" | jq -e '.status | index("OK") or index("PUBLISHED_WITH_FRICTION")'
+      - name: Submit Firefox Add-ons listing
+        if: ${{ !inputs.dry-run && (inputs.registry == 'firefox' || inputs.registry == 'all') }}
+        env:
+          BUILD_DIR: ${{ inputs.build-directory || 'dist' }}
+          AMO_JWT_ISSUER: ${{ secrets.firefox-api-key }}
+          AMO_JWT_SECRET: ${{ secrets.firefox-api-secret }}
+        run: |
+          set -euo pipefail
+          test -n "$AMO_JWT_ISSUER" && test -n "$AMO_JWT_SECRET" || { echo "::error::Firefox API credentials required"; exit 1; }
+          mkdir -p firefox-signed
+          npm exec --yes --package=web-ext -- web-ext sign --source-dir "$BUILD_DIR" --artifacts-dir firefox-signed --channel listed --api-key "$AMO_JWT_ISSUER" --api-secret "$AMO_JWT_SECRET"
+      - name: Upload Firefox signed artifacts
+        if: ${{ !inputs.dry-run && (inputs.registry == 'firefox' || inputs.registry == 'all') }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: firefox-signed-extension
+          path: firefox-signed/
+          if-no-files-found: warn
