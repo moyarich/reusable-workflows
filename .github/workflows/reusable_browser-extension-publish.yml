@@ -167,15 +167,15 @@ jobs:
           test -n "$token" || { echo "::error::No Chrome OAuth access token"; exit 1; }
           response="$(curl --fail-with-body -sS -X POST -H "Authorization: Bearer $token" -H "Content-Type: application/zip" --data-binary @extension.zip "https://chromewebstore.googleapis.com/upload/v2/publishers/$PUBLISHER_ID/items/$EXTENSION_ID:upload")"
           state="$(jq -r '.uploadState // empty' <<< "$response")"
-          if [ "$state" = UPLOAD_IN_PROGRESS ]; then
+          if [ "$state" = IN_PROGRESS ]; then
             for attempt in {1..30}; do
               sleep 10
               response="$(curl --fail-with-body -sS -H "Authorization: Bearer $token" "https://chromewebstore.googleapis.com/v2/publishers/$PUBLISHER_ID/items/$EXTENSION_ID:fetchStatus")"
               state="$(jq -r '.lastAsyncUploadState // .uploadState // empty' <<< "$response")"
-              [ "$state" != UPLOAD_IN_PROGRESS ] && break
+              [ "$state" != IN_PROGRESS ] && break
             done
           fi
-          [ "$state" = SUCCESS ] || { echo "::error::Chrome upload did not succeed: $state"; exit 1; }
+          [ "$state" = SUCCEEDED ] || { echo "::error::Chrome upload did not succeed: $state"; exit 1; }
           curl --fail-with-body -sS -X POST -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"publishType":"DEFAULT_PUBLISH"}' "https://chromewebstore.googleapis.com/v2/publishers/$PUBLISHER_ID/items/$EXTENSION_ID:publish" > /tmp/chrome-publish-response.json
           jq . /tmp/chrome-publish-response.json
 
