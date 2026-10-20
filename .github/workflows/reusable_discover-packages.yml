@@ -185,9 +185,9 @@ jobs:
           rows = [
               "# Package discovery", "",
               "This report describes the current package configuration and the discovery filters. "
-              "Filtered packages are not necessarily misconfigured. Publishing guidance is optional and "
-              "only applies if you intend to publish a package to npm.", "",
-              "| Package | Manifest | Scope | npm publishable | Discovery | Current configuration / filter | If you choose to publish |",
+              "Filtered packages are not necessarily misconfigured. Guidance appears only for "
+              "packages that are not npm-publishable.", "",
+              "| Package | Manifest | Scope | npm publishable | Discovery | Current configuration / filter | Publishing guidance (if not publishable) |",
               "| --- | --- | --- | --- | --- | --- | --- |",
           ]
           def safe(value):
@@ -207,18 +207,16 @@ jobs:
                           guidance.append("Only if publishing is intended: set private to false or remove it")
                       if not pkg.get("publishConfig") and any("publishConfig" in str(r) for r in reasons):
                           guidance.append("Only if using the require-publish-config discovery filter: add publishConfig")
-                  if pkg.get("scoped") and pkg.get("publishable"):
-                      guidance.append("For public npm publishing, configure public access; verify registry permissions")
-                  optional = "; ".join(guidance) or "No changes suggested"
+                  optional = "; ".join(guidance) if not pkg.get("publishable") else "—"
+                  if not optional:
+                      optional = "Not npm-publishable under the current configuration"
                   rows.append("| " + safe(pkg["name"]) + " | `" + safe(pkg["directory"]) + "/package.json` | " + safe(scope) + " | " + ("Yes" if pkg.get("publishable") else "No") + " | " + state + " | " + safe(current) + " | " + safe(optional) + " |")
           rows += [
               "",
               "**Reading this report:** `private: true` is a valid choice for apps, examples, "
               "and internal packages; it prevents npm publishing by design. A missing "
               "`publishConfig` is also valid unless the selected discovery filter requires it. "
-              "For public scoped npm publishing, use suitable access configuration "
-              "(`publishConfig.access: public` or `npm publish --access public`). "
-              "Registry authorization is not verified by discovery.", "",
+              "Discovery does not verify registry authorization or guarantee successful publication.", "",
           ]
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf8") as output:
               output.write("\n".join(rows))
