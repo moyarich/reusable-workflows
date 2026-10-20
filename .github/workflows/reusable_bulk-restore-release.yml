@@ -4,7 +4,7 @@ on:
     inputs:
       workspace-tools-source:
         type: string
-        default: registry:npm:latest
+        default: auto
       package:
         description: "Package selector: all, package name, or directory"
         required: true
