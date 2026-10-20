@@ -80,13 +80,7 @@ out
 
 # Nuxt.js build / generate output
 .nuxt
-# Keep the committed setup-workspace-tools CLI distribution.
 dist
-!/dist/
-/dist/*
-!/dist/bin/
-/dist/bin/*
-!/dist/bin/setup-workspace-tools.mjs
 .output
 
 # Gatsby files
@@ -154,11 +148,7 @@ vite.config.ts.timestamp-*
 # Turbo Repo
 .turbo
 
-# Committed shared JavaScript action bundles
+# Commit the automatically built action entrypoints.
 !/actions/dist/
 /actions/dist/*
-!/actions/dist/path-smoke-test.mjs
-
-# Versioned JavaScript action executable built with Vite
-!/actions/setup-workspace-tools/dist/
-!/actions/setup-workspace-tools/dist/setup-workspace-tools.mjs
+!/actions/dist/*.mjs
