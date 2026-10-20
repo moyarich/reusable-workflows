@@ -26,7 +26,7 @@ on:
       workspace-tools-source:
         description: "registry:npm:latest, checkout:current, or checkout:upstream;branch:main"
         required: true
-        default: registry:npm:latest
+        default: auto
         type: string
       target-branch:
         description: Optional target branch
@@ -103,7 +103,7 @@ on:
       workspace-tools-source:
         description: Workspace Tools source — npm registry, current caller, or Git repository
         required: false
-        default: registry:npm:latest
+        default: auto
         type: string
       node-version:
         description: Advanced — Node.js version
@@ -322,7 +322,7 @@ jobs:
         id: workspace-tools
         uses: ./.github/reusable-workflows-runtime/actions/setup-workspace-tools
         with:
-          workspace-tools-source: ${{ inputs.workspace-tools-source || 'registry:npm:latest' }}
+          workspace-tools-source: ${{ inputs.workspace-tools-source || 'auto' }}
 
       - name: Export workspace tools CLI path
         shell: bash
