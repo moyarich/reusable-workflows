@@ -1,4 +1,4 @@
-name: Registry configuration self-test
+name: self-test_registry config
 on:
   pull_request:
     paths:
