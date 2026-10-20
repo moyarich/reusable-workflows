@@ -9,7 +9,7 @@ on:
     branches: [main]
 
 permissions:
-  actions: read
+  actions: write
   contents: write
   pull-requests: write
   packages: read
@@ -21,9 +21,10 @@ jobs:
           github.event.workflow_run.event == 'push' &&
           github.event.workflow_run.head_repository.full_name == github.repository &&
           github.event.workflow_run.head_branch == github.event.repository.default_branch }}
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_self-heal-ci.yml@v0.2.1
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_self-heal-ci.yml@main
     with:
       failed-run-id: ${{ github.event.workflow_run.id }}
+      ci-workflow: ci.yml
       package-directory: .
       node-version: "24"
     # Configure a recovery-token secret with permission to create PRs if
