@@ -6,25 +6,25 @@ Composite action that resolves the `@moyarich/workspace-tools` CLI for GitHub Ac
 
 With `workspace-tools-source: auto` (the action's default), the action selects a source based on the **calling repository** (`github.repository`):
 
-| Calling repository | Source selected by `auto` |
-| --- | --- |
-| `moyarich/workspace-tools` | `checkout:current` |
-| All other repositories | `checkout:upstream;branch:main` |
+| Calling repository         | Source selected by `auto`       |
+| -------------------------- | ------------------------------- |
+| `moyarich/workspace-tools` | `checkout:current`              |
+| All other repositories     | `checkout:upstream;branch:main` |
 
 The action emits its selected source and does **not** silently fall back when an explicit source fails. For repeatable builds, pin an exact npm version or upstream commit instead of a moving `main` branch.
 
 ## Supported sources
 
-| `workspace-tools-source` | Behavior |
-| --- | --- |
-| `auto` | Resolve by calling repository, as above (default) |
-| `checkout:current` | Build the Workspace Tools package in the caller's checkout |
-| `checkout:upstream;branch:main` | Fetch and build upstream `main` |
-| `checkout:upstream;branch:<branch>` | Fetch and build an upstream branch |
-| `checkout:upstream;tag:<tag>` | Fetch and build an upstream Git tag |
-| `checkout:upstream;sha:<40-character-sha>` | Fetch and build an exact upstream commit |
-| `registry:npm:latest` | Install npm's moving `latest` dist-tag |
-| `registry:npm:<version>` | Install a pinned npm package version |
+| `workspace-tools-source`                   | Behavior                                                   |
+| ------------------------------------------ | ---------------------------------------------------------- |
+| `auto`                                     | Resolve by calling repository, as above (default)          |
+| `checkout:current`                         | Build the Workspace Tools package in the caller's checkout |
+| `checkout:upstream;branch:main`            | Fetch and build upstream `main`                            |
+| `checkout:upstream;branch:<branch>`        | Fetch and build an upstream branch                         |
+| `checkout:upstream;tag:<tag>`              | Fetch and build an upstream Git tag                        |
+| `checkout:upstream;sha:<40-character-sha>` | Fetch and build an exact upstream commit                   |
+| `registry:npm:latest`                      | Install npm's moving `latest` dist-tag                     |
+| `registry:npm:<version>`                   | Install a pinned npm package version                       |
 
 ## Usage in a reusable workflow
 
@@ -102,17 +102,17 @@ GitHub Actions choice options are static. To select an arbitrary npm version, Gi
 
 ## Inputs
 
-| Input | Default | Description |
-| --- | --- | --- |
-| `workspace-tools-source` | `auto` | Automatic repository-aware resolution, or an explicit checkout / npm registry source |
-| `build-command` | `npm run build` | Command used for checkout-based sources; ignored for registry installs |
+| Input                    | Default         | Description                                                                          |
+| ------------------------ | --------------- | ------------------------------------------------------------------------------------ |
+| `workspace-tools-source` | `auto`          | Automatic repository-aware resolution, or an explicit checkout / npm registry source |
+| `build-command`          | `npm run build` | Command used for checkout-based sources; ignored for registry installs               |
 
 ## Outputs
 
-| Output | Description |
-| --- | --- |
+| Output    | Description                                                                                                                                             |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `bin-dir` | Absolute directory containing Workspace Tools CLI entry points, including `discover-packages.mjs`, `workspace-release.mjs`, and `workspace-publish.mjs` |
-| `source` | Resolved source string (for example, `checkout:current` or `checkout:upstream;branch:main`), not the literal `auto` input |
+| `source`  | Resolved source string (for example, `checkout:current` or `checkout:upstream;branch:main`), not the literal `auto` input                               |
 
 ## Requirements and behavior
 
