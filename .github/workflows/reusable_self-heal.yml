@@ -77,7 +77,7 @@ jobs:
     permissions:
       contents: write
       packages: read
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_heal-cli-dist.yml@fix/self-heal-branch-sha-guard
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_heal-cli-dist.yml@main
     with:
       dist-path: ${{ inputs.dist-path }}
       commit: ${{ inputs.commit }}
@@ -114,7 +114,7 @@ jobs:
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
       - name: Dispatch and verify required workflow
         id: validate
-        uses: moyarich/reusable-workflows/actions/workflow-dispatch@fix/self-heal-branch-sha-guard
+        uses: moyarich/reusable-workflows/actions/workflow-dispatch@main
         with:
           workflow: ${{ inputs.required-workflow }}
           branch: ${{ inputs.target-branch }}
