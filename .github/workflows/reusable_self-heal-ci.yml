@@ -17,6 +17,16 @@ on:
       ci-workflow:
         type: string
         default: ci.yml
+      dist-path:
+        description: Optional generated action distribution path
+        type: string
+        default: ""
+      dist-build-command:
+        type: string
+        default: npm run build:cli
+      dist-test-command:
+        type: string
+        default: npm run test:cli
       target-branch:
         description: Trusted branch to repair and validate
         type: string
@@ -50,9 +60,49 @@ jobs:
       commit: ${{ inputs.commit }}
       node-version: ${{ inputs.node-version }}
 
-  ci:
+  action-dist:
+    name: Rebuild generated distribution (optional)
     needs: [package-lock, prettier]
-    if: ${{ always() && (needs.package-lock.result == 'success' || needs.package-lock.result == 'skipped') && (needs.prettier.result == 'success' || needs.prettier.result == 'skipped') }}
+    if: ${{ always() && inputs.dist-path != '' && (needs.package-lock.result == 'success' || needs.package-lock.result == 'skipped') && (needs.prettier.result == 'success' || needs.prettier.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.target-branch }}
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+      - run: npm ci --ignore-scripts
+      - name: Rebuild and test
+        env:
+          BUILD_COMMAND: ${{ inputs.dist-build-command }}
+          TEST_COMMAND: ${{ inputs.dist-test-command }}
+        run: |
+          bash -euo pipefail -c "$BUILD_COMMAND"
+          bash -euo pipefail -c "$TEST_COMMAND"
+      - name: Commit generated distribution
+        if: ${{ inputs.commit }}
+        env:
+          DIST_PATH: ${{ inputs.dist-path }}
+          TARGET_BRANCH: ${{ inputs.target-branch }}
+        run: |
+          set -euo pipefail
+          [[ "$DIST_PATH" =~ ^[a-zA-Z0-9_./-]+$ && "$DIST_PATH" != *..* ]] || exit 1
+          test -e "$DIST_PATH"
+          git add -f -- "$DIST_PATH"
+          if git diff --cached --quiet; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "build: update generated distribution"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+
+  ci:
+    needs: [package-lock, prettier, action-dist]
+    if: ${{ always() && (needs.package-lock.result == 'success' || needs.package-lock.result == 'skipped') && (needs.prettier.result == 'success' || needs.prettier.result == 'skipped') && (needs.action-dist.result == 'success' || needs.action-dist.result == 'skipped') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
