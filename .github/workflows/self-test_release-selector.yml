@@ -1,4 +1,4 @@
-name: self-test_release selector
+name: "Self-test · Release selector"
 
 on:
   pull_request:
