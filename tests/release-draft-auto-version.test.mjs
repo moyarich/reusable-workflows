@@ -16,7 +16,7 @@ const script = section
   .split("node --input-type=module <<'NODE'")[1]
   .split("\n          NODE")[0]
   .split("\n")
-  .map((line) => line.replace(/^          /, ""))
+  .map((line) => line.replace(/^ {10}/, ""))
   .join("\n");
 
 function resolve(mode, manifest, previous, bump = "patch") {
