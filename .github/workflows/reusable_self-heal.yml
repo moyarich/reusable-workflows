@@ -1,4 +1,4 @@
-name: Reusable · Self-heal before CI
+name: Reusable · Self-heal before required workflow
 
 on:
   workflow_call:
@@ -15,8 +15,17 @@ on:
         type: string
         default: "24"
       required-workflow:
+        description: Workflow filename to dispatch and await after successful repairs
         type: string
-        default: ci.yml
+        required: true
+      required-workflow-sha-input:
+        description: Optional workflow_dispatch input name used to pass the healed commit SHA; empty disables injection
+        type: string
+        default: checkout-sha
+      required-workflow-inputs:
+        description: JSON object of additional workflow_dispatch inputs
+        type: string
+        default: '{}'
       dist-path:
         description: Optional generated action distribution path
         type: string
@@ -33,8 +42,8 @@ on:
         default: main
     outputs:
       healed-sha:
-        description: Commit SHA passed to CI
-        value: ${{ jobs.ci.outputs.healed-sha }}
+        description: Commit SHA handed to the required workflow
+        value: ${{ jobs.required-workflow.outputs.healed-sha }}
 permissions: {}
 jobs:
   package-lock:
@@ -115,7 +124,7 @@ jobs:
         id: final
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-  ci:
+  required-workflow:
     needs: [package-lock, prettier, action-dist]
     if: ${{ always() && (needs.package-lock.result == 'success' || needs.package-lock.result == 'skipped') && (needs.prettier.result == 'success' || needs.prettier.result == 'skipped') && (needs.action-dist.result == 'success' || needs.action-dist.result == 'skipped') }}
     runs-on: ubuntu-latest
@@ -140,14 +149,31 @@ jobs:
             exit 1
           fi
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
-      - name: Dispatch CI for healed head and wait
+      - name: Build required workflow inputs
+        id: workflow-inputs
+        env:
+          INPUTS: ${{ inputs.required-workflow-inputs }}
+          SHA_INPUT: ${{ inputs.required-workflow-sha-input }}
+          HEALED_SHA: ${{ steps.head.outputs.sha }}
+        run: |
+          set -euo pipefail
+          jq -e 'type == "object"' <<< "$INPUTS" >/dev/null
+          if [[ -n "$SHA_INPUT" ]]; then
+            [[ "$SHA_INPUT" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]] || {
+              echo "::error::Invalid required-workflow-sha-input"; exit 1;
+            }
+            result="$(jq -cn --argjson obj "$INPUTS" --arg key "$SHA_INPUT" --arg sha "$HEALED_SHA" '$obj + {($key): $sha}')"
+          else
+            result="$(jq -c . <<< "$INPUTS")"
+          fi
+          echo "json=$result" >> "$GITHUB_OUTPUT"
+      - name: Dispatch required workflow for healed head and wait
         id: validate
         uses: the-actions-org/workflow-dispatch@v4
         with:
           workflow: ${{ inputs.required-workflow }}
           ref: ${{ inputs.target-branch }}
-          inputs: >-
-            {"checkout-sha":"${{ steps.head.outputs.sha }}"}
+          inputs: ${{ steps.workflow-inputs.outputs.json }}
           token: ${{ github.token }}
           wait-for-completion: true
           wait-for-completion-timeout: 30m
@@ -160,19 +186,21 @@ jobs:
           set -euo pipefail
           actual="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq .head_sha)"
           if [[ "$actual" != "$EXPECTED_SHA" ]]; then
-            echo "::error::CI ran on $actual, expected $EXPECTED_SHA"
+            echo "::error::Required workflow run started at $actual, expected $EXPECTED_SHA"
             exit 1
           fi
-      - name: Link CI report
+      - name: Link required workflow report
         if: always()
         env:
-          CI_URL: ${{ steps.validate.outputs.workflow-url }}
+          WORKFLOW_URL: ${{ steps.validate.outputs.workflow-url }}
+          WORKFLOW_NAME: ${{ inputs.required-workflow }}
           RESULT: ${{ steps.validate.outputs.workflow-conclusion }}
         run: |
           {
-            echo "## CI after preventive self-heal"
+            echo "## Required workflow after preventive self-heal"
             echo
             echo "Result: ${RESULT:-not completed}"
             echo
-            if [[ -n "$CI_URL" ]]; then echo "[View CI run]($CI_URL)"; fi
+            echo "Workflow: $WORKFLOW_NAME"
+            if [[ -n "$WORKFLOW_URL" ]]; then echo "[View workflow run]($WORKFLOW_URL)"; fi
           } >> "$GITHUB_STEP_SUMMARY"
