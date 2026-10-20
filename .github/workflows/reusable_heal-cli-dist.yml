@@ -101,17 +101,32 @@ jobs:
         id: head
         shell: bash
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-      - name: Dispatch CI for healed commit
+      - name: Dispatch CI for healed commit and wait
+        id: validation
+        uses: the-actions-org/workflow-dispatch@v4
+        with:
+          workflow: ${{ inputs.validation-workflow }}
+          ref: ${{ inputs.target-branch }}
+          token: ${{ github.token }}
+          inputs: >-
+            {"checkout-sha":"${{ steps.head.outputs.sha }}"}
+          wait-for-completion: true
+          wait-for-completion-timeout: 30m
+
+      - name: Verify dispatched CI head SHA
         env:
           GH_TOKEN: ${{ github.token }}
-          WORKFLOW: ${{ inputs.validation-workflow }}
-          TARGET_REF: ${{ inputs.target-branch }}
-          HEALED_SHA: ${{ steps.head.outputs.sha }}
+          RUN_ID: ${{ steps.validation.outputs.workflow-id }}
+          EXPECTED_SHA: ${{ steps.head.outputs.sha }}
+        shell: bash
         run: |
           set -euo pipefail
-          # The validation workflow must accept workflow_dispatch input checkout-sha.
-          gh workflow run "$WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$TARGET_REF" -f "checkout-sha=$HEALED_SHA"
-          echo "Dispatched $WORKFLOW for $HEALED_SHA on $TARGET_REF"
+          test -n "$RUN_ID"
+          actual="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq '.head_sha')"
+          if [[ "$actual" != "$EXPECTED_SHA" ]]; then
+            echo "::error::CI ran at $actual instead of $EXPECTED_SHA"
+            exit 1
+          fi
 
       - name: Write healing summary
         if: always()
@@ -120,6 +135,8 @@ jobs:
           CHANGED: ${{ steps.commit.outputs.changed || 'false' }}
           RESULT: ${{ job.status }}
           DIST_PATH: ${{ inputs.dist-path }}
+          CI_URL: ${{ steps.validation.outputs.workflow-url }}
+          CI_CONCLUSION: ${{ steps.validation.outputs.workflow-conclusion }}
         run: |
           {
             echo "## Generated distribution self-heal"
@@ -130,5 +147,8 @@ jobs:
             echo "| Files changed | $CHANGED |"
             echo "| Outcome | $RESULT |"
             echo
-            echo "CI dispatch follows successful regeneration and validation, including no-op heals. The validation workflow must check out the supplied checkout-sha."
+            echo "| CI conclusion | ${CI_CONCLUSION:-not completed} |"
+            if [[ -n "$CI_URL" ]]; then echo "| CI run | [View run]($CI_URL) |"; fi
+            echo
+            echo "CI is dispatched for the healed SHA, and the job waits for its result."
           } >> "$GITHUB_STEP_SUMMARY"
