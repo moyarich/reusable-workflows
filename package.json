@@ -11,7 +11,6 @@
     "dev": "npm run dev --workspace @moyarich/reusable-workflows-playground",
     "build:playground": "npm run build --workspace @moyarich/reusable-workflows-playground",
     "build:cli": "vite build",
-    "test:cli": "vitest run tests/setup-workspace-tools.test.ts tests/browser-extension-publish.test.ts tests/verify-workflow-runs.test.mjs tests/workflow-dispatch.test.mjs",
     "check:cli-dist": "npm run build:cli && git diff --exit-code -- actions/dist/",
     "typecheck": "npm run typecheck --workspaces --if-present && tsc -p tsconfig.tests.json --noEmit",
     "lint": "eslint . --max-warnings 0",
