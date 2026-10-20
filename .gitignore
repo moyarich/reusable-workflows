@@ -158,3 +158,7 @@ vite.config.ts.timestamp-*
 !/actions/dist/
 /actions/dist/*
 !/actions/dist/path-smoke-test.mjs
+
+# Versioned JavaScript action executable built with Vite
+!/actions/setup-workspace-tools/dist/
+!/actions/setup-workspace-tools/dist/setup-workspace-tools.mjs
