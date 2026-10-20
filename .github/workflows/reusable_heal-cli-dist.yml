@@ -20,14 +20,29 @@ on:
         required: false
         default: main
         type: string
+      validation-command:
+        description: Command to validate the rebuilt distribution before committing
+        required: false
+        default: npm run checks
+        type: string
       validation-workflow:
-        description: Workflow file to dispatch against the healed branch
+        description: Workflow file to dispatch after a successful heal
         required: false
         default: ci.yml
         type: string
+    outputs:
+      changed:
+        description: Whether generated distribution files changed
+        value: ${{ jobs.heal.outputs.changed }}
+      healed-sha:
+        description: Exact commit to validate in CI
+        value: ${{ jobs.heal.outputs.healed-sha }}
 permissions: {}
 jobs:
   heal:
+    outputs:
+      changed: ${{ steps.commit.outputs.changed }}
+      healed-sha: ${{ steps.head.outputs.sha }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -38,7 +53,7 @@ jobs:
         with:
           ref: ${{ inputs.target-branch }}
           fetch-depth: 0
-          persist-credentials: true
+          persist-credentials: false
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
@@ -50,10 +65,16 @@ jobs:
         env:
           BUILD_COMMAND: ${{ inputs.build-command }}
         run: bash -euo pipefail -c "$BUILD_COMMAND"
+      - name: Validate regenerated distribution
+        env:
+          VALIDATION_COMMAND: ${{ inputs.validation-command }}
+        run: bash -euo pipefail -c "$VALIDATION_COMMAND"
       - name: Commit generated files
         id: commit
         env:
           DIST_PATH: ${{ inputs.dist-path }}
+          TARGET_BRANCH: ${{ inputs.target-branch }}
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
@@ -67,6 +88,7 @@ jobs:
           fi
           git add -f -- "$DIST_PATH"
           if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "Generated distribution is already current."
             exit 0
           fi
@@ -74,16 +96,22 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "build: update CLI dist"
           echo "changed=true" >> "$GITHUB_OUTPUT"
-          git push origin "HEAD:${{ inputs.target-branch }}"
-      - name: Dispatch validation for healed head
-        if: steps.commit.outputs.changed == 'true'
+          git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)" push origin "HEAD:refs/heads/$TARGET_BRANCH"
+      - name: Record exact healed commit
+        id: head
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Dispatch CI for healed commit
         env:
           GH_TOKEN: ${{ github.token }}
           WORKFLOW: ${{ inputs.validation-workflow }}
           TARGET_REF: ${{ inputs.target-branch }}
+          HEALED_SHA: ${{ steps.head.outputs.sha }}
         run: |
-          gh workflow run "$WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$TARGET_REF"
-          echo "Dispatched $WORKFLOW on $TARGET_REF"
+          set -euo pipefail
+          # The validation workflow must accept workflow_dispatch input checkout-sha.
+          gh workflow run "$WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$TARGET_REF" -f "checkout-sha=$HEALED_SHA"
+          echo "Dispatched $WORKFLOW for $HEALED_SHA on $TARGET_REF"
 
       - name: Write healing summary
         if: always()
@@ -102,5 +130,5 @@ jobs:
             echo "| Files changed | $CHANGED |"
             echo "| Outcome | $RESULT |"
             echo
-            echo "Validation is dispatched only after a new generated distribution is committed."
+            echo "CI dispatch follows successful regeneration and validation, including no-op heals. The validation workflow must check out the supplied checkout-sha."
           } >> "$GITHUB_STEP_SUMMARY"
