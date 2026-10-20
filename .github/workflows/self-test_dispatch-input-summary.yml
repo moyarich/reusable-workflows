@@ -1,4 +1,4 @@
-name: self-test_dispatch input summary
+name: "Self-test · Dispatch input summary"
 
 on:
   pull_request:
