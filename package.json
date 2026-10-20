@@ -3,20 +3,22 @@
   "private": true,
   "version": "0.2.2",
   "workspaces": [
+    "packages/*",
     "apps/*"
   ],
   "scripts": {
     "dev": "npm run dev --workspace @moyarich/reusable-workflows-playground",
     "build:playground": "npm run build --workspace @moyarich/reusable-workflows-playground",
     "build:cli": "vite build",
-    "test:cli": "vitest run tests/setup-workspace-tools.test.ts",
+    "test:cli": "vitest run tests/setup-workspace-tools.test.ts tests/browser-extension-publish.test.ts",
     "check:cli-dist": "npm run build:cli && git diff --exit-code -- actions/dist/",
     "typecheck": "npm run typecheck --workspaces --if-present && tsc -p tsconfig.tests.json --noEmit",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "npm run lint -- --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "checks": "npm run format:check && npm run lint && npm run typecheck"
+    "checks": "npm run format:check && npm run lint && npm run typecheck",
+    "build:package": "npm run build --workspace @moyarich/reusable-workflows-cli"
   },
   "engines": {
     "node": ">=24"
@@ -37,6 +39,7 @@
     "typescript-eslint": "^8.70.0",
     "@types/node": "^24.3.1",
     "@eslint/js": "^10.0.1",
-    "eslint": "^10.0.0"
+    "eslint": "^10.0.0",
+    "@moyarich/vite-github-actions": "git+https://github.com/moyarich/vite-github-actions.git#main"
   }
 }
