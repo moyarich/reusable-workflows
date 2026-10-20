@@ -24,7 +24,7 @@ on:
       workspace-tools-source:
         type: string
         required: false
-        default: registry:npm:latest
+        default: auto
       require-publish-config:
         description: Require publishConfig for npm choices (opt-in; npm does not require it).
         type: boolean
