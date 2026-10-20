@@ -110,41 +110,16 @@ jobs:
           set -euo pipefail
           actual="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TARGET_BRANCH" --jq .sha)"
           test "$actual" = "$EXPECTED_SHA" || { echo "::error::Branch moved before dispatch: $actual != $EXPECTED_SHA"; exit 1; }
-      - name: Dispatch required workflow for healed commit and wait
+      - name: Dispatch and verify required workflow
         id: validation
-        uses: the-actions-org/workflow-dispatch@3133c5d135c7dbe4be4f9793872b6ef331b53bc7 # v4
+        uses: moyarich/reusable-workflows/actions/workflow-dispatch@fix/self-heal-branch-sha-guard
         with:
           workflow: ${{ inputs.required-workflow }}
-          ref: ${{ inputs.target-branch }}
+          branch: ${{ inputs.target-branch }}
+          sha: ${{ steps.head.outputs.sha }}
           token: ${{ github.token }}
-          inputs: >-
-            {"checkout-sha":"${{ steps.head.outputs.sha }}"}
-          wait-for-completion: true
-          wait-for-completion-timeout: 5m
-
-      - name: Verify required workflow completed on healed SHA
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RUN_ID: ${{ steps.validation.outputs.workflow-id }}
-          EXPECTED_SHA: ${{ steps.head.outputs.sha }}
-          REQUIRED_WORKFLOW: ${{ inputs.required-workflow }}
-          TARGET_BRANCH: ${{ inputs.target-branch }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          [[ "$RUN_ID" =~ ^[0-9]+$ ]] || { echo "::error::Missing required workflow run ID"; exit 1; }
-          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" > "$RUNNER_TEMP/required-run.json"
-          jq -e --arg sha "$EXPECTED_SHA" \
-            --arg path ".github/workflows/$REQUIRED_WORKFLOW" \
-            --arg branch "$TARGET_BRANCH" \
-            --argjson id "$RUN_ID" \
-            '.id == $id and .path == $path and .event == "workflow_dispatch" and
-             .head_branch == $branch and .head_sha == $sha and
-             .status == "completed" and .conclusion == "success"' \
-            "$RUNNER_TEMP/required-run.json" >/dev/null || {
-              echo "::error::Required workflow identity, SHA, or success conclusion mismatch"
-              exit 1
-            }
+          timeout-seconds: '300'
+          poll-seconds: '15'
 
       - name: Write healing summary
         if: always()
