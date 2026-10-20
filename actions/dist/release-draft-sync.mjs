@@ -99,7 +99,8 @@ function appendCategoryEntries(markdown, category, entries) {
   if (!entries.length) return markdown;
   const source = markdown.trim();
   const heading = `### ${category}`;
-  if (!source) return `${heading}
+  if (!source)
+    return `${heading}
 
 ${entries.join("\n")}`;
   const lines = source.split("\n");
@@ -168,9 +169,12 @@ function resolveInitialSeed(options) {
   }
   const commits = commitFallback(options.targetPath);
   if (commits) {
-    return { source: "commits", body: `## Release notes
+    return {
+      source: "commits",
+      body: `## Release notes
 
-${commits}` };
+${commits}`
+    };
   }
   return { source: "minimal", body: "## Release notes\n\nInitial release." };
 }
@@ -178,9 +182,14 @@ function reconcileReleaseBody(options) {
   const existing = options.existingBody.trim();
   const generated = options.generatedBody.trim();
   if (options.version && options.changelogPath && existsSync(options.changelogPath)) {
-    const curated = changelogSection(readFileSync(options.changelogPath, "utf8"), options.version);
+    const curated = changelogSection(
+      readFileSync(options.changelogPath, "utf8"),
+      options.version
+    );
     if (curated) {
-      const existingSeed = existing.match(/<!--\\s*release-draft-sync:seed-sha=([^\\s]+)(?:\\s+source=[^>]+)?\\s*-->/);
+      const existingSeed = existing.match(
+        /<!--\\s*release-draft-sync:seed-sha=([^\\s]+)(?:\\s+source=[^>]+)?\\s*-->/
+      );
       const seedSha = existingSeed?.[1] || options.seedSha;
       return ensureMetadata(curated, options.targetKey, seedSha, "changelog");
     }
@@ -230,8 +239,11 @@ function input(name, required = false) {
 function setOutput(name, value) {
   const outputFile = process.env.GITHUB_OUTPUT;
   if (outputFile) {
-    appendFileSync(outputFile, `${name}=${value}
-`);
+    appendFileSync(
+      outputFile,
+      `${name}=${value}
+`
+    );
   }
 }
 function runAction() {
@@ -254,8 +266,11 @@ function runAction() {
     seedSha,
     targetPath
   });
-  writeFileSync(outputFile, `${result.trim()}
-`);
+  writeFileSync(
+    outputFile,
+    `${result.trim()}
+`
+  );
   setOutput("body-file", outputFile);
   setOutput("seed-sha", seedSha);
 }

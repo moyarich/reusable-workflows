@@ -7,8 +7,13 @@ export const actionEntries = Object.fromEntries(
     .filter((directory) => directory.isDirectory())
     .map(({ name }) => {
       const root = join("src/actions", name);
-      const entry = ["index.ts", `${name}-cli.ts`].find((file) => existsSync(join(root, file)));
-      if (!entry) throw new Error(`Missing action entry point for ${name}: expected index.ts or ${name}-cli.ts`);
+      const entry = ["index.ts", `${name}-cli.ts`].find((file) =>
+        existsSync(join(root, file)),
+      );
+      if (!entry)
+        throw new Error(
+          `Missing action entry point for ${name}: expected index.ts or ${name}-cli.ts`,
+        );
       return [name, join(root, entry)];
     }),
 );
@@ -29,7 +34,10 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         output: {
           entryFileNames: `${mode}.mjs`,
-          banner: mode === "setup-workspace-tools" ? "#!/usr/bin/env node" : undefined,
+          banner:
+            mode === "setup-workspace-tools"
+              ? "#!/usr/bin/env node"
+              : undefined,
         },
       },
     },

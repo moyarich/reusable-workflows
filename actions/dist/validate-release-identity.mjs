@@ -31,11 +31,15 @@ const parsers = {
 };
 function parseReleaseMarker(body = "") {
   const matches = [...body.matchAll(versionedMarker)];
-  if (matches.length > 1) throw new Error("Multiple release identity markers found.");
+  if (matches.length > 1)
+    throw new Error("Multiple release identity markers found.");
   if (matches.length === 1) {
     const [, version, content] = matches[0];
     const parser = parsers[version];
-    if (!parser) throw new Error("Unsupported release identity marker version: " + version);
+    if (!parser)
+      throw new Error(
+        "Unsupported release identity marker version: " + version
+      );
     return parser(content);
   }
   return parseLegacy(body);
@@ -46,7 +50,10 @@ function validateReleaseMarker(body, expected) {
   if (marker.format === "v2") {
     for (const key of ["package", "version", "tag", "target"]) {
       const field = key;
-      if (expected[field] && marker[field] !== expected[field]) throw new Error(`Release identity mismatch for ${key}: marker=${marker[field]} expected=${expected[field]}`);
+      if (expected[field] && marker[field] !== expected[field])
+        throw new Error(
+          `Release identity mismatch for ${key}: marker=${marker[field]} expected=${expected[field]}`
+        );
     }
   } else if (expected.target && marker.target && marker.target !== expected.target && marker.target !== expected.package) {
     throw new Error("Legacy release target mismatch: " + marker.target);
@@ -60,11 +67,23 @@ const input = (name) => {
 try {
   const tag = input("release-tag");
   if (!tag) throw new Error("release-tag is required");
-  const raw = execFileSync("gh", ["api", "--paginate", "--slurp", "repos/" + process.env.GITHUB_REPOSITORY + "/releases?per_page=100"], { encoding: "utf8" });
+  const raw = execFileSync(
+    "gh",
+    [
+      "api",
+      "--paginate",
+      "--slurp",
+      "repos/" + process.env.GITHUB_REPOSITORY + "/releases?per_page=100"
+    ],
+    { encoding: "utf8" }
+  );
   const release = JSON.parse(raw).flat().find((item) => item.tag_name === tag);
   if (!release) {
-    if (input("required") === "true") throw new Error("No GitHub Release for tag: " + tag);
-    console.log("No release exists for tag " + tag + "; skipping marker validation.");
+    if (input("required") === "true")
+      throw new Error("No GitHub Release for tag: " + tag);
+    console.log(
+      "No release exists for tag " + tag + "; skipping marker validation."
+    );
   } else {
     const marker = validateReleaseMarker(release.body || "", {
       tag,
@@ -73,7 +92,11 @@ try {
       target: input("target")
     });
     console.log("Release " + tag + " metadata format: " + marker.format);
-    if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, "format=" + marker.format + "\n");
+    if (process.env.GITHUB_OUTPUT)
+      appendFileSync(
+        process.env.GITHUB_OUTPUT,
+        "format=" + marker.format + "\n"
+      );
   }
 } catch (error) {
   console.error("::error::" + error.message);
