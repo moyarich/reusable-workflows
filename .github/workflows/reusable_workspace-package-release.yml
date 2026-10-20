@@ -169,7 +169,7 @@ jobs:
           const rootManifest = JSON.parse(readFileSync("package.json", "utf8"));
           const rootSelection = selected.find(pkg => pkg.directory === ".");
           if (rootSelection) {
-            if (rootManifest.private === true || rootManifest.name !== rootSelection.name) throw Error("Selected root manifest is not publishable or does not match");
+            if (rootManifest.private === true || rootManifest.name !== rootSelection.name) throw Error("Selected root manifest mismatch");
             rootManifest.version = rootSelection.version;
             lock.version = rootSelection.version;
             if (lock.packages?.[""]) lock.packages[""].version = rootSelection.version;
@@ -287,135 +287,6 @@ jobs:
       release-tag: ${{ format('{0}@{1}', matrix.name, matrix.version) }}
       release-name: ${{ format('{0} v{1}', matrix.name, matrix.version) }}
       changelog-file: ${{ matrix.directory == '.' && 'CHANGELOG.md' || format('{0}/CHANGELOG.md', matrix.directory) }}
-      target-ref: main
-      create-tag: true
-      major-tag: ${{ format('{0}@v{1}', matrix.name, matrix.major) }}
-      update-major-tag: ${{ inputs.update-major-tag }}
-      draft: ${{ inputs.draft }}
-      dry-run: ${{ inputs.dry-run }}
-
-  report:
-    name: Workspace release · Summary
-    if: ${{ always() }}
-    needs: [discover-packages, select-packages, select, prepare-versions, gate, release]
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-    steps:
-      - name: Consolidated release report
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          DISCOVER_STATUS: ${{ needs.discover-packages.result }}
-          DISCOVERED_JSON: ${{ needs.discover-packages.outputs.packages }}
-          SELECTION_STATUS: ${{ needs.select-packages.result }}
-          SELECT_STATUS: ${{ needs.select.result }}
-          PACKAGE_MATRIX: ${{ needs.select.outputs.matrix }}
-          PREPARE_STATUS: ${{ needs.prepare-versions.result }}
-          VALIDATE_STATUS: ${{ needs.gate.result }}
-          RELEASE_STATUS: ${{ needs.release.result }}
-          REQUESTED_PACKAGE: ${{ inputs.package }}
-          VERSION_MODE: ${{ inputs.version-mode }}
-          VERSION_BUMP: ${{ inputs.version-bump }}
-          DRY_RUN: ${{ inputs.dry-run }}
-          DRAFT: ${{ inputs.draft }}
-        run: |
-          set -euo pipefail
-          {
-            echo "# Workspace package release · Summary"
-            echo
-            echo "| Setting | Value |"
-            echo "| --- | --- |"
-            printf '| Repository | `%s` |\n' "$GITHUB_REPOSITORY"
-            printf '| Requested packages | `%s` |\n' "$REQUESTED_PACKAGE"
-            printf '| Version mode | `%s` |\n' "$VERSION_MODE"
-            printf '| Version bump | `%s` |\n' "$VERSION_BUMP"
-            printf '| Dry run | **%s** |\n' "$DRY_RUN"
-            printf '| Draft release | **%s** |\n' "$DRAFT"
-            echo
-            echo "## Job outcomes"
-            echo
-            echo "| Stage | Result |"
-            echo "| --- | --- |"
-            printf '| Discover packages | **%s** |\n' "$DISCOVER_STATUS"
-            printf '| Select packages | **%s** |\n' "$SELECTION_STATUS"
-            printf '| Resolve versions | **%s** |\n' "$SELECT_STATUS"
-            printf '| Prepare manifests | **%s** |\n' "$PREPARE_STATUS"
-            printf '| Build and validate tarballs | **%s** |\n' "$VALIDATE_STATUS"
-            printf '| GitHub package releases | **%s** |\n' "$RELEASE_STATUS"
-            echo
-            echo "## Discovered packages"
-            echo
-            if jq -e 'type == "array"' >/dev/null 2>&1 <<< "$DISCOVERED_JSON"; then
-              printf 'Discovered: **%s**\n\n' "$(jq 'length' <<< "$DISCOVERED_JSON")"
-            else
-              echo "Discovery did not return a package inventory."
-            fi
-            echo
-            echo "## Selected packages and versions"
-            echo
-            if jq -e '.include | type == "array"' >/dev/null 2>&1 <<< "$PACKAGE_MATRIX"; then
-              printf 'Selected: **%s**\n\n' "$(jq '.include | length' <<< "$PACKAGE_MATRIX")"
-              echo "| Package | Directory | Release version | Expected Git tag |"
-              echo "| --- | --- | --- | --- |"
-              jq -r '.include[] | "| `" + .name + "` | `" + .directory + "` | `" + .version + "` | `" + .name + "@" + .version + "` |"' <<< "$PACKAGE_MATRIX"
-            else
-              echo "Selection or version resolution did not complete."
-            fi
-            echo
-            echo "## Individual package release jobs"
-            echo
-            echo "| Job | Result |"
-            echo "| --- | --- |"
-            if jobs="$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?per_page=100" --jq '.jobs[] | select(.name | contains("GitHub package release") and endswith("job: Release")) | [.name, (.conclusion // .status)] | @tsv' 2>/dev/null)"; then
-              if [ -n "$jobs" ]; then
-                while IFS="$(printf '\t')" read -r job outcome; do
-                  printf '| %s | **%s** |\n' "$job" "$outcome"
-                done <<< "$jobs"
-              else
-                echo "| No per-package release jobs ran | skipped |"
-              fi
-            else
-              echo "| Package-level details | Unable to retrieve job results; see the Actions job list |"
-            fi
-            echo
-            echo "## Overall result"
-            echo
-            if [[ "$DISCOVER_STATUS" == failure || "$SELECTION_STATUS" == failure || "$SELECT_STATUS" == failure || "$PREPARE_STATUS" == failure || "$VALIDATE_STATUS" == failure || "$RELEASE_STATUS" == failure ]]; then
-              echo "**Failed** — see unsuccessful jobs above; dry-run mode does not imply success."
-            elif [[ "$RELEASE_STATUS" == success && "$DRY_RUN" == true ]]; then
-              echo "**Dry-run completed** — no release or tag mutations requested."
-            elif [[ "$RELEASE_STATUS" == success ]]; then
-              echo "**Release workflow completed.**"
-            else
-              echo "**Incomplete or skipped** — review the job outcomes above."
-            fi
-            echo
-            echo "_Per-package release details and immutable-tag warnings remain available in the individual job summaries._"
-          } >> "$GITHUB_STEP_SUMMARY"
-\\t' read -r package directory; do
-            echo "::group::Validate $package"
-            npm pack --workspace "$package" --dry-run
-            echo "::endgroup::"
-          done
-
-  release:
-    name: GitHub package release
-    needs: [select, prepare-versions, gate]
-    if: ${{ always() && needs.select.result == 'success' && (needs.prepare-versions.result == 'success' || needs.prepare-versions.result == 'skipped') && needs.gate.result == 'success' && needs.select.outputs.count != '0' }}
-    strategy:
-      fail-fast: false
-      max-parallel: 1 # Avoid concurrent release/tag mutations and GitHub release-index races.
-      matrix: ${{ fromJSON(needs.select.outputs.matrix) }}
-    permissions:
-      contents: write
-    uses: ./.github/workflows/reusable_release.yml
-    with:
-      version: ${{ matrix.version }}
-      release-tag: ${{ format('{0}@{1}', matrix.name, matrix.version) }}
-      release-name: ${{ format('{0} v{1}', matrix.name, matrix.version) }}
-      changelog-file: ${{ format('{0}/CHANGELOG.md', matrix.directory) }}
       target-ref: main
       create-tag: true
       major-tag: ${{ format('{0}@v{1}', matrix.name, matrix.major) }}
