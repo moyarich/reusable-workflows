@@ -16,6 +16,11 @@ on:
         required: false
         default: "24"
         type: string
+      expected-sha:
+        description: Expected branch SHA produced by preceding repair stage
+        required: false
+        default: ""
+        type: string
       target-branch:
         required: false
         default: main
@@ -25,17 +30,12 @@ on:
         required: false
         default: npm run checks
         type: string
-      required-workflow:
-        description: Workflow file to dispatch after a successful heal
-        required: false
-        default: ci.yml
-        type: string
     outputs:
       changed:
         description: Whether generated distribution files changed
         value: ${{ jobs.heal.outputs.changed }}
       healed-sha:
-        description: Exact commit to validate in CI
+        description: Final distribution repair commit SHA
         value: ${{ jobs.heal.outputs.healed-sha }}
 permissions: {}
 jobs:
@@ -46,7 +46,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      actions: write
     steps:
       - name: Checkout target branch
         uses: actions/checkout@v7
@@ -54,6 +53,15 @@ jobs:
           ref: ${{ inputs.target-branch }}
           fetch-depth: 0
           persist-credentials: false
+      - name: Reject branch movement since preceding repair
+        if: ${{ inputs.expected-sha != '' }}
+        env:
+          EXPECTED_SHA: ${{ inputs.expected-sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA" || {
+            echo "::error::Branch moved since preceding repair; restart self-heal"
+            exit 1
+          }
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
@@ -101,26 +109,6 @@ jobs:
         id: head
         shell: bash
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-      - name: Verify branch still points at healed commit
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TARGET_BRANCH: ${{ inputs.target-branch }}
-          EXPECTED_SHA: ${{ steps.head.outputs.sha }}
-        run: |
-          set -euo pipefail
-          actual="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TARGET_BRANCH" --jq .sha)"
-          test "$actual" = "$EXPECTED_SHA" || { echo "::error::Branch moved before dispatch: $actual != $EXPECTED_SHA"; exit 1; }
-      - name: Dispatch and verify required workflow
-        id: validation
-        uses: moyarich/reusable-workflows/actions/workflow-dispatch@fix/self-heal-branch-sha-guard
-        with:
-          workflow: ${{ inputs.required-workflow }}
-          branch: ${{ inputs.target-branch }}
-          sha: ${{ steps.head.outputs.sha }}
-          token: ${{ github.token }}
-          timeout-seconds: '300'
-          poll-seconds: '15'
-
       - name: Write healing summary
         if: always()
         shell: bash
@@ -128,8 +116,6 @@ jobs:
           CHANGED: ${{ steps.commit.outputs.changed || 'false' }}
           RESULT: ${{ job.status }}
           DIST_PATH: ${{ inputs.dist-path }}
-          CI_URL: ${{ steps.validation.outputs.workflow-url }}
-          CI_CONCLUSION: ${{ steps.validation.outputs.workflow-conclusion }}
         run: |
           {
             echo "## Generated distribution self-heal"
@@ -140,8 +126,6 @@ jobs:
             echo "| Files changed | $CHANGED |"
             echo "| Outcome | $RESULT |"
             echo
-            echo "| CI conclusion | ${CI_CONCLUSION:-not completed} |"
-            if [[ -n "$CI_URL" ]]; then echo "| CI run | [View run]($CI_URL) |"; fi
             echo
-            echo "Required workflow is dispatched for the healed SHA, and the job waits up to five minutes for its result."
+            echo "This worker only repairs generated distribution and returns the final SHA."
           } >> "$GITHUB_STEP_SUMMARY"
