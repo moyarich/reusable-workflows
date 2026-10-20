@@ -15,16 +15,16 @@ inputs:
     required: true
   inputs:
     description: JSON object of workflow_dispatch inputs
-    default: '{}'
+    default: "{}"
   sha-input:
     description: Optional input name for the expected SHA; empty disables injection
     default: checkout-sha
   timeout-seconds:
     description: Total wait timeout, in seconds
-    default: '300'
+    default: "300"
   poll-seconds:
     description: Poll interval, in seconds
-    default: '15'
+    default: "15"
 outputs:
   workflow-id:
     value: ${{ steps.dispatch.outputs.workflow-id }}
