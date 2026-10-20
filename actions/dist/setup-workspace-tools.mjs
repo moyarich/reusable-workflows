@@ -1,9 +1,8 @@
-#!/usr/bin/env node
 import require$$0 from "node:events";
 import require$$1 from "node:child_process";
 import require$$2, { join, dirname, resolve } from "node:path";
 import require$$3, { existsSync, appendFileSync } from "node:fs";
-import require$$4 from "node:process";
+import process$1 from "node:process";
 function getDefaultExportFromCjs(x) {
   return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, "default") ? x["default"] : x;
 }
@@ -1180,7 +1179,7 @@ function requireCommand() {
   const childProcess = require$$1;
   const path = require$$2;
   const fs = require$$3;
-  const process2 = require$$4;
+  const process2 = process$1;
   const { Argument: Argument2, humanReadableArgName } = requireArgument();
   const { CommanderError: CommanderError2 } = requireError();
   const { Help: Help2, stripColor } = requireHelp();
