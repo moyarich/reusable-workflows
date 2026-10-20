@@ -38,6 +38,11 @@ on:
         required: false
         default: false
         type: boolean
+      write-summary:
+        description: Write the full package discovery job summary (disable when a parent workflow provides a consolidated report).
+        required: false
+        default: true
+        type: boolean
       workspace-tools-source:
         description: "CLI location: registry (public npm), repository (Git ref), or caller (local checkout)."
         required: false
@@ -80,6 +85,11 @@ on:
         description: "Only include packages defining an npm build script."
         required: false
         default: false
+        type: boolean
+      write-summary:
+        description: Write the full package discovery job summary (disable when a parent workflow provides a consolidated report).
+        required: false
+        default: true
         type: boolean
       workspace-tools-source:
         description: "CLI location: registry (public npm), repository (Git ref), or caller (local checkout)."
@@ -166,6 +176,7 @@ jobs:
           packages="$(jq -c '.included' <<<"$report")"
           matrix="$(jq -cn --argjson packages "$packages" '{include:$packages}')"
           count="$(jq '.included | length' <<<"$report")"
+          if [ "${{ inputs.write-summary }}" = "true" ]; then
           REPORT_JSON="$report" python3 - <<'PY'
           import json
           import os
@@ -212,6 +223,7 @@ jobs:
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf8") as output:
               output.write("\n".join(rows))
           PY
+          fi
 
           {
             echo "packages=$report"
