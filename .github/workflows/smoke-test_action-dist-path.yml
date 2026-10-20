@@ -79,3 +79,26 @@ jobs:
             echo "| Composite action | $SETUP |"
             echo "| CLI validation | $ASSERTION |"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  smoke-summary:
+    name: Smoke-test summary
+    needs: [local-path, remote-path]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Write combined smoke-test summary
+        env:
+          LOCAL: ${{ needs.local-path.result }}
+          REMOTE: ${{ needs.remote-path.result }}
+        shell: bash
+        run: |
+          {
+            echo "## Setup Workspace Tools smoke-test"
+            echo
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+            echo "| Local bundled resolver | $LOCAL |"
+            echo "| Remote composite action | $REMOTE |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          test "$LOCAL" = success && test "$REMOTE" = success
