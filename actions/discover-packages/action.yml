@@ -50,7 +50,7 @@ runs:
       id: workspace-tools
       uses: moyarich/reusable-workflows/actions/setup-workspace-tools@main
       with:
-        source: ${{ inputs.workspace-tools-source }}
+        workspace-tools-source: ${{ inputs.workspace-tools-source }}
         build-command: ${{ inputs.workspace-tools-build-command }}
     - id: discover
       shell: bash
