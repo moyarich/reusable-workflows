@@ -1,4 +1,4 @@
-name: Release Drafter Self-Test
+name: self-test_release draft
 
 on:
   pull_request:
