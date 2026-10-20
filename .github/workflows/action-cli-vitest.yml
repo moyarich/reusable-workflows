@@ -8,6 +8,7 @@ on:
       - "tests/**"
       - "actions/**"
       - "vite.config.ts"
+      - "vitest.config.ts"
       - "package.json"
       - "package-lock.json"
       - "eslint.config.mjs"
@@ -43,7 +44,7 @@ jobs:
           npm pack --workspace @moyarich/reusable-workflows-cli --dry-run
       - name: Run Vitest tests
         id: test
-        run: npm run test:cli
+        run: npx vitest run
       - name: Verify tracked action distributions
         run: |
           git diff --exit-code -- actions/dist/
