@@ -1,5 +1,4 @@
-import test from "node:test";
-import assert from "node:assert/strict";
+import { test, assert } from "vitest";
 import {
   parseReleaseMarker,
   validateReleaseMarker,
@@ -15,16 +14,16 @@ const identity = {
 };
 test("roundtrip v2 marker and retain content", () => {
   const body = writeReleaseMarker("### Features\n\n- New CLI", identity);
-  assert.equal(parseReleaseMarker(body).tag, identity.tag);
+  assert.strictEqual(parseReleaseMarker(body).tag, identity.tag);
   assert.match(body, /- New CLI/);
-  assert.equal(writeReleaseMarker(body, identity), body);
+  assert.strictEqual(writeReleaseMarker(body, identity), body);
 });
 test("legacy markers migrate without losing seed or release notes", () => {
   const legacy =
     "<!-- release-draft-sync:target=@moyarich/workspace-tools -->\n<!-- release-draft-sync:seed-sha=abc123 source=changelog -->\n\nPublic changes";
   const body = writeReleaseMarker(legacy, identity);
-  assert.equal(parseReleaseMarker(body)["seed-sha"], "abc123");
-  assert.equal(parseReleaseMarker(body).format, "v2");
+  assert.strictEqual(parseReleaseMarker(body)["seed-sha"], "abc123");
+  assert.strictEqual(parseReleaseMarker(body).format, "v2");
   assert.match(body, /Public changes/);
 });
 test("version, tag, and package mismatches fail closed", () => {
@@ -56,9 +55,9 @@ test("malformed and duplicate identity markers are rejected", () => {
 
 test("dispatches legacy and v2 markers independently", () => {
   const legacy = "<!-- release-draft-sync:target=@moyarich/workspace-tools -->";
-  assert.equal(parseReleaseMarker(legacy)?.format, "legacy");
+  assert.strictEqual(parseReleaseMarker(legacy)?.format, "legacy");
   const v2 = writeReleaseMarker("Notes", identity);
-  assert.equal(parseReleaseMarker(v2)?.format, "v2");
+  assert.strictEqual(parseReleaseMarker(v2)?.format, "v2");
 });
 test("rejects unsupported future marker versions without legacy fallback", () => {
   const unknown = "<!-- release-draft-sync:v3\npackage=test\n-->";
