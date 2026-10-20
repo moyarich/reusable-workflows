@@ -177,7 +177,7 @@ jobs:
           WORKFLOW_FILES: ${{ inputs.workflow-files }}
         run: |
           set -euo pipefail
-          mapfile -t files < <(python3 -c 'import json,os; print("\\n".join(json.loads(os.environ["WORKFLOW_FILES"]) or [os.environ["WORKFLOW_FILE"]]))')
+          mapfile -t files < <(python3 -c 'import json,os; print(*(json.loads(os.environ["WORKFLOW_FILES"]) or [os.environ["WORKFLOW_FILE"]]), sep=chr(10))')
           if git diff --quiet -- "${files[@]}"; then
             echo "No selector changes to format."
             exit 0
