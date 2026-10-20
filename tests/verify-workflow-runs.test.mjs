@@ -1,5 +1,4 @@
-import { test } from "vitest";
-import assert from "node:assert/strict";
+import { test, assert, expect } from "vitest";
 import {
   selectRun,
   validateRun,
@@ -33,7 +32,7 @@ test("exact workflow, branch, commit and event prevent stale approval", () => {
     ],
     { path, sha, branch: "release/prepare-test", event: "pull_request" },
   );
-  assert.equal(match.id, 41);
+  assert.strictEqual(match.id, 41);
 });
 
 test("most recent failed run blocks older successful run", () => {
@@ -75,13 +74,12 @@ test("verifier selects exact latest success and returns metadata", async () => {
     token: "test",
     request,
   });
-  assert.equal(result[0].id, 41);
-  assert.equal(result[0].conclusion, "success");
+  assert.strictEqual(result[0].id, 41);
+  assert.strictEqual(result[0].conclusion, "success");
 });
 
 test("invalid inputs fail closed", async () => {
-  await assert.rejects(
-    verify({
+  await expect(verify({
       workflows: ["../ci.yml"],
       repository: "example/repo",
       sha,
@@ -93,6 +91,5 @@ test("invalid inputs fail closed", async () => {
         throw Error("should not call API");
       },
     }),
-    /Required workflow paths/,
-  );
+    /Required workflow paths/).rejects.toThrow();
 });
