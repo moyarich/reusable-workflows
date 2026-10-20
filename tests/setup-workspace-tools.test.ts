@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseWorkspaceToolsSource, resolveBinDir, validateBinDir } from "../src/setup-workspace-tools/setup-workspace-tools";
+import { parseWorkspaceToolsSource, resolveBinDir, validateBinDir } from "../src/actions/setup-workspace-tools/setup-workspace-tools";
 
 describe("Workspace Tools source selection", () => {
   test("accepts latest, pinned versions, local and upstream refs", () => {
@@ -34,7 +34,7 @@ describe("Workspace Tools source selection", () => {
     const root = mkdtempSync(join(tmpdir(), "workspace-tools-setup-cli-"));
     try {
       const output = join(root, "outputs");
-      const cli = "actions/setup-workspace-tools/dist/setup-workspace-tools.mjs";
+      const cli = "actions/dist/setup-workspace-tools.mjs";
       const result = spawnSync(process.execPath, [cli, "--workspace-tools-source", "registry:npm:latest", "--github-output", output], { encoding: "utf8" });
       expect(result.status).toBe(0);
       expect(readFileSync(output, "utf8")).toContain("mode=registry\nvalue=latest");
