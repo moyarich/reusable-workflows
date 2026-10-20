@@ -6,7 +6,7 @@ on:
       workspace-tools-source:
         type: string
         required: false
-        default: registry:npm:latest
+        default: auto
       package:
         type: string
         required: false
