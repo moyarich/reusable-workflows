@@ -119,6 +119,19 @@ jobs:
           files = json.loads(os.environ["WORKFLOW_FILES"]) or [os.environ["WORKFLOW_FILE"]]
           release_packages = json.loads(os.environ["RELEASE_PACKAGES_JSON"])["included"]
           publish_packages = json.loads(os.environ["PUBLISH_PACKAGES_JSON"])["included"]
+          # VS Code extension metadata, not npm publishability, determines these choices.
+          vscode_directories = []
+          for directory in [Path("."), *sorted(Path("packages").glob("*/")), *sorted(Path("apps").glob("*/"))]:
+              manifest = directory / "package.json"
+              if not manifest.is_file():
+                  continue
+              try:
+                  metadata = json.loads(manifest.read_text(encoding="utf-8"))
+              except (ValueError, OSError):
+                  continue
+              if metadata.get("engines", {}).get("vscode") or (directory / "extension.manifest.json").is_file():
+                  vscode_directories.append(directory.as_posix() or ".")
+          vscode_directories = sorted(set(vscode_directories))
           yaml = YAML()
           yaml.preserve_quotes = True
           yaml.indent(mapping=2, sequence=4, offset=2)
@@ -127,12 +140,20 @@ jobs:
               if not isinstance(filename, str):
                   raise SystemExit(f"Invalid workflow path: {filename}")
               path = Path(filename)
+              is_vscode = path.name == "publish-vscode-vsx.yml"
               packages = publish_packages if path.name == "publish.yml" else release_packages
-              if not packages:
+              if is_vscode and not vscode_directories:
+                  print(f"Preserved {filename}: no VS Code extensions discovered")
+                  continue
+              if not is_vscode and not packages:
                   print(f"Preserved {filename}: no packages matched the selection policy")
                   continue
-              directories = sorted({package["directory"] for package in packages})
-              options = ["all", *directories]
+              directories = (vscode_directories if is_vscode
+                             else sorted({package["directory"] for package in packages}))
+              options = directories if is_vscode else ["all", *directories]
+              default = directories[0] if is_vscode else "all"
+              description = ("Select a VS Code extension workspace" if is_vscode
+                             else "Select a publishable workspace package")
               if (path.is_absolute()
                       or ".." in path.parts or path.suffix not in (".yml", ".yaml")
                       or path.parts[:2] != (".github", "workflows")):
@@ -145,17 +166,17 @@ jobs:
                   raise SystemExit(f"Missing workflow_dispatch.inputs.package: {filename}")
               if not isinstance(package_input, dict):
                   raise SystemExit(f"Invalid package input: {filename}")
-              if (package_input.get("description") == "Select a publishable workspace package"
+              if (package_input.get("description") == description
                       and package_input.get("required") is True
                       and package_input.get("type") == "choice"
-                      and package_input.get("default") == "all"
+                      and package_input.get("default") == default
                       and list(package_input.get("options", [])) == options):
                   print(f"Already current: {filename}")
                   continue
-              package_input["description"] = "Select a publishable workspace package"
+              package_input["description"] = description
               package_input["required"] = True
               package_input["type"] = "choice"
-              package_input["default"] = "all"
+              package_input["default"] = default
               package_input["options"] = options
 
               from io import StringIO
