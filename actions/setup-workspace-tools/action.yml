@@ -27,19 +27,13 @@ runs:
       with:
         node-version: "24"
 
-    - name: Install source resolver dependencies
-      shell: bash
-      env:
-        SCRIPT_DIR: ${{ github.action_path }}/../../scripts/setup-workspace-tools
-      run: npm install --prefix "$SCRIPT_DIR" --ignore-scripts --no-package-lock --no-audit --no-fund
-
     - name: Resolve typed source
       id: typed
       shell: bash
       env:
         SOURCE: ${{ inputs.workspace-tools-source }}
-        SCRIPT_DIR: ${{ github.action_path }}/../../scripts/setup-workspace-tools
-      run: node --experimental-strip-types "$SCRIPT_DIR/setup-workspace-tools.ts" --workspace-tools-source "$SOURCE"
+        SETUP_CLI: ${{ github.action_path }}/../../dist/bin/setup-workspace-tools.mjs
+      run: node "$SETUP_CLI" --workspace-tools-source "$SOURCE" --mode resolve
 
     - name: Setup Node.js for published package
       if: ${{ steps.typed.outputs.mode == 'registry' }}
@@ -120,11 +114,11 @@ runs:
       shell: bash
       env:
         SOURCE: ${{ inputs.workspace-tools-source }}
-        SCRIPT_DIR: ${{ github.action_path }}/../../scripts/setup-workspace-tools
+        SETUP_CLI: ${{ github.action_path }}/../../dist/bin/setup-workspace-tools.mjs
       run: |
         set -euo pipefail
         args=(--workspace-tools-source "$SOURCE" --mode bin-dir)
         if [[ "$SOURCE" == registry:npm:* ]]; then
           args+=(--release-bin "$(readlink -f "$(command -v workspace-release)")")
         fi
-        node --experimental-strip-types "$SCRIPT_DIR/setup-workspace-tools.ts" "${args[@]}"
+        node "$SETUP_CLI" "${args[@]}"
