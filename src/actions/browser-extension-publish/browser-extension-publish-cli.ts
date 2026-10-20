@@ -1,6 +1,6 @@
 import { Command, InvalidArgumentError } from "commander";
 import { appendFileSync, readFileSync, mkdirSync, existsSync } from "node:fs";
-import { resolve, relative, join } from "node:path";
+import { resolve, join } from "node:path";
 import { execFileSync } from "node:child_process";
 import process from "node:process";
 
