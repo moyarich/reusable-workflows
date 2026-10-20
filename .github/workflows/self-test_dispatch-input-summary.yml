@@ -1,4 +1,4 @@
-name: Dispatch input summary contract test
+name: self-test_dispatch input summary
 
 on:
   pull_request:
