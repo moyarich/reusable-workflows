@@ -35,7 +35,7 @@ on:
         default: npm run build:cli
       dist-test-command:
         type: string
-        default: npm run test:cli
+        default: npx vitest run
       target-branch:
         description: Trusted branch to repair and validate
         type: string
