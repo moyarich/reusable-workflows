@@ -4,7 +4,6 @@ on:
   push:
     paths:
       - "src/actions/**"
-      - "src/build-actions.mjs"
       - "vite.config.ts"
       - "package.json"
       - ".prettierignore"
@@ -46,8 +45,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node_modules/.bin/prettier --write src/actions/ src/build-actions.mjs vite.config.ts tests/ --ignore-path .prettierignore
-          if [ -n "$(git status --porcelain -- src/actions/ src/build-actions.mjs vite.config.ts tests/)" ]; then
+          node_modules/.bin/prettier --write src/actions/ vite.config.ts tests/ --ignore-path .prettierignore
+          if [ -n "$(git status --porcelain -- src/actions/ vite.config.ts tests/)" ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "changed=false" >> "$GITHUB_OUTPUT"
@@ -65,7 +64,7 @@ jobs:
         run: |
           set -euo pipefail
           git add -f -- actions/dist/
-          git add -- src/actions/ src/build-actions.mjs vite.config.ts tests/
+          git add -- src/actions/ vite.config.ts tests/
           if git diff --cached --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "Action distribution is already current."
