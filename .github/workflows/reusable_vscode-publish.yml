@@ -347,7 +347,6 @@ jobs:
           VSIX: ${{ steps.vsix.outputs.glob }}
           REGISTRY: ${{ steps.registries.outputs.selected }}
           STATUS: ${{ job.status }}
-          MANIFEST_STATUS: ${{ steps.identity.outcome }}
           RELEASE_TAG: ${{ inputs.release-tag }}
           TAG_PREFIX: ${{ inputs.release-tag-prefix }}
           ATTACH_RELEASE_ASSET: ${{ inputs.attach-release-asset }}
@@ -377,8 +376,8 @@ jobs:
             if [[ "$STATUS" != success ]]; then
               echo "### Troubleshooting"
               echo
-              echo "Check the first failed step above. The selected directory must contain a real VS Code extension manifest (`publisher`, `engines.vscode`, and an unscoped extension `name`)."
-              echo "For custom packaging, set `package-command` and `artifact-glob` to produce exactly one .vsix."
+              echo 'Check the first failed step above. The selected directory must contain a real VS Code extension manifest (`publisher`, `engines.vscode`, and an unscoped extension `name`).'
+              echo 'For custom packaging, set `package-command` and `artifact-glob` to produce exactly one .vsix.'
               echo
             elif [[ "$DRY_RUN" == true ]]; then
               echo "### Next step"
