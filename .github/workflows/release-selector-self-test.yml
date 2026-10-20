@@ -15,7 +15,7 @@ jobs:
       contents: read
     uses: ./.github/workflows/reusable_select-release-packages.yml
     with:
-      packages-json: '[{"name":"example","directory":"packages/example"}]'
+      packages-json: '{"included":[{"name":"example","directory":"packages/example"}],"filtered":[],"total":1}'
       package: example
       event-name: workflow_dispatch
       before-sha: ""
