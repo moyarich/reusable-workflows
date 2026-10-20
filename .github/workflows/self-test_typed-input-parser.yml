@@ -1,4 +1,4 @@
-name: self-test_typed input parser
+name: "Self-test · Typed input parser"
 
 on:
   pull_request:
