@@ -1,4 +1,4 @@
-name: Shared action dist path smoke test
+name: smoke-test_action dist path
 
 on:
   pull_request:
