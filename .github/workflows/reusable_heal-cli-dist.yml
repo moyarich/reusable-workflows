@@ -101,17 +101,15 @@ jobs:
         id: head
         shell: bash
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-      - name: Dispatch CI for healed commit
-        env:
-          GH_TOKEN: ${{ github.token }}
-          WORKFLOW: ${{ inputs.validation-workflow }}
-          TARGET_REF: ${{ inputs.target-branch }}
-          HEALED_SHA: ${{ steps.head.outputs.sha }}
-        run: |
-          set -euo pipefail
-          # The validation workflow must accept workflow_dispatch input checkout-sha.
-          gh workflow run "$WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$TARGET_REF" -f "checkout-sha=$HEALED_SHA"
-          echo "Dispatched $WORKFLOW for $HEALED_SHA on $TARGET_REF"
+      - name: Dispatch and validate healed commit
+        id: validation
+        uses: the-actions-org/workflow-dispatch@v4
+        with:
+          workflow: ${{ inputs.validation-workflow }}
+          ref: ${{ inputs.target-branch }}
+          token: ${{ github.token }}
+          wait-for-completion: true
+          wait-for-completion-timeout: 30m
 
       - name: Write healing summary
         if: always()
