@@ -1,4 +1,3 @@
-import { writeReleaseMarker } from "./identity";
 import {
   existsSync,
   readFileSync,
@@ -283,8 +282,6 @@ function runAction() {
   const targetKey = input("target-key") || "root";
   const seedSha = input("seed-sha");
   const targetPath = input("target-path");
-  const tag = input("tag");
-  const packageName = input("package-name");
   const result = reconcileReleaseBody({
     existingBody: existsSync(existingBodyFile)
       ? readFileSync(existingBodyFile, "utf8")
