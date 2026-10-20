@@ -27,11 +27,14 @@ jobs:
       - name: Build action CLI distributions
         id: build
         run: npm run build:cli
-      - name: Export generated setup bundle for committing
+      - name: Export generated bundles for committing
         run: |
-          printf 'SETUP_BUNDLE_BASE64='
-          base64 -w0 actions/dist/setup-workspace-tools.mjs
-          printf '\\n'
+          for file in actions/dist/*.mjs; do
+            echo "BUNDLE-BEGIN:$file"
+            base64 -w0 "$file"
+            echo
+            echo "BUNDLE-END:$file"
+          done
       - name: Run Vitest tests
         id: test
         run: npm run test:cli
