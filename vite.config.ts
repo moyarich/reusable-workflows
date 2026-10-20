@@ -8,7 +8,8 @@ const entries: Record<string, string> = {
 
 export default defineConfig(({ mode }) => {
   const entry = entries[mode];
-  if (!entry) throw new Error(`Unknown action build mode: ${mode}`);
+  if (!entry && mode !== "test") throw new Error(`Unknown action build mode: ${mode}`);
+  if (mode === "test") return { test: { environment: "node" } };
 
   return {
     ssr: { noExternal: true },
