@@ -107,9 +107,23 @@ jobs:
         with:
           workflow: ${{ inputs.validation-workflow }}
           ref: ${{ inputs.target-branch }}
+          inputs: >-
+            {"checkout-sha": "${{ steps.head.outputs.sha }}"}
           token: ${{ github.token }}
           wait-for-completion: true
           wait-for-completion-timeout: 30m
+      - name: Assert CI run is for healed SHA
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ steps.validation.outputs.workflow-id }}
+          HEALED_SHA: ${{ steps.head.outputs.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq .head_sha)"
+          test "$actual" = "$HEALED_SHA" || {
+            echo "::error::Dispatched CI run is not for the healed SHA"
+            exit 1
+          }
 
       - name: Write healing summary
         if: always()
