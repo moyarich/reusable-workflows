@@ -1,8 +1,0 @@
-name: Shared distribution path smoke test
-description: Verify JavaScript actions can use a sibling dist directory.
-outputs:
-  shared-dist-supported:
-    description: Set by the executable in actions/dist/
-runs:
-  using: node24
-  main: ../dist/path-smoke-test.mjs
