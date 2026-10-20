@@ -19,6 +19,9 @@ inputs:
     required: false
     default: "30"
 outputs:
+  result-json:
+    description: Workflow run, jobs (including steps), and artifact API metadata as JSON
+    value: ${{ steps.dispatch.outputs.result-json }}
   run-id:
     description: Dispatched workflow run ID
     value: ${{ steps.dispatch.outputs.run-id }}
@@ -53,6 +56,24 @@ runs:
         head_sha=""
         finish() {
           result="$?"
+          if [[ -n "$run_id" ]]; then
+            metadata="$(mktemp)"
+            jobs="$(mktemp)"
+            artifacts="$(mktemp)"
+            if gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" > "$metadata" &&
+               gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/jobs?per_page=100" | jq -c '[.[].jobs[]?]' > "$jobs" &&
+               gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/artifacts?per_page=100" | jq -c '[.[].artifacts[]?]' > "$artifacts"; then
+              complete="$(jq -cn --slurpfile run "$metadata" --slurpfile jobs "$jobs" --slurpfile artifacts "$artifacts" '{run:$run[0],jobs:$jobs[0],artifacts:$artifacts[0]}')"
+              if (( ${#complete} <= 250000 )); then
+                echo "result-json=$complete" >> "$GITHUB_OUTPUT"
+              else
+                echo "::warning::Workflow metadata exceeds safe output size; retrieve via run-id"
+              fi
+            else
+              echo "::warning::Could not retrieve complete workflow metadata"
+            fi
+            rm -f "$metadata" "$jobs" "$artifacts"
+          fi
           {
             echo "## Dispatched workflow"
             echo
