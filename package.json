@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "npm run dev --workspace @moyarich/reusable-workflows-playground",
     "build:playground": "npm run build --workspace @moyarich/reusable-workflows-playground",
-    "build:cli": "node src/build-actions.mjs",
+    "build:cli": "vite build",
     "test:cli": "vitest run tests/setup-workspace-tools.test.ts",
     "check:cli-dist": "npm run build:cli && git diff --exit-code -- actions/dist/"
   },
