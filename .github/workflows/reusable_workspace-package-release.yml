@@ -56,7 +56,8 @@ jobs:
       packages-directory: packages
       workspace-tools-source: ${{ inputs.workspace-tools-source }}
       use-workspaces: true
-      require-publish-config: true
+      include-root-package: true
+      require-publish-config: false
 
   select-packages:
     name: Select requested packages
@@ -165,6 +166,14 @@ jobs:
           const lockPath = "package-lock.json";
           const lock = JSON.parse(readFileSync(lockPath, "utf8"));
           const selectedByName = new Map(selected.map(pkg => [pkg.name, pkg]));
+          const rootManifest = JSON.parse(readFileSync("package.json", "utf8"));
+          const rootSelection = selected.find(pkg => pkg.directory === ".");
+          if (rootSelection) {
+            if (rootManifest.private === true || rootManifest.name !== rootSelection.name) throw Error("Selected root manifest mismatch");
+            rootManifest.version = rootSelection.version;
+            lock.version = rootSelection.version;
+            if (lock.packages?.[""]) lock.packages[""].version = rootSelection.version;
+          }
           const workspaceEntries = Object.entries(lock.packages ?? {})
             .filter(([directory, meta]) => directory && !directory.startsWith("node_modules/") && meta.name);
           const files = [];
@@ -215,17 +224,19 @@ jobs:
             files.push([manifestPath, manifest]);
           }
           for (const pkg of selected) {
-            if (!workspaceEntries.some(([directory]) => directory === pkg.directory)) {
+            if (pkg.directory !== "." && !workspaceEntries.some(([directory]) => directory === pkg.directory)) {
               throw Error(`Selected workspace missing from lockfile: ${pkg.directory}`);
             }
           }
+          if (rootSelection) files.push(["package.json", rootManifest]);
           for (const [path, value] of files) writeFileSync(path, JSON.stringify(value, null, 2) + "\n");
           writeFileSync(lockPath, JSON.stringify(lock, null, 2) + "\n");
           NODE
           if ! git diff --quiet; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add packages package-lock.json
+            git add -u -- package.json package-lock.json
+            if [ -d packages ]; then git add -u -- packages; fi
             git commit -m "release: prepare selected package versions"
             git push origin HEAD:main
           fi
@@ -248,16 +259,22 @@ jobs:
           cache: npm
       - run: npm ci --include=optional
       - name: Build workspace dependencies once
-        run: npm run build --workspaces --if-present
+        shell: bash
+        run: |
+          if node -e 'const p=require("./package.json");const w=Array.isArray(p.workspaces)?p.workspaces:p.workspaces?.packages??[];process.exit(w.length?0:1)'; then
+            npm run build --workspaces --include-workspace-root --if-present
+          else
+            npm run build --if-present
+          fi
       - name: Validate every selected package tarball
         env:
           PACKAGE_MATRIX: ${{ needs.select.outputs.matrix }}
         shell: bash
         run: |
           set -euo pipefail
-          jq -r '.include[].name' <<< "$PACKAGE_MATRIX" | while IFS= read -r package; do
+          jq -r '.include[] | [.name, .directory] | @tsv' <<< "$PACKAGE_MATRIX" | while IFS="$(printf '\\t')" read -r package directory; do
             echo "::group::Validate $package"
-            npm pack --workspace "$package" --dry-run
+            if [ "$directory" = "." ]; then npm pack --dry-run; else npm pack --workspace "$package" --dry-run; fi
             echo "::endgroup::"
           done
 
@@ -276,7 +293,7 @@ jobs:
       version: ${{ matrix.version }}
       release-tag: ${{ format('{0}@{1}', matrix.name, matrix.version) }}
       release-name: ${{ format('{0} v{1}', matrix.name, matrix.version) }}
-      changelog-file: ${{ format('{0}/CHANGELOG.md', matrix.directory) }}
+      changelog-file: ${{ matrix.directory == '.' && 'CHANGELOG.md' || format('{0}/CHANGELOG.md', matrix.directory) }}
       target-ref: main
       create-tag: true
       major-tag: ${{ format('{0}@v{1}', matrix.name, matrix.major) }}
