@@ -22,6 +22,10 @@ on:
         description: Optional filter against API workflow run .name (not display_title); leave empty unless the workflow's name is known
         type: string
         default: ''
+      required-workflow-correlation-input:
+        description: Optional dispatch input for a unique run token; target must use this input in top-level run-name
+        type: string
+        default: ''
       required-workflow-sha-input:
         description: Optional workflow_dispatch input name used to pass the healed commit SHA; empty disables injection
         type: string
@@ -159,6 +163,8 @@ jobs:
           INPUTS: ${{ inputs.required-workflow-inputs }}
           SHA_INPUT: ${{ inputs.required-workflow-sha-input }}
           HEALED_SHA: ${{ steps.head.outputs.sha }}
+          CORRELATION_INPUT: ${{ inputs.required-workflow-correlation-input }}
+          CORRELATION_VALUE: ${{ github.run_id }}-${{ github.run_attempt }}
           REQUIRED_WORKFLOW: ${{ inputs.required-workflow }}
         run: |
           set -euo pipefail
@@ -184,6 +190,13 @@ jobs:
           else
             result="$(jq -c . <<< "$INPUTS")"
           fi
+          if [[ -n "$CORRELATION_INPUT" ]]; then
+            [[ "$CORRELATION_INPUT" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]] || {
+              echo "::error::Invalid required-workflow-correlation-input"
+              exit 1
+            }
+            result="$(jq -cn --argjson obj "$result" --arg key "$CORRELATION_INPUT" --arg val "$CORRELATION_VALUE" '$obj + {($key): $val}')"
+          fi
           echo "json=$result" >> "$GITHUB_OUTPUT"
       - name: Dispatch required workflow for healed head and wait
         id: validate
@@ -205,11 +218,15 @@ jobs:
           TARGET_BRANCH: ${{ inputs.target-branch }}
           REQUIRED_WORKFLOW: ${{ inputs.required-workflow }}
           REPORTED_CONCLUSION: ${{ steps.validate.outputs.workflow-conclusion }}
+          CORRELATION_INPUT: ${{ inputs.required-workflow-correlation-input }}
+          CORRELATION_VALUE: ${{ github.run_id }}-${{ github.run_attempt }}
         shell: bash
         run: |
           set -euo pipefail
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" > "$RUNNER_TEMP/required-run.json"
           jq -e \
+            --arg correlation "$CORRELATION_VALUE" \
+            --arg correlation_input "$CORRELATION_INPUT" \
             --arg sha "$EXPECTED_SHA" \
             --arg branch "$TARGET_BRANCH" \
             --arg workflow ".github/workflows/$REQUIRED_WORKFLOW" \
@@ -218,7 +235,8 @@ jobs:
             '.id == $id and .event == "workflow_dispatch" and
              .path == $workflow and .head_sha == $sha and
              .head_branch == $branch and .status == "completed" and
-             .conclusion == "success" and $reported == "success"' \
+             .conclusion == "success" and $reported == "success" and
+             ($correlation_input == "" or (.display_title | contains($correlation)))' \
             "$RUNNER_TEMP/required-run.json" >/dev/null || {
               echo "::error::Required workflow identity, SHA, branch, or success conclusion mismatch"
               exit 1
