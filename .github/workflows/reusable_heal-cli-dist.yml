@@ -25,7 +25,7 @@ on:
         required: false
         default: npm run checks
         type: string
-      validation-workflow:
+      required-workflow:
         description: Workflow file to dispatch after a successful heal
         required: false
         default: ci.yml
@@ -101,19 +101,28 @@ jobs:
         id: head
         shell: bash
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-      - name: Dispatch CI for healed commit and wait
+      - name: Verify branch still points at healed commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_BRANCH: ${{ inputs.target-branch }}
+          EXPECTED_SHA: ${{ steps.head.outputs.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TARGET_BRANCH" --jq .sha)"
+          test "$actual" = "$EXPECTED_SHA" || { echo "::error::Branch moved before dispatch: $actual != $EXPECTED_SHA"; exit 1; }
+      - name: Dispatch required workflow for healed commit and wait
         id: validation
-        uses: the-actions-org/workflow-dispatch@v4
+        uses: the-actions-org/workflow-dispatch@3133c5d135c7dbe4be4f9793872b6ef331b53bc7 # v4
         with:
-          workflow: ${{ inputs.validation-workflow }}
+          workflow: ${{ inputs.required-workflow }}
           ref: ${{ inputs.target-branch }}
           token: ${{ github.token }}
           inputs: >-
             {"checkout-sha":"${{ steps.head.outputs.sha }}"}
           wait-for-completion: true
-          wait-for-completion-timeout: 30m
+          wait-for-completion-timeout: 5m
 
-      - name: Verify dispatched CI head SHA
+      - name: Verify required workflow completed on healed SHA
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ steps.validation.outputs.workflow-id }}
@@ -121,10 +130,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -n "$RUN_ID"
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]] || { echo "::error::Missing required workflow run ID"; exit 1; }
           actual="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq '.head_sha')"
           if [[ "$actual" != "$EXPECTED_SHA" ]]; then
-            echo "::error::CI ran at $actual instead of $EXPECTED_SHA"
+            echo "::error::Required workflow ran at $actual instead of $EXPECTED_SHA"
             exit 1
           fi
 
@@ -150,5 +159,5 @@ jobs:
             echo "| CI conclusion | ${CI_CONCLUSION:-not completed} |"
             if [[ -n "$CI_URL" ]]; then echo "| CI run | [View run]($CI_URL) |"; fi
             echo
-            echo "CI is dispatched for the healed SHA, and the job waits for its result."
+            echo "Required workflow is dispatched for the healed SHA, and the job waits up to five minutes for its result."
           } >> "$GITHUB_STEP_SUMMARY"
