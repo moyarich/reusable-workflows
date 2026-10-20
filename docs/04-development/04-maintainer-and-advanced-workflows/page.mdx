@@ -226,7 +226,7 @@ To avoid concurrent formatting and lockfile commits in a consuming repository, u
 
 ## Guarded CI self-healing
 
-The reusable `reusable_ci-self-heal.yml` accepts a failed default-branch CI run, applies recognized repair recipes, and pushes a candidate branch. Its verification job invokes the versioned reusable Node CI workflow to validate the candidate before opening a reviewable pull request. It never automatically merges.
+The reusable `reusable_self-heal-ci.yml` accepts a failed default-branch CI run, applies recognized repair recipes, and pushes a candidate branch. Its verification job invokes the versioned reusable Node CI workflow to validate the candidate before opening a reviewable pull request. It never automatically merges.
 
 For automatic monitoring, copy [the workflow_run caller](examples/ci-self-heal/workflow.yml) to your consumer repository, using a published workflow version that includes the self-healing feature. Match the CI workflow name and default branch to your repository. See the [guide](examples/ci-self-heal/page.mdx).
 
