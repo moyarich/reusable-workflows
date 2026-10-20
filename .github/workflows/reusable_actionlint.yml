@@ -1,0 +1,37 @@
+name: "Reusable · Validate GitHub Actions"
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  actionlint:
+    name: Validate workflow syntax and expressions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Run actionlint
+        id: actionlint
+        shell: bash
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.7 -color -shellcheck=
+      - name: Workflow validation summary
+        if: always()
+        env:
+          RESULT: ${{ steps.actionlint.outcome }}
+        shell: bash
+        run: |
+          {
+            echo "## GitHub Actions validation"
+            echo
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+            echo "| Actionlint (workflow syntax and expressions) | $RESULT |"
+            echo
+            echo "Actionlint version: `1.7.7`"
+          } >> "$GITHUB_STEP_SUMMARY"
