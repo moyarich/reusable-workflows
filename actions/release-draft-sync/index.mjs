@@ -1,4 +1,3 @@
-import { writeReleaseMarker } from "./identity.ts";
 import { existsSync, readFileSync, writeFileSync, appendFileSync } from "node:fs";
 import process from "node:process";
 import { execFileSync } from "node:child_process";
@@ -178,10 +177,6 @@ ${commits}` };
 function reconcileReleaseBody(options) {
   const existing = options.existingBody.trim();
   const generated = options.generatedBody.trim();
-
-  // A release-specific curated changelog is the source of truth for public
-  // notes. Do not reintroduce internal PR titles or stale install commands
-  // from persistent Release Drafter output on subsequent runs.
   if (options.version && options.changelogPath && existsSync(options.changelogPath)) {
     const curated = changelogSection(readFileSync(options.changelogPath, "utf8"), options.version);
     if (curated) {
@@ -248,8 +243,8 @@ function runAction() {
   const targetKey = input("target-key") || "root";
   const seedSha = input("seed-sha");
   const targetPath = input("target-path");
-  const tag = input("tag");
-  const packageName = input("package-name");
+  input("tag");
+  input("package-name");
   const result = reconcileReleaseBody({
     existingBody: existsSync(existingBodyFile) ? readFileSync(existingBodyFile, "utf8") : "",
     generatedBody: existsSync(generatedBodyFile) ? readFileSync(generatedBodyFile, "utf8") : "",
