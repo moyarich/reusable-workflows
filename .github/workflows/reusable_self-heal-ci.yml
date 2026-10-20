@@ -127,7 +127,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ ! "$CI_WORKFLOW" =~ ^[A-Za-z0-9_-]+\\.ya?ml$ ]]; then
+          if [[ ! "$CI_WORKFLOW" =~ ^[A-Za-z0-9_-]+[.]ya?ml$ ]]; then
             echo "::error::ci-workflow must be a workflow filename such as ci.yml"
             exit 1
           fi
@@ -138,10 +138,7 @@ jobs:
 
           run_id=""
           for attempt in {1..30}; do
-            run_id="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$CI_WORKFLOW" \\
-              --branch "$REPAIR_BRANCH" --event workflow_dispatch \\
-              --json databaseId,headSha,createdAt --limit 20 \\
-              --jq '[.[] | select(.headSha == "'"$repaired_sha"'" and .createdAt >= "'"$started_at"'")] | first | .databaseId // empty')"
+            run_id="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$CI_WORKFLOW" --branch "$REPAIR_BRANCH" --event workflow_dispatch --json databaseId,headSha,createdAt --limit 20 --jq '[.[] | select(.headSha == "'"$repaired_sha"'" and .createdAt >= "'"$started_at"'")] | first | .databaseId // empty')"
             [[ -n "$run_id" ]] && break
             sleep 5
           done
