@@ -2,6 +2,9 @@ name: "Reusable · Select Recovery Packages"
 on:
   workflow_call:
     inputs:
+      workspace-tools-source:
+        type: string
+        default: registry:npm:0.2.0
       package:
         type: string
         default: all
@@ -33,6 +36,7 @@ jobs:
     uses: ./.github/workflows/reusable_discover-packages.yml
     with:
       packages-directory: packages
+      workspace-tools-source: ${{ inputs.workspace-tools-source }}
       use-workspaces: true
       require-publish-config: true
   select:
