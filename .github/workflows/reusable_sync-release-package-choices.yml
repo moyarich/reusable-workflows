@@ -38,7 +38,22 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  preflight:
+    name: Verify workflow authorization token
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require workflow-token
+        shell: bash
+        env:
+          WORKFLOW_TOKEN: ${{ secrets.workflow-token }}
+        run: |
+          if [[ -z "$WORKFLOW_TOKEN" ]]; then
+            echo "::error title=Missing workflow-token::Pass a workflow-authorized token through the caller workflow secrets.workflow-token (for example secrets._WORKFLOW_TOKEN). It needs permission to modify GitHub Actions workflow files."
+            exit 1
+          fi
+
   discover:
+    needs: preflight
     permissions:
       contents: read
     uses: ./.github/workflows/reusable_discover-packages.yml
