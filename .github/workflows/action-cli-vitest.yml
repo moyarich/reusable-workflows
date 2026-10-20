@@ -43,7 +43,7 @@ jobs:
           {
             echo "## Action CLI build and Vitest"
             echo
-            echo "Source: `src/` | Output: `actions/*`"
+            echo 'Source: `src/` | Output: `actions/*`'
             echo
             echo "Build and tests are run against Node.js 24."
           } >> "$GITHUB_STEP_SUMMARY"
