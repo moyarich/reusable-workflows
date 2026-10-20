@@ -2,6 +2,9 @@ name: "Reusable · Bulk reset release"
 on:
   workflow_call:
     inputs:
+      workspace-tools-source:
+        type: string
+        default: registry:npm:0.2.0
       package:
         description: "Package selector: all, package name, or directory"
         required: true
@@ -36,6 +39,7 @@ jobs:
     uses: ./.github/workflows/reusable_select-recovery-packages.yml
     with:
       package: ${{ inputs.package }}
+      workspace-tools-source: ${{ inputs.workspace-tools-source }}
       match-mode: ${{ inputs.match-mode }}
       exact-tag: ${{ inputs.exact-tag }}
       # Reset does not require a historical source
