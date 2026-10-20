@@ -10,7 +10,8 @@
     "build:playground": "npm run build --workspace @moyarich/reusable-workflows-playground",
     "build:cli": "vite build",
     "test:cli": "vitest run tests/setup-workspace-tools.test.ts",
-    "check:cli-dist": "npm run build:cli && git diff --exit-code -- actions/dist/"
+    "check:cli-dist": "npm run build:cli && git diff --exit-code -- actions/dist/",
+    "typecheck": "npm run typecheck --workspaces --if-present && tsc -p tsconfig.tests.json --noEmit"
   },
   "engines": {
     "node": ">=24"
@@ -26,6 +27,10 @@
   "devDependencies": {
     "prettier": "^3.6.2",
     "vite": "^7.1.5",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.70.0",
+    "@types/node": "^24.3.1",
+    "@eslint/js": "^10.0.1"
   }
 }
