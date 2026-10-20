@@ -46,7 +46,7 @@ runs:
       run: |
         set -euo pipefail
         started="$(date +%s)"
-        deadline=$((started + TIMEOUT_MINUTES * 60))
+        deadline=0
         run_id=""
         run_url=""
         conclusion="unknown"
@@ -79,7 +79,8 @@ runs:
           echo "::error::timeout-minutes must be 1..360"
           exit 1
         fi
-        if [[ "$WORKFLOW" == "$GITHUB_WORKFLOW_REF" ]]; then
+        deadline=$((started + TIMEOUT_MINUTES * 60))
+        if [[ "$GITHUB_WORKFLOW_REF" == *"/.github/workflows/$WORKFLOW@"* ]]; then
           echo "::error::Cannot dispatch the calling workflow"
           exit 1
         fi
