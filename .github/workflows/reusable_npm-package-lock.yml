@@ -26,6 +26,10 @@ on:
         required: false
         default: "24"
         type: string
+    outputs:
+      healed-sha:
+        description: Checked-out or committed branch SHA at end of repair
+        value: ${{ jobs.recreate-lockfile.outputs.healed-sha }}
     secrets:
       package-token:
         required: false
@@ -36,6 +40,8 @@ permissions:
 
 jobs:
   recreate-lockfile:
+    outputs:
+      healed-sha: ${{ steps.head.outputs.sha }}
     name: "npm lockfile self-heal"
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -125,6 +131,11 @@ jobs:
           echo "::error::Could not push the lockfile after 3 attempts."
           exit 1
 
+      - name: Record final commit SHA
+        id: head
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Package-lock summary
         if: ${{ always() }}
         shell: bash
@@ -158,3 +169,4 @@ jobs:
               echo '\`\`\`'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
+
