@@ -24,7 +24,7 @@ on:
       workspace-tools-source:
         type: string
         required: false
-        default: registry:npm:0.2.0
+        default: registry:npm:latest
       require-publish-config:
         type: boolean
         required: false
