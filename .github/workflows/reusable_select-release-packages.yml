@@ -88,6 +88,7 @@ jobs:
           AFTER_SHA: ${{ inputs.after-sha }}
           PACKAGES_JSON: ${{ inputs.packages-json }}
           IGNORED_PATHS_JSON: ${{ inputs.ignored-paths-json }}
+          GH_TOKEN: ${{ github.token }}
           VERSION_MODE: ${{ inputs.event-name == 'workflow_dispatch' && inputs.version-mode || '' }}
           VERSION_BUMP: ${{ inputs.event-name == 'workflow_dispatch' && inputs.version-bump || '' }}
           EXACT_VERSION: ${{ inputs.event-name == 'workflow_dispatch' && inputs.exact-version || '' }}
@@ -183,6 +184,31 @@ jobs:
             exit 1
           fi
 
+          # Published GitHub releases are immutable. Never select their exact tags.
+          # The caller uses package-name@version tags; recognize legacy directory tags too.
+          # Check explicit exact versions against the requested version.
+          PUBLISHED_TAGS="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" |
+            jq -c '[.[][] | select(.draft == false) | .tag_name]')"
+          BEFORE_PUBLISHED_FILTER="$(jq 'length' <<< "$SELECTED")"
+          SELECTED="$(jq -cn \
+            --argjson packages "$SELECTED" \
+            --argjson tags "$PUBLISHED_TAGS" \
+            --arg mode "$VERSION_MODE" \
+            --arg exact "$EXACT_VERSION" '
+              [$packages[] |
+                . as $pkg |
+                (if $mode == "exact" then $exact else .version end) as $version |
+                select(
+                  ([$pkg.name + "@" + $version, $pkg.directory + "@" + $version] |
+                   any(. as $tag | $tags | index($tag) != null)) | not
+                )
+              ]
+            ')"
+          SKIPPED_PUBLISHED="$((BEFORE_PUBLISHED_FILTER - $(jq 'length' <<< "$SELECTED")))"
+          if [ "$SKIPPED_PUBLISHED" -gt 0 ]; then
+            echo "Skipping $SKIPPED_PUBLISHED package(s) with already-published GitHub Releases."
+          fi
+
           COUNT="$(jq 'length' <<< "$SELECTED")"
           MATRIX="$(jq -cn --argjson packages "$SELECTED" '{include: $packages}')"
 
@@ -205,6 +231,7 @@ jobs:
             echo "| Setting | Value |"
             echo "| --- | --- |"
             echo "| Selected packages | **$COUNT** |"
+            echo "| Already published | $SKIPPED_PUBLISHED skipped |"
             echo
             echo '~~~json'
             jq . <<< "$SELECTED"
