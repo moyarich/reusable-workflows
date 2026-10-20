@@ -1,0 +1,106 @@
+name: "Reusable · Heal generated CLI distribution"
+
+on:
+  workflow_call:
+    inputs:
+      dist-path:
+        description: Generated CLI distribution path to commit
+        required: true
+        type: string
+      build-command:
+        description: Command to regenerate the distribution
+        required: false
+        default: npm run build
+        type: string
+      node-version:
+        required: false
+        default: "24"
+        type: string
+      target-branch:
+        required: false
+        default: main
+        type: string
+      validation-workflow:
+        description: Workflow file to dispatch against the healed branch
+        required: false
+        default: ci.yml
+        type: string
+permissions: {}
+jobs:
+  heal:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.target-branch }}
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+      - name: Regenerate distribution
+        env:
+          BUILD_COMMAND: ${{ inputs.build-command }}
+        run: bash -euo pipefail -c "$BUILD_COMMAND"
+      - name: Commit generated files
+        id: commit
+        env:
+          DIST_PATH: ${{ inputs.dist-path }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$DIST_PATH" || "$DIST_PATH" == /* || "$DIST_PATH" == *..* ]]; then
+            echo "::error::dist-path must be a safe repository-relative path"
+            exit 1
+          fi
+          if [[ ! -e "$DIST_PATH" ]]; then
+            echo "::error::Distribution path does not exist: $DIST_PATH"
+            exit 1
+          fi
+          git add -f -- "$DIST_PATH"
+          if git diff --cached --quiet; then
+            echo "Generated distribution is already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "build: update CLI dist"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          git push origin "HEAD:${{ inputs.target-branch }}"
+      - name: Dispatch validation for healed head
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WORKFLOW: ${{ inputs.validation-workflow }}
+          TARGET_REF: ${{ inputs.target-branch }}
+        run: |
+          gh workflow run "$WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$TARGET_REF"
+          echo "Dispatched $WORKFLOW on $TARGET_REF"
+
+      - name: Write healing summary
+        if: always()
+        shell: bash
+        env:
+          CHANGED: ${{ steps.commit.outputs.changed || 'false' }}
+          RESULT: ${{ job.status }}
+          DIST_PATH: ${{ inputs.dist-path }}
+        run: |
+          {
+            echo "## Generated distribution self-heal"
+            echo
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+            echo "| Distribution path | \`$DIST_PATH\` |"
+            echo "| Files changed | $CHANGED |"
+            echo "| Outcome | $RESULT |"
+            echo
+            echo "Validation is dispatched only after a new generated distribution is committed."
+          } >> "$GITHUB_STEP_SUMMARY"
