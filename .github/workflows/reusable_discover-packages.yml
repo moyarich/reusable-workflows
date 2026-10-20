@@ -41,7 +41,7 @@ on:
       workspace-tools-source:
         description: "CLI location: registry (public npm), repository (Git ref), or caller (local checkout)."
         required: false
-        default: registry:npm:0.2.0
+        default: registry:npm:latest
         type: string
 
   workflow_call:
@@ -84,12 +84,12 @@ on:
       workspace-tools-source:
         description: "CLI location: registry (public npm), repository (Git ref), or caller (local checkout)."
         required: false
-        default: registry:npm:0.2.0
+        default: registry:npm:latest
         type: string
 
     outputs:
       packages:
-        description: Compact JSON array of discovered packages
+        description: Structured discovery JSON report with included and filtered packages
         value: ${{ jobs.discover.outputs.packages }}
       matrix:
         description: GitHub Actions matrix object with include array
@@ -154,7 +154,7 @@ jobs:
         id: workspace-tools
         uses: ./.github/reusable-workflows-runtime/actions/setup-workspace-tools
         with:
-          source: ${{ inputs.workspace-tools-source }}
+          workspace-tools-source: ${{ inputs.workspace-tools-source }}
 
       - id: packages
         name: Discover packages
@@ -172,10 +172,6 @@ jobs:
           [ "${{ inputs.require-build-script }}" = "true" ] && args+=(--require-build-script)
 
           report="$(node "$BIN_DIR/discover-packages.mjs" "${args[@]}")"
-          if ! jq -e 'type == "object" and (.included | type == "array") and (.filtered | type == "array")' <<<"$report" >/dev/null; then
-            echo "::error title=Outdated Workspace Tools::Expected JSON {included, filtered, total}. Update workspace-tools-source to a version supporting publishability reporting."
-            exit 1
-          fi
           packages="$(jq -c '.included' <<<"$report")"
           matrix="$(jq -cn --argjson packages "$packages" '{include:$packages}')"
           count="$(jq '.included | length' <<<"$report")"
@@ -208,7 +204,7 @@ jobs:
           PY
 
           {
-            echo "packages=$packages"
+            echo "packages=$report"
             echo "matrix=$matrix"
             echo "count=$count"
             if [ "$count" -gt 0 ]; then echo "has-packages=true"; else echo "has-packages=false"; fi

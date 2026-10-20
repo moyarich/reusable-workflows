@@ -94,18 +94,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
-          # Accept both legacy package arrays and the structured discovery
-          # report from workspace-tools (--json: included/filtered/total).
-          if ! PACKAGES_JSON="$(jq -ce '
-            if type == "array" then .
-            elif type == "object" and (.included | type == "array") then .included
-            else error("Expected packages array or discovery report with included array")
-            end
-          ' <<<"$PACKAGES_JSON")"; then
-            echo "::error title=Invalid package discovery JSON::Expected an array or a report containing an included array."
-            exit 1
-          fi
+          PACKAGES_JSON="$(jq -c '.included' <<< "$PACKAGES_JSON")"
 
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             if [ "$INPUT_PACKAGE" = "all" ]; then

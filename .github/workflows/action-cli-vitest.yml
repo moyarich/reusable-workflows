@@ -1,0 +1,57 @@
+name: Action CLI build and Vitest
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "actions/**"
+      - "vite.config.ts"
+      - "package.json"
+      - "eslint.config.mjs"
+      - ".prettierignore"
+      - "tsconfig.tests.json"
+      - ".github/workflows/action-cli-vitest.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  action-cli:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Install dependencies
+        run: npm install --ignore-scripts --no-package-lock --no-audit --no-fund
+      - name: Lint and typecheck action sources and tests
+        run: npm run lint && npm run typecheck
+      - name: Build action CLI distributions
+        id: build
+        run: npm run build:cli
+      - name: Run Vitest tests
+        id: test
+        run: npm run test:cli
+      - name: Verify tracked action distributions
+        run: |
+          git diff --exit-code -- actions/dist/
+          test -f actions/dist/setup-workspace-tools.mjs
+          test -f actions/dist/release-draft-sync.mjs
+          test -f actions/dist/validate-release-identity.mjs
+          test -z "$(git ls-files --others --exclude-standard -- actions/dist/)"
+      - name: Write verification summary
+        if: always()
+        env:
+          BUILD: ${{ steps.build.outcome }}
+          TEST: ${{ steps.test.outcome }}
+        run: |
+          {
+            echo "## Action CLI build and Vitest"
+            echo
+            echo 'Source: `src/actions/` | Output: `actions/dist/`'
+            echo
+            echo "Build and tests are run against Node.js 24."
+          } >> "$GITHUB_STEP_SUMMARY"

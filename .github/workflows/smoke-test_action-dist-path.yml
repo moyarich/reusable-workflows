@@ -1,0 +1,104 @@
+name: "Smoke-test · Setup Workspace Tools distribution"
+
+on:
+  pull_request:
+    paths:
+      - "src/actions/setup-workspace-tools/**"
+      - "actions/setup-workspace-tools/**"
+      - "actions/dist/setup-workspace-tools.mjs"
+      - ".github/workflows/smoke-test_action-dist-path.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  local-path:
+    name: Local bundled resolver
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Execute committed setup-workspace-tools bundle
+        id: smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          node actions/dist/setup-workspace-tools.mjs \
+            --workspace-tools-source registry:npm:latest \
+            --mode resolve
+          grep -qx 'mode=registry' "$GITHUB_OUTPUT"
+          grep -qx 'value=latest' "$GITHUB_OUTPUT"
+      - name: Write local verification summary
+        if: always()
+        env:
+          RESULT: ${{ steps.smoke.outcome }}
+        run: |
+          {
+            echo "## Setup Workspace Tools — local bundle"
+            echo
+            echo '| Entry point | `actions/dist/setup-workspace-tools.mjs` |'
+            echo '| --- | --- |'
+            echo "| Result | $RESULT |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  remote-path:
+    name: Remote composite action with shared bundle
+    runs-on: ubuntu-latest
+    steps:
+      - name: Execute published-style action from this PR branch
+        uses: moyarich/reusable-workflows/actions/setup-workspace-tools@fix/require-structured-discovery-json
+        id: setup
+        with:
+          workspace-tools-source: registry:npm:latest
+      - name: Assert remote action outputs and executable
+        id: smoke
+        shell: bash
+        env:
+          SOURCE: ${{ steps.setup.outputs.source }}
+          BIN_DIR: ${{ steps.setup.outputs.bin-dir }}
+        run: |
+          set -euo pipefail
+          test "$SOURCE" = registry:npm:latest
+          test -f "$BIN_DIR/workspace-release.mjs"
+          test -f "$BIN_DIR/workspace-publish.mjs"
+      - name: Write remote verification summary
+        if: always()
+        env:
+          SETUP: ${{ steps.setup.outcome }}
+          ASSERTION: ${{ steps.smoke.outcome }}
+        run: |
+          {
+            echo "## Setup Workspace Tools — remote action"
+            echo
+            echo '| Action | `actions/setup-workspace-tools` |'
+            echo '| --- | --- |'
+            echo '| Bundle | `../dist/setup-workspace-tools.mjs` |'
+            echo "| Composite action | $SETUP |"
+            echo "| CLI validation | $ASSERTION |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  smoke-summary:
+    name: Smoke-test summary
+    needs: [local-path, remote-path]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Write combined smoke-test summary
+        env:
+          LOCAL: ${{ needs.local-path.result }}
+          REMOTE: ${{ needs.remote-path.result }}
+        shell: bash
+        run: |
+          {
+            echo "## Setup Workspace Tools smoke-test"
+            echo
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+            echo "| Local bundled resolver | $LOCAL |"
+            echo "| Remote composite action | $REMOTE |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          test "$LOCAL" = success && test "$REMOTE" = success

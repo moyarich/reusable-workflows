@@ -37,3 +37,22 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+
+      - name: Write dependency tree summary
+        if: always()
+        shell: bash
+        env:
+          RESULT: ${{ steps.tree.outcome }}
+          TREE: ${{ steps.tree.outputs.tree }}
+        run: |
+          {
+            echo "## Issue dependency tree"
+            echo
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+            echo "| Render dependency graph | $RESULT |"
+            if [ "$RESULT" = success ] && [ -n "$TREE" ]; then
+              echo
+              printf '%s\n' "$TREE"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

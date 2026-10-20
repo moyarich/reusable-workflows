@@ -3,9 +3,9 @@ description: Discover repository packages and emit normalized package and matrix
 
 inputs:
   workspace-tools-source:
-    description: "registry:npm:0.2.0, checkout:current, or checkout:upstream;branch:main"
+    description: "registry:npm:latest, checkout:current, or checkout:upstream;branch:main"
     required: false
-    default: registry:npm:0.2.0
+    default: registry:npm:latest
   workspace-tools-build-command:
     description: Build command for checkout sources.
     required: false
@@ -50,7 +50,7 @@ runs:
       id: workspace-tools
       uses: moyarich/reusable-workflows/actions/setup-workspace-tools@main
       with:
-        source: ${{ inputs.workspace-tools-source }}
+        workspace-tools-source: ${{ inputs.workspace-tools-source }}
         build-command: ${{ inputs.workspace-tools-build-command }}
     - id: discover
       shell: bash
@@ -66,8 +66,8 @@ runs:
         [ "${{ inputs.require-test-script }}" = "true" ] && args+=(--require-test-script)
         [ "${{ inputs.require-build-script }}" = "true" ] && args+=(--require-build-script)
         packages="$(node "$WORKSPACE_TOOLS_BIN/discover-packages.mjs" "${args[@]}")"
-        matrix="$(jq -cn --argjson packages "$packages" '{include:$packages}')"
-        count="$(jq 'length' <<<"$packages")"
+        matrix="$(jq -c '{include:.included}' <<<"$packages")"
+        count="$(jq '.included | length' <<<"$packages")"
         {
           echo "packages=$packages"
           echo "matrix=$matrix"

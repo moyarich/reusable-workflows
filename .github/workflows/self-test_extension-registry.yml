@@ -1,10 +1,10 @@
-name: Extension registry configuration self-test
+name: "Self-test · Extension registry"
 on:
   pull_request:
     paths:
       - config/vscode-registries.yml
       - .github/workflows/reusable_vscode-publish.yml
-      - .github/workflows/extension-registry-self-test.yml
+      - .github/workflows/self-test_extension-registry.yml
 permissions:
   contents: read
 jobs:
@@ -15,8 +15,10 @@ jobs:
         with:
           persist-credentials: false
       - name: Lint VSIX publication workflow
-        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.9 -ignore 'shellcheck reported issue' .github/workflows/reusable_vscode-publish.yml .github/workflows/extension-registry-self-test.yml
+        id: lint
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.9 -ignore 'shellcheck reported issue' .github/workflows/reusable_vscode-publish.yml .github/workflows/self-test_extension-registry.yml
       - name: Validate extension registries and caller overrides
+        id: contracts
         shell: bash
         run: |
           ruby -ryaml -ruri <<'RUBY'
@@ -36,3 +38,18 @@ jobs:
           abort 'Caller extension not included' unless selected.key?('company')
           abort 'Disabled default still selected' if selected.key?(defaults.keys.first)
           RUBY
+
+      - name: Write registry self-test summary
+        if: always()
+        env:
+          LINT: ${{ steps.lint.outcome }}
+          CONTRACTS: ${{ steps.contracts.outcome }}
+        run: |
+          {
+            echo "## Extension registry self-test"
+            echo
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+            echo "| Workflow actionlint | $LINT |"
+            echo "| Registry defaults and overrides | $CONTRACTS |"
+          } >> "$GITHUB_STEP_SUMMARY"

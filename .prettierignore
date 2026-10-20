@@ -1,0 +1,12 @@
+# Generated and vendored assets
+node_modules/
+actions/dist/
+dist/
+coverage/
+apps/playground/dist/
+
+# Workflow definitions are managed separately; do not rewrite them in a repair commit.
+.github/workflows/
+
+# Temporary tooling output
+.prettier-self-heal.ignore

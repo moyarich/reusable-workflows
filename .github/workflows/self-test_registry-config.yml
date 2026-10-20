@@ -1,4 +1,4 @@
-name: Registry configuration self-test
+name: "Self-test · Registry configuration"
 on:
   pull_request:
     paths:
@@ -6,7 +6,7 @@ on:
       - .github/workflows/reusable_npm-publish.yml
       - .github/workflows/reusable_npm-registry-matrix.yml
       - .github/workflows/reusable_registry-publication-check.yml
-      - .github/workflows/registry-config-self-test.yml
+      - .github/workflows/self-test_registry-config.yml
       - .github/workflows/reusable_workspace-package-release.yml
   workflow_dispatch:
 permissions:
@@ -19,11 +19,13 @@ jobs:
         with:
           persist-credentials: false
       - name: Validate changed workflows with actionlint
+        id: lint
         shell: bash
         run: |
           set -euo pipefail
-          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.9 -ignore 'shellcheck reported issue' .github/workflows/reusable_npm-publish.yml .github/workflows/reusable_bulk-npm-publish.yml .github/workflows/reusable_npm-release.yml .github/workflows/reusable_npm-prepare-release.yml .github/workflows/reusable_workspace-package-release.yml .github/workflows/reusable_registry-publication-check.yml .github/workflows/reusable_npm-registry-matrix.yml .github/workflows/registry-config-self-test.yml
+          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.9 -ignore 'shellcheck reported issue' .github/workflows/reusable_npm-publish.yml .github/workflows/reusable_bulk-npm-publish.yml .github/workflows/reusable_npm-release.yml .github/workflows/reusable_npm-prepare-release.yml .github/workflows/reusable_workspace-package-release.yml .github/workflows/reusable_registry-publication-check.yml .github/workflows/reusable_npm-registry-matrix.yml .github/workflows/self-test_registry-config.yml
       - name: Validate registry defaults and extension behavior
+        id: contracts
         shell: bash
         run: |
           set -euo pipefail
@@ -50,3 +52,18 @@ jobs:
           abort 'All omitted custom entries' unless expected.key?('company')
           puts 'Default registry schema, extension, override, and all-selection checks passed'
           RUBY
+
+      - name: Write registry self-test summary
+        if: always()
+        env:
+          LINT: ${{ steps.lint.outcome }}
+          CONTRACTS: ${{ steps.contracts.outcome }}
+        run: |
+          {
+            echo "## Registry configuration self-test"
+            echo
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+            echo "| Workflow actionlint | $LINT |"
+            echo "| Registry defaults and overrides | $CONTRACTS |"
+          } >> "$GITHUB_STEP_SUMMARY"

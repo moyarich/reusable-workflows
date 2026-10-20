@@ -22,3 +22,17 @@ jobs:
             .github/workflows/reusable_verify-release-preparation.yml \
             .github/workflows/reusable_approved-release.yml \
             .github/workflows/approved-release-validation.yml
+
+      - name: Write approved-release validation summary
+        if: always()
+        shell: bash
+        env:
+          RESULT: ${{ job.status }}
+        run: |
+          {
+            echo "## Approved release workflow validation"
+            echo
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+            echo "| Reusable workflow syntax (actionlint) | $RESULT |"
+          } >> "$GITHUB_STEP_SUMMARY"

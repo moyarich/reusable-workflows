@@ -2,6 +2,9 @@ name: "Reusable · Select Recovery Packages"
 on:
   workflow_call:
     inputs:
+      workspace-tools-source:
+        type: string
+        default: registry:npm:latest
       package:
         type: string
         default: all
@@ -33,6 +36,7 @@ jobs:
     uses: ./.github/workflows/reusable_discover-packages.yml
     with:
       packages-directory: packages
+      workspace-tools-source: ${{ inputs.workspace-tools-source }}
       use-workspaces: true
       require-publish-config: true
   select:
@@ -57,6 +61,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          PACKAGES_JSON="$(jq -c '.included' <<< "$PACKAGES_JSON")"
           if [ "$SELECTOR" = all ]; then
             SELECTED="$PACKAGES_JSON"
           else

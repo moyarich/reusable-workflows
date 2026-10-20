@@ -115,7 +115,7 @@ on:
       workspace-tools-source:
         description: Workspace Tools source — published package or current caller checkout
         required: false
-        default: registry:npm:0.2.0
+        default: registry:npm:latest
         type: string
       node-version:
         required: false
@@ -311,7 +311,7 @@ jobs:
         id: workspace-tools
         uses: ./.github/reusable-workflows-runtime/actions/setup-workspace-tools
         with:
-          source: ${{ inputs.workspace-tools-source }}
+          workspace-tools-source: ${{ inputs.workspace-tools-source }}
 
       - name: Export workspace tools CLI path
         shell: bash

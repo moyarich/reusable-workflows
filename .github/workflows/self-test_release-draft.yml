@@ -1,14 +1,15 @@
-name: Release Drafter Self-Test
+name: "Self-test · Release draft"
 
 on:
   pull_request:
     paths:
       - ".github/workflows/reusable_release-drafter.yml"
-      - ".github/workflows/release-draft-self-test.yml"
+      - ".github/workflows/self-test_release-draft.yml"
       - "actions/release-draft-sync/**"
       - "actions/validate-release-identity/**"
       - "tests/release-identity-marker.test.mjs"
       - "tests/release-draft-auto-version.test.mjs"
+      - ".github/workflows/self-test_release-draft.yml"
       - ".github/workflows/release-draft.yml"
       - ".github/release-drafter-template.yml"
       - "CHANGELOG.md"
@@ -42,3 +43,33 @@ jobs:
         with:
           node-version: "24"
       - run: node --test tests/release-identity-marker.test.mjs tests/release-draft-auto-version.test.mjs
+        id: contracts
+      - name: Write contract summary
+        if: always()
+        env:
+          RESULT: ${{ steps.contracts.outcome }}
+        run: |
+          echo '## Release identity and version contracts' >> "$GITHUB_STEP_SUMMARY"
+          echo "| Node test contracts | $RESULT |" >> "$GITHUB_STEP_SUMMARY"
+
+  aggregate-summary:
+    name: Release draft self-test result
+    needs: [release-drafter, release-contracts]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Record release draft results
+        env:
+          DRAFTER: ${{ needs.release-drafter.result }}
+          CONTRACTS: ${{ needs.release-contracts.result }}
+        run: |
+          {
+            echo "## Release draft self-test"
+            echo
+            echo "| Contract | Result |"
+            echo "| --- | --- |"
+            echo "| Reusable release drafter (dry run) | $DRAFTER |"
+            echo "| Identity and version contracts | $CONTRACTS |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          test "$DRAFTER" = success && test "$CONTRACTS" = success

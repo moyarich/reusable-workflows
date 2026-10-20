@@ -1,0 +1,27 @@
+name: "Check · Action distribution"
+
+on:
+  pull_request:
+    paths:
+      - "src/actions/**"
+      - "actions/dist/**"
+      - "vite.config.ts"
+      - "package.json"
+      - ".github/workflows/check-dist.yml"
+      - ".github/workflows/reusable_check-dist.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-dist:
+    name: Check committed action distribution
+    uses: ./.github/workflows/reusable_check-dist.yml
+    with:
+      dist-path: actions/dist/
+      build-command: npm run build:cli
+      install-command: npm install --ignore-scripts --no-package-lock --no-audit --no-fund
+      node-version: "24"
+      node-caching: ""
+      artifact-name: action-dist

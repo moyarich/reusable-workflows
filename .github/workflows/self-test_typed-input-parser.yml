@@ -1,10 +1,10 @@
-name: Typed input parser self-test
+name: "Self-test · Typed input parser"
 
 on:
   pull_request:
     paths:
       - actions/parse-typed-inputs/**
-      - .github/workflows/typed-input-parser-self-test.yml
+      - .github/workflows/self-test_typed-input-parser.yml
   workflow_dispatch:
 
 permissions: {}
@@ -54,3 +54,20 @@ jobs:
           test "$PACKAGE" = example
           test "$TAG" = v1.2.3
           test "$SOURCE" = 'checkout:upstream;branch:main'
+
+      - name: Write parser self-test summary
+        if: always()
+        env:
+          DEFAULTS: ${{ steps.defaults.outcome }}
+          OVERRIDES: ${{ steps.overrides.outcome }}
+          RESULT: ${{ job.status }}
+        run: |
+          {
+            echo "## Typed input parser self-test"
+            echo
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+            echo "| Default inputs | $DEFAULTS |"
+            echo "| Explicit overrides | $OVERRIDES |"
+            echo "| Verification | $RESULT |"
+          } >> "$GITHUB_STEP_SUMMARY"

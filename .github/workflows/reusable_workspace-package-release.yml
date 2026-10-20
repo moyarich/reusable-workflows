@@ -3,6 +3,10 @@ name: "Reusable · Workspace package releases"
 on:
   workflow_call:
     inputs:
+      workspace-tools-source:
+        type: string
+        required: false
+        default: registry:npm:latest
       package:
         type: string
         required: false
@@ -50,6 +54,7 @@ jobs:
     uses: ./.github/workflows/reusable_discover-packages.yml
     with:
       packages-directory: packages
+      workspace-tools-source: ${{ inputs.workspace-tools-source }}
       use-workspaces: true
       require-publish-config: true
 
@@ -85,21 +90,11 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
           persist-credentials: false
-      - uses: actions/checkout@v7
+      - name: Resolve Workspace Tools CLI
+        id: workspace-tools
+        uses: moyarich/reusable-workflows/actions/setup-workspace-tools@main
         with:
-          repository: moyarich/workspace-tools
-          ref: main
-          path: .github/workspace-tools-runtime
-          persist-credentials: false
-      - name: Set up Node.js 24 for Workspace Tools
-        uses: actions/setup-node@v7
-        with:
-          node-version: "24"
-      - name: Build shared Workspace Tools version resolver
-        working-directory: .github/workspace-tools-runtime
-        run: |
-          npm ci --include=optional
-          npm exec --workspace @moyarich/workspace-tools -- vite build --config vite.cli.config.ts --mode workspace-release-identity
+          workspace-tools-source: ${{ inputs.workspace-tools-source }}
       - name: Resolve release versions
         id: versions
         env:
@@ -108,11 +103,12 @@ jobs:
           VERSION_BUMP: ${{ inputs.version-bump }}
           EXACT_VERSION: ${{ inputs.exact-version }}
           INITIAL_VERSION: ${{ inputs.initial-version }}
+          WORKSPACE_TOOLS_BIN: ${{ steps.workspace-tools.outputs.bin-dir }}
         shell: bash
         run: |
           set -euo pipefail
           selected="$(jq -c '.include' <<< "$MATRIX")"
-          resolved="$(node .github/workspace-tools-runtime/packages/workspace-tools/dist/bin/workspace-release-identity.mjs resolve-versions \
+          resolved="$(node "$WORKSPACE_TOOLS_BIN/workspace-release-identity.mjs" resolve-versions \
             --packages-json "$selected" \
             --mode "$VERSION_MODE" \
             --bump "$VERSION_BUMP" \
