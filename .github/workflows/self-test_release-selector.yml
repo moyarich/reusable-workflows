@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - .github/workflows/reusable_select-release-packages.yml
-      - .github/workflows/release-selector-self-test.yml
+      - .github/workflows/self-test_release-selector.yml
   workflow_dispatch:
 
 permissions: {}
@@ -43,3 +43,20 @@ jobs:
           [ "$VERSION_MODE" = "bump" ]
           [ "$VERSION_BUMP" = "patch" ]
           jq -e '.include | length == 1 and .[0].name == "example" and .[0].directory == "packages/example"' <<< "$MATRIX_JSON"
+
+      - name: Write release selector summary
+        if: always()
+        env:
+          RESULT: ${{ job.status }}
+          SELECT: ${{ needs.selection.result }}
+          COUNT: ${{ needs.selection.outputs.count }}
+        run: |
+          {
+            echo "## Release selector self-test"
+            echo
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+            echo "| Package selection | $SELECT |"
+            echo "| Matrix contract | $RESULT |"
+            echo "| Packages selected | ${COUNT:-unknown} |"
+          } >> "$GITHUB_STEP_SUMMARY"
