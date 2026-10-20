@@ -2,7 +2,7 @@ name: Setup Workspace Tools
 description: Resolve @moyarich/workspace-tools from the npm registry, current checkout, or Git repository.
 
 inputs:
-  source:
+  workspace-tools-source:
     description: "registry:npm:<version>, checkout:current, or checkout:upstream;branch:<ref> (tag: and sha: also supported)"
     required: false
     default: registry:npm:latest
@@ -26,7 +26,7 @@ runs:
       id: typed
       shell: bash
       env:
-        SOURCE: ${{ inputs.source }}
+        SOURCE: ${{ inputs.workspace-tools-source }}
       run: |
         set -euo pipefail
         case "$SOURCE" in
@@ -155,5 +155,5 @@ runs:
 
         {
           echo "bin-dir=$BIN_DIR"
-          echo "source=${{ inputs.source }}"
+          echo "source=${{ inputs.workspace-tools-source }}"
         } >> "$GITHUB_OUTPUT"
