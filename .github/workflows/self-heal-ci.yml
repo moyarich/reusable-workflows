@@ -4,6 +4,8 @@ on:
   push:
     paths:
       - "src/actions/**"
+      - "src/workflow-dispatch/**"
+      - "src/verify-workflow-runs/**"
       - "vite.config.ts"
       - "package.json"
       - "package-lock.json"
