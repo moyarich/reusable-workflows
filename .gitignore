@@ -148,7 +148,7 @@ vite.config.ts.timestamp-*
 # Turbo Repo
 .turbo
 
-# Commit the automatically built action entrypoints.
+# Commit Vite-built action entrypoints.
 !/actions/dist/
 /actions/dist/*
 !/actions/dist/*.mjs
