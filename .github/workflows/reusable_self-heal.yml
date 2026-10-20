@@ -19,7 +19,7 @@ on:
         type: string
         required: true
       required-workflow-run-name:
-        description: Optional exact run name for upstream correlation; only use if the target action workflow name matches it
+        description: Optional filter against API workflow run .name (not display_title); leave empty unless the workflow's name is known
         type: string
         default: ''
       required-workflow-sha-input:
@@ -159,6 +159,7 @@ jobs:
           INPUTS: ${{ inputs.required-workflow-inputs }}
           SHA_INPUT: ${{ inputs.required-workflow-sha-input }}
           HEALED_SHA: ${{ steps.head.outputs.sha }}
+          REQUIRED_WORKFLOW: ${{ inputs.required-workflow }}
         run: |
           set -euo pipefail
           jq -e 'type == "object" and (all(.[]; type == "string" or type == "number" or type == "boolean"))' <<< "$INPUTS" >/dev/null || {
@@ -166,11 +167,11 @@ jobs:
             exit 1
           }
           INPUTS="$(jq -c 'with_entries(.value |= tostring)' <<< "$INPUTS")"
-          [[ "${{ inputs.required-workflow }}" =~ ^[A-Za-z0-9_.-]+\\.ya?ml$ ]] || {
+          [[ "$REQUIRED_WORKFLOW" =~ ^[A-Za-z0-9_.-]+[.]ya?ml$ ]] || {
             echo "::error::required-workflow must be a workflow filename"
             exit 1
           }
-          case "${{ inputs.required-workflow }}" in
+          case "$REQUIRED_WORKFLOW" in
             reusable_self-heal.yml|self-heal-ci.yml|self-heal-auto.yml|self-heal.yml)
               echo "::error::Refusing to dispatch self-heal recursively"
               exit 1 ;;
