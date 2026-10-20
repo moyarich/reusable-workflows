@@ -55,6 +55,8 @@ permissions:
 
 jobs:
   format:
+    outputs:
+      healed-sha: ${{ steps.head.outputs.sha }}
     name: "Prettier self-heal"
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -183,6 +185,11 @@ jobs:
           echo "::error::Could not push Prettier changes after 3 attempts because $TARGET_REF keeps moving."
           exit 1
 
+      - name: Record final commit SHA
+        id: head
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Format summary
         if: ${{ always() }}
         shell: bash
@@ -220,3 +227,4 @@ jobs:
               echo "No Prettier changes were required."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
+
