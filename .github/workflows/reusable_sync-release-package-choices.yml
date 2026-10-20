@@ -21,6 +21,10 @@ on:
         type: boolean
         required: false
         default: true
+      workspace-tools-source:
+        type: string
+        required: false
+        default: registry:npm:0.2.0
       require-publish-config:
         type: boolean
         required: false
@@ -59,6 +63,7 @@ jobs:
     uses: ./.github/workflows/reusable_discover-packages.yml
     with:
       packages-directory: ${{ inputs.packages-directory }}
+      workspace-tools-source: ${{ inputs.workspace-tools-source }}
       use-workspaces: ${{ inputs.use-workspaces }}
       require-publish-config: ${{ inputs.require-publish-config }}
 
