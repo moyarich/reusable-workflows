@@ -1,21 +1,34 @@
 # Setup Workspace Tools
 
-Composite action to resolve the `@moyarich/workspace-tools` CLI for GitHub Actions workflows. Use the same **`workspace-tools-source`** input across caller and reusable workflows; forward it unchanged through nested calls.
+Composite action that resolves the `@moyarich/workspace-tools` CLI for GitHub Actions. Source selection is centralized here: reusable workflows should default their `workspace-tools-source` input to `auto`, and nested calls should forward explicit overrides unchanged.
 
-## Source policy
+## Default: `auto`
 
-| `workspace-tools-source`                   | Use case                                                           |
-| ------------------------------------------ | ------------------------------------------------------------------ |
-| `registry:npm:latest`                      | Default for reusable workflows; installs the npm `latest` dist-tag |
-| `registry:npm:0.2.2`                       | Example of a caller-selected, pinned npm release                   |
-| `checkout:current`                         | Build from the current checkout of the Workspace Tools repository  |
-| `checkout:upstream;branch:main`            | Explicitly test unreleased upstream changes                        |
-| `checkout:upstream;tag:<tag>`              | Build from a specified upstream Git tag                            |
-| `checkout:upstream;sha:<40-character-sha>` | Build from an exact upstream commit                                |
+With `workspace-tools-source: auto` (the action's default), the action selects a source based on the **calling repository** (`github.repository`):
 
-`registry:npm:latest` follows the npm dist-tag and may change between runs. Caller workflows can pin a tested version for reproducibility. The action does not silently fall back to a different source.
+| Calling repository | Source selected by `auto` |
+| --- | --- |
+| `moyarich/workspace-tools` | `checkout:current` |
+| All other repositories | `checkout:upstream;branch:main` |
 
-## Example: reusable workflow
+The action emits its selected source and does **not** silently fall back when an explicit source fails. For repeatable builds, pin an exact npm version or upstream commit instead of a moving `main` branch.
+
+## Supported sources
+
+| `workspace-tools-source` | Behavior |
+| --- | --- |
+| `auto` | Resolve by calling repository, as above (default) |
+| `checkout:current` | Build the Workspace Tools package in the caller's checkout |
+| `checkout:upstream;branch:main` | Fetch and build upstream `main` |
+| `checkout:upstream;branch:<branch>` | Fetch and build an upstream branch |
+| `checkout:upstream;tag:<tag>` | Fetch and build an upstream Git tag |
+| `checkout:upstream;sha:<40-character-sha>` | Fetch and build an exact upstream commit |
+| `registry:npm:latest` | Install npm's moving `latest` dist-tag |
+| `registry:npm:<version>` | Install a pinned npm package version |
+
+## Usage in a reusable workflow
+
+A reusable workflow can expose an optional override without implementing repository-specific checks.
 
 ```yaml
 on:
@@ -24,14 +37,16 @@ on:
       workspace-tools-source:
         type: string
         required: false
-        default: registry:npm:latest
+        default: auto
 
 jobs:
-  example:
+  discover:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v7
-      - name: Resolve Workspace Tools
+      - name: Setup Workspace Tools
         id: workspace-tools
         uses: moyarich/reusable-workflows/actions/setup-workspace-tools@main
         with:
@@ -42,51 +57,70 @@ jobs:
         run: node "$BIN_DIR/discover-packages.mjs" --workspaces --json
 ```
 
-## Example: caller-selected source
+If the reusable workflow already defaults to `auto`, a caller can omit `workspace-tools-source` entirely:
+
+```yaml
+jobs:
+  discover:
+    permissions:
+      contents: read
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_discover-packages.yml@main
+    with:
+      use-workspaces: true
+      require-publish-config: false
+```
+
+## Optional manual override
+
+A `workflow_dispatch` choice provides convenient overrides, without duplicating the repository-specific resolution expression:
 
 ```yaml
 on:
   workflow_dispatch:
     inputs:
       workspace-tools-source:
-        description: Choose the Workspace Tools CLI source
+        description: Workspace Tools CLI source
         type: choice
         required: true
-        default: registry:npm:latest
+        default: auto
         options:
-          - registry:npm:latest
+          - auto
           - checkout:current
           - checkout:upstream;branch:main
+          - registry:npm:latest
 
 jobs:
   discover:
+    permissions:
+      contents: read
     uses: moyarich/reusable-workflows/.github/workflows/reusable_discover-packages.yml@main
     with:
       workspace-tools-source: ${{ inputs.workspace-tools-source }}
 ```
 
-GitHub Actions choice inputs have static options. For an arbitrary pinned npm version or upstream SHA, pass the exact source string through a reusable workflow input or configure it directly in the caller YAML.
+GitHub Actions choice options are static. To select an arbitrary npm version, Git tag, or commit SHA, provide a `type: string` input or specify the source directly in workflow YAML.
 
 ## Inputs
 
-| Input                    | Default               | Description                                                                      |
-| ------------------------ | --------------------- | -------------------------------------------------------------------------------- |
-| `workspace-tools-source` | `registry:npm:latest` | npm dist-tag/version, local Workspace Tools checkout, or upstream branch/tag/SHA |
-| `build-command`          | `npm run build`       | Build command for checkout-based sources; not used for npm registry installs     |
+| Input | Default | Description |
+| --- | --- | --- |
+| `workspace-tools-source` | `auto` | Automatic repository-aware resolution, or an explicit checkout / npm registry source |
+| `build-command` | `npm run build` | Command used for checkout-based sources; ignored for registry installs |
 
 ## Outputs
 
-| Output    | Description                                                                                                                             |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `bin-dir` | Absolute directory containing CLI entry points, including `discover-packages.mjs`, `workspace-release.mjs`, and `workspace-publish.mjs` |
-| `source`  | Original selected source string                                                                                                         |
+| Output | Description |
+| --- | --- |
+| `bin-dir` | Absolute directory containing Workspace Tools CLI entry points, including `discover-packages.mjs`, `workspace-release.mjs`, and `workspace-publish.mjs` |
+| `source` | Resolved source string (for example, `checkout:current` or `checkout:upstream;branch:main`), not the literal `auto` input |
 
 ## Requirements and behavior
 
-- The caller must check out its repository before running this action when needed.
-- `checkout:current` requires `packages/workspace-tools/package.json` in the checked-out repository and builds it in place. Use it only in a compatible Workspace Tools checkout.
-- Upstream sources fetch `moyarich/workspace-tools` into a temporary directory and build its CLI; use a Git SHA for a reproducible upstream build.
+- Check out the caller repository before invoking the action when using `checkout:current` or needing repository files for subsequent CLI commands.
+- `checkout:current` requires `packages/workspace-tools/package.json` in the caller checkout; the action builds it in place. Explicitly selecting it in another repository fails rather than falling back.
+- Upstream checkout sources fetch `moyarich/workspace-tools` into a temporary directory and build the CLI. Use an exact SHA for reproducibility.
 - Registry sources install `@moyarich/workspace-tools` globally from the public npm registry.
-- The action checks that the resolved CLI directory contains `workspace-release.mjs` and `workspace-publish.mjs`. Individual workflows should verify additional command files they need.
+- The action checks for the primary release and publish entry points. Consumers should verify any additional CLI commands they require.
+- Nested reusable workflows should forward the caller's selected `workspace-tools-source` rather than replacing it with their own defaults.
 
-The action resolves the CLI; publishing credentials, repository permissions, and authorization for modifying releases remain the responsibility of the calling workflow.
+This action resolves CLI tooling only. Publishing credentials, package eligibility, release permissions, and authorization to modify `.github/workflows/` files remain the responsibilities of the calling workflows.
