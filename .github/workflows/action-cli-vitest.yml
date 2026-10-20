@@ -1,0 +1,47 @@
+name: Action CLI build and Vitest
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "actions/**"
+      - "vite.config.ts"
+      - "package.json"
+      - ".github/workflows/action-cli-vitest.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  action-cli:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Install dependencies
+        run: npm install --ignore-scripts --no-package-lock --no-audit --no-fund
+      - name: Build action CLI distributions
+        run: npm run build:cli
+      - name: Run Vitest tests
+        run: npm run test:cli
+      - name: Verify tracked action distributions
+        run: |
+          git diff --exit-code -- actions/setup-workspace-tools/dist/ actions/release-draft-sync/index.mjs actions/validate-release-identity/index.mjs
+          test -f actions/setup-workspace-tools/dist/setup-workspace-tools.mjs
+      - name: Write verification summary
+        if: always()
+        env:
+          BUILD: ${{ steps.build.outcome }}
+          TEST: ${{ steps.test.outcome }}
+        run: |
+          {
+            echo "## Action CLI build and Vitest"
+            echo
+            echo "Source: `src/` | Output: `actions/*`"
+            echo
+            echo "Build and tests are run against Node.js 24."
+          } >> "$GITHUB_STEP_SUMMARY"
