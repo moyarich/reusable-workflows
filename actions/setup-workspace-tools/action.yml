@@ -22,37 +22,24 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Setup Node.js for source resolution
+      uses: actions/setup-node@v7
+      with:
+        node-version: "24"
+
+    - name: Install source resolver dependencies
+      shell: bash
+      env:
+        SCRIPT_DIR: ${{ github.action_path }}/../../scripts/setup-workspace-tools
+      run: npm install --prefix "$SCRIPT_DIR" --ignore-scripts --no-package-lock --no-audit --no-fund
+
     - name: Resolve typed source
       id: typed
       shell: bash
       env:
         SOURCE: ${{ inputs.workspace-tools-source }}
-      run: |
-        set -euo pipefail
-        case "$SOURCE" in
-          checkout:current) mode=current; value="" ;;
-          registry:npm:*)
-            mode=registry
-            value="${SOURCE#registry:npm:}"
-            [[ "$value" == "latest" || "$value" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.+-]+)?$ ]] || { echo "::error::Expected npm latest or an explicit npm version"; exit 1; }
-            ;;
-          checkout:upstream\;branch:*|checkout:upstream\;tag:*|checkout:upstream\;sha:*)
-            mode=upstream
-            selection="${SOURCE#checkout:upstream;}"
-            kind="${selection%%:*}"
-            value="${selection#*:}"
-            if [ "$kind" = sha ]; then
-              [[ "$value" =~ ^[0-9a-fA-F]{40}$ ]] || { echo "::error::Expected a full 40-character SHA"; exit 1; }
-            else
-              [[ "$value" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ ]] && [[ "$value" != *..* ]] || { echo "::error::Invalid Git ref"; exit 1; }
-            fi
-            if [ "$kind" = branch ]; then value="refs/heads/$value"; fi
-            if [ "$kind" = tag ]; then value="refs/tags/$value"; fi
-            ;;
-          *) echo "::error::Invalid workspace-tools source: $SOURCE"; exit 1 ;;
-        esac
-        echo "mode=$mode" >> "$GITHUB_OUTPUT"
-        echo "value=$value" >> "$GITHUB_OUTPUT"
+        SCRIPT_DIR: ${{ github.action_path }}/../../scripts/setup-workspace-tools
+      run: node --experimental-strip-types "$SCRIPT_DIR/setup-workspace-tools.ts" --workspace-tools-source "$SOURCE"
 
     - name: Setup Node.js for published package
       if: ${{ steps.typed.outputs.mode == 'registry' }}
@@ -132,28 +119,12 @@ runs:
       name: Resolve CLI directory
       shell: bash
       env:
-        SOURCE: ${{ steps.typed.outputs.mode }}
+        SOURCE: ${{ inputs.workspace-tools-source }}
+        SCRIPT_DIR: ${{ github.action_path }}/../../scripts/setup-workspace-tools
       run: |
         set -euo pipefail
-
-        if [ "$SOURCE" = "current" ]; then
-          BIN_DIR="$GITHUB_WORKSPACE/packages/workspace-tools/dist/bin"
-        elif [ "$SOURCE" = "upstream" ]; then
-          BIN_DIR="$RUNNER_TEMP/workspace-tools-upstream/packages/workspace-tools/dist/bin"
-        else
-          RELEASE_BIN="$(command -v workspace-release)"
-          RELEASE_TARGET="$(readlink -f "$RELEASE_BIN")"
-          BIN_DIR="$(dirname "$RELEASE_TARGET")"
+        args=(--workspace-tools-source "$SOURCE" --mode bin-dir)
+        if [[ "$SOURCE" == registry:npm:* ]]; then
+          args+=(--release-bin "$(readlink -f "$(command -v workspace-release)")")
         fi
-
-        for cli in workspace-release.mjs workspace-publish.mjs; do
-          if [ ! -f "$BIN_DIR/$cli" ]; then
-            echo "::error::Workspace Tools CLI is missing: $BIN_DIR/$cli"
-            exit 1
-          fi
-        done
-
-        {
-          echo "bin-dir=$BIN_DIR"
-          echo "source=${{ inputs.workspace-tools-source }}"
-        } >> "$GITHUB_OUTPUT"
+        node --experimental-strip-types "$SCRIPT_DIR/setup-workspace-tools.ts" "${args[@]}"
