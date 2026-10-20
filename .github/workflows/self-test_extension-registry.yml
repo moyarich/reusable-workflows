@@ -1,4 +1,4 @@
-name: self-test_extension registry
+name: "Self-test · Extension registry"
 on:
   pull_request:
     paths:
