@@ -31,7 +31,7 @@ runs:
       id: source
       shell: bash
       env:
-        REQUESTED_SOURCE: ${{ steps.source.outputs.source }}
+        REQUESTED_SOURCE: ${{ inputs.workspace-tools-source }}
         CALLER_REPOSITORY: ${{ github.repository }}
       run: |
         set -euo pipefail
