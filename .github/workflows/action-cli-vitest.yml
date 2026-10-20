@@ -4,10 +4,12 @@ on:
   pull_request:
     paths:
       - "src/**"
+      - "packages/cli/**"
       - "tests/**"
       - "actions/**"
       - "vite.config.ts"
       - "package.json"
+      - "package-lock.json"
       - "eslint.config.mjs"
       - ".prettierignore"
       - "tsconfig.tests.json"
@@ -32,12 +34,20 @@ jobs:
       - name: Build action CLI distributions
         id: build
         run: npm run build:cli
+      - name: Build npm Commander CLI
+        run: npm run build:package
+      - name: Verify npm CLI help and package contents
+        run: |
+          node packages/cli/dist/cli.mjs --help
+          node packages/cli/dist/cli.mjs workspace-source --source registry:npm:latest
+          npm pack --workspace @moyarich/reusable-workflows-cli --dry-run
       - name: Run Vitest tests
         id: test
         run: npm run test:cli
       - name: Verify tracked action distributions
         run: |
           git diff --exit-code -- actions/dist/
+          test -f actions/dist/browser-extension-publish.mjs
           test -f actions/dist/setup-workspace-tools.mjs
           test -f actions/dist/release-draft-sync.mjs
           test -f actions/dist/validate-release-identity.mjs
