@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Execute same repository at this commit as a remote action
-        uses: moyarich/reusable-workflows/actions/path-smoke-test@${{ github.event.pull_request.head.sha || github.sha }}
+        uses: moyarich/reusable-workflows/actions/path-smoke-test@fix/require-structured-discovery-json
         id: smoke
       - name: Assert remote action output
         env:
