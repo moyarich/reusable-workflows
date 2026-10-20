@@ -3,6 +3,10 @@ name: "Reusable · Workspace package releases"
 on:
   workflow_call:
     inputs:
+      workspace-tools-source:
+        type: string
+        required: false
+        default: registry:npm:latest
       package:
         type: string
         required: false
@@ -50,6 +54,7 @@ jobs:
     uses: ./.github/workflows/reusable_discover-packages.yml
     with:
       packages-directory: packages
+      workspace-tools-source: ${{ inputs.workspace-tools-source }}
       use-workspaces: true
       require-publish-config: true
 
