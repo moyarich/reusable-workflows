@@ -1,5 +1,4 @@
-import { test } from "vitest";
-import assert from "node:assert/strict";
+import { test, assert, expect } from "vitest";
 import {
   normalizeInputs,
   assertRun,
@@ -42,7 +41,7 @@ test("normalizes scalar dispatch inputs and injects SHA", () => {
 });
 
 test("only accepts matching run identity", () => {
-  assert.equal(
+  assert.strictEqual(
     assertRun(run, { id: 123, sha, branch: "main", workflow: "checks.yml" }),
     run,
   );
@@ -68,50 +67,43 @@ test("dispatch uses returned run ID and accepts exact successful run", async () 
     },
     pause: async () => {},
   });
-  assert.equal(result.id, 123);
-  assert.equal(JSON.parse(calls[0].init.body).return_run_details, true);
+  assert.strictEqual(result.id, 123);
+  assert.strictEqual(JSON.parse(calls[0].init.body).return_run_details, true);
   assert.match(calls[1].url, /actions\/runs\/123$/);
 });
 
 test("fails closed if dispatch doesn't return a run ID", async () => {
-  await assert.rejects(
-    dispatchAndWait({ ...config, request: async () => response({}) }),
-    /workflow_run_id/,
-  );
+  await expect(dispatchAndWait({ ...config, request: async () => response({}) }),
+    /workflow_run_id/).rejects.toThrow();
 });
 
 test("fails on non-success conclusion", async () => {
   let n = 0;
-  await assert.rejects(
-    dispatchAndWait({
+  await expect(dispatchAndWait({
       ...config,
       request: async () =>
         ++n === 1
           ? response({ workflow_run_id: 123 })
           : response({ ...run, conclusion: "neutral" }),
     }),
-    /concluded neutral/,
-  );
+    /concluded neutral/).rejects.toThrow();
 });
 
 test("fails closed on another run's SHA", async () => {
   let n = 0;
-  await assert.rejects(
-    dispatchAndWait({
+  await expect(dispatchAndWait({
       ...config,
       request: async () =>
         ++n === 1
           ? response({ workflow_run_id: 123 })
           : response({ ...run, head_sha: "b".repeat(40) }),
     }),
-    /does not match/,
-  );
+    /does not match/).rejects.toThrow();
 });
 
 test("times out without cancelling the dispatched run", async () => {
   let n = 0;
-  await assert.rejects(
-    dispatchAndWait({
+  await expect(dispatchAndWait({
       ...config,
       timeoutSeconds: 0.001,
       pollSeconds: 0.001,
@@ -121,6 +113,5 @@ test("times out without cancelling the dispatched run", async () => {
           : response({ ...run, status: "in_progress", conclusion: null }),
       pause: async () => new Promise((resolve) => setTimeout(resolve, 3)),
     }),
-    /timed out/,
-  );
+    /timed out/).rejects.toThrow();
 });
