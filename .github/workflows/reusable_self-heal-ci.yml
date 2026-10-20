@@ -119,18 +119,24 @@ jobs:
       actions: write
       contents: read
     steps:
-      - name: Resolve repaired head
-        id: head
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: echo "sha=$(gh api repos/$GITHUB_REPOSITORY/git/ref/heads/automation/ci-self-heal --jq .object.sha)" >> "$GITHUB_OUTPUT"
-      - name: Dispatch CI and wait
-        uses: moyarich/reusable-workflows/actions/dispatch-workflow-and-wait@main
+      - name: Run caller CI against proposed repair
+        id: ci
+        uses: the-actions-org/workflow-dispatch@v4
         with:
           workflow: ${{ inputs.ci-workflow }}
           ref: automation/ci-self-heal
-          expected-sha: ${{ steps.head.outputs.sha }}
           token: ${{ github.token }}
+          wait-for-completion: true
+          wait-for-completion-timeout: 30m
+      - name: Report validation
+        if: always()
+        env:
+          CI_URL: ${{ steps.ci.outputs.workflow-url }}
+          CI_RESULT: ${{ steps.ci.outputs.workflow-conclusion }}
+        run: |
+          echo "## Proposed repair validation" >> "$GITHUB_STEP_SUMMARY"
+          echo "Result: $CI_RESULT" >> "$GITHUB_STEP_SUMMARY"
+          echo "[View CI run]($CI_URL)" >> "$GITHUB_STEP_SUMMARY"
 
   propose:
     needs: [repair, verify]
