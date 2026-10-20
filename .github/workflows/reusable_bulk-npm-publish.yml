@@ -20,7 +20,7 @@ on:
       workspace-tools-source:
         description: Workspace Tools CLI source
         required: false
-        default: registry:npm:latest
+        default: auto
         type: string
       registry:
         description: Publish destination
