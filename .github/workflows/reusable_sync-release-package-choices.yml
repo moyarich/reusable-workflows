@@ -199,7 +199,19 @@ jobs:
         run: |
           set -euo pipefail
           mapfile -t files < <(python3 -c 'import json,os; print(*(json.loads(os.environ["WORKFLOW_FILES"]) or [os.environ["WORKFLOW_FILE"]]), sep=chr(10))')
-          npx --yes prettier@3.6.2 --write "${files[@]}"
+          present=()
+          for file in "${files[@]}"; do
+            if [ -f "$file" ]; then
+              present+=("$file")
+            else
+              echo "::notice title=Workflow skipped::Configured workflow file '$file' does not exist; skipping."
+            fi
+          done
+          if [ "${#present[@]}" -gt 0 ]; then
+            npx --yes prettier@3.6.2 --write "${present[@]}"
+          else
+            echo "::notice title=No workflows to format::All configured workflow files are missing; formatting skipped."
+          fi
 
       - name: Commit changed package choices
         id: commit
