@@ -1,5 +1,4 @@
-import test from "node:test";
-import assert from "node:assert/strict";
+import { test, assert } from "vitest";
 import { readFileSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -43,7 +42,7 @@ function resolve(mode, manifest, previous, bump = "patch") {
         GITHUB_OUTPUT: output,
       },
     });
-    assert.equal(run.status, 0, run.stderr);
+    assert.strictEqual(run.status, 0, run.stderr);
     return readFileSync(output, "utf8").trim();
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -51,12 +50,12 @@ function resolve(mode, manifest, previous, bump = "patch") {
 }
 
 test("auto uses published release, not ahead-of-release package.json", () => {
-  assert.equal(resolve("auto", "0.2.1", "v0.2.0"), "version=0.2.1");
-  assert.equal(resolve("auto", "0.3.0", "v0.2.0"), "version=0.2.1");
-  assert.equal(resolve("", "0.2.1", "v0.2.0"), "version=0.2.1");
+  assert.strictEqual(resolve("auto", "0.2.1", "v0.2.0"), "version=0.2.1");
+  assert.strictEqual(resolve("auto", "0.3.0", "v0.2.0"), "version=0.2.1");
+  assert.strictEqual(resolve("", "0.2.1", "v0.2.0"), "version=0.2.1");
 });
 test("manifest and explicit bump modes retain their behavior", () => {
-  assert.equal(resolve("package-json", "0.3.0", "v0.2.0"), "version=0.3.0");
-  assert.equal(resolve("bump", "0.3.0", "v0.2.0"), "version=0.3.1");
-  assert.equal(resolve("auto", "0.3.0", ""), "version=0.1.0");
+  assert.strictEqual(resolve("package-json", "0.3.0", "v0.2.0"), "version=0.3.0");
+  assert.strictEqual(resolve("bump", "0.3.0", "v0.2.0"), "version=0.3.1");
+  assert.strictEqual(resolve("auto", "0.3.0", ""), "version=0.1.0");
 });
