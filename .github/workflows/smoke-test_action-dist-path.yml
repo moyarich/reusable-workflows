@@ -1,4 +1,4 @@
-name: smoke-test_action dist path
+name: "Smoke-test · Action distribution path"
 
 on:
   pull_request:
