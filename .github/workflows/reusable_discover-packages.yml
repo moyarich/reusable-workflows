@@ -172,24 +172,43 @@ jobs:
 
           report = json.loads(os.environ["REPORT_JSON"])
           rows = [
-              "# Package discovery and npm publishability", "",
-              "Static eligibility does not verify npm registry authorization.", "",
-              "| Package | Manifest | Scope | npm eligible | Discovery | What to change |",
-              "| --- | --- | --- | --- | --- | --- |",
+              "# Package discovery", "",
+              "This report describes the current package configuration and the discovery filters. "
+              "Filtered packages are not necessarily misconfigured. Publishing guidance is optional and "
+              "only applies if you intend to publish a package to npm.", "",
+              "| Package | Manifest | Scope | npm publishable | Discovery | Current configuration / filter | If you choose to publish |",
+              "| --- | --- | --- | --- | --- | --- | --- |",
           ]
           def safe(value):
-              return str(value).replace("|", "&#124;").replace("\n", " ")
+              return str(value).replace("|", "&#124;").replace("\\n", " ")
           for state, items in (("Included", [{"package": p, "reasons": []} for p in report["included"]]), ("Filtered", report["filtered"])):
               for item in items:
                   pkg = item["package"]
                   scope = pkg.get("scope", "") if pkg.get("scoped") else "Unscoped"
-                  reasons = list(dict.fromkeys(item.get("reasons", []) + pkg.get("guidance", [])))
-                  rows.append("| " + safe(pkg["name"]) + " | `" + safe(pkg["directory"]) + "/package.json` | " + safe(scope) + " | " + ("Yes" if pkg.get("publishable") else "No") + " | " + state + " | " + safe("; ".join(reasons) or "—") + " |")
-                  if state == "Filtered":
-                      msg = safe(pkg["name"] + ": " + "; ".join(reasons))
-                      msg = msg.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
-                      print("::warning file=" + pkg["directory"] + "/package.json,title=Package filtered::" + msg)
-          rows += ["", "**npm rules:** `private: true` blocks publishing. Unscoped packages are public; scoped packages need suitable access configuration for public publishing (`publishConfig.access: public` or `npm publish --access public`). A missing `publishConfig` does not itself prevent publishing, but the optional require-publish-config filter excludes it. npm permissions are verified separately.", ""]
+                  reasons = list(dict.fromkeys(item.get("reasons", [])))
+                  current = "; ".join(reasons) if reasons else "Matches the selected discovery filters"
+                  is_private = bool(pkg.get("private")) or any("private: true" in str(r) for r in reasons)
+                  if is_private:
+                      current = "Private package (often intentional for apps); " + current
+                  guidance = []
+                  if not pkg.get("publishable"):
+                      if is_private:
+                          guidance.append("Only if publishing is intended: set private to false or remove it")
+                      if not pkg.get("publishConfig") and any("publishConfig" in str(r) for r in reasons):
+                          guidance.append("Only if using the require-publish-config discovery filter: add publishConfig")
+                  if pkg.get("scoped") and pkg.get("publishable"):
+                      guidance.append("For public npm publishing, configure public access; verify registry permissions")
+                  optional = "; ".join(guidance) or "No changes suggested"
+                  rows.append("| " + safe(pkg["name"]) + " | `" + safe(pkg["directory"]) + "/package.json` | " + safe(scope) + " | " + ("Yes" if pkg.get("publishable") else "No") + " | " + state + " | " + safe(current) + " | " + safe(optional) + " |")
+          rows += [
+              "",
+              "**Reading this report:** `private: true` is a valid choice for apps, examples, "
+              "and internal packages; it prevents npm publishing by design. A missing "
+              "`publishConfig` is also valid unless the selected discovery filter requires it. "
+              "For public scoped npm publishing, use suitable access configuration "
+              "(`publishConfig.access: public` or `npm publish --access public`). "
+              "Registry authorization is not verified by discovery.", "",
+          ]
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf8") as output:
               output.write("\n".join(rows))
           PY
