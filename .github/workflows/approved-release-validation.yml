@@ -6,6 +6,9 @@ on:
       - .github/workflows/reusable_approved-release.yml
       - .github/workflows/approved-release-validation.yml
       - .github/workflows/reusable_heal-cli-dist.yml
+      - actions/verify-workflow-runs/**
+      - src/verify-workflow-runs/**
+      - tests/verify-workflow-runs.test.mjs
   workflow_dispatch:
 permissions:
   contents: read
@@ -25,6 +28,8 @@ jobs:
             .github/workflows/approved-release-validation.yml \
             .github/workflows/reusable_heal-cli-dist.yml
 
+      - name: Test reusable workflow-run verifier
+        run: node --test tests/verify-workflow-runs.test.mjs
       - name: Write approved-release validation summary
         if: always()
         shell: bash
