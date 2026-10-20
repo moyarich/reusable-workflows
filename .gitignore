@@ -80,7 +80,13 @@ out
 
 # Nuxt.js build / generate output
 .nuxt
+# Keep the committed setup-workspace-tools CLI distribution.
 dist
+!/dist/
+/dist/*
+!/dist/bin/
+/dist/bin/*
+!/dist/bin/setup-workspace-tools.mjs
 .output
 
 # Gatsby files
