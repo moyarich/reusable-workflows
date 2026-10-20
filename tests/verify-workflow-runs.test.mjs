@@ -90,6 +90,5 @@ test("invalid inputs fail closed", async () => {
       request: async () => {
         throw Error("should not call API");
       },
-    }),
-    /Required workflow paths/).rejects.toThrow();
+    })).rejects.toThrow(/Required workflow paths/);
 });
