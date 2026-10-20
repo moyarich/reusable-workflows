@@ -89,7 +89,7 @@ on:
 
     outputs:
       packages:
-        description: Compact JSON array of discovered packages
+        description: Structured discovery JSON report with included and filtered packages
         value: ${{ jobs.discover.outputs.packages }}
       matrix:
         description: GitHub Actions matrix object with include array
@@ -171,12 +171,40 @@ jobs:
           [ "${{ inputs.require-test-script }}" = "true" ] && args+=(--require-test-script)
           [ "${{ inputs.require-build-script }}" = "true" ] && args+=(--require-build-script)
 
-          packages="$(node "$BIN_DIR/discover-packages.mjs" "${args[@]}")"
+          report="$(node "$BIN_DIR/discover-packages.mjs" "${args[@]}")"
+          packages="$(jq -c '.included' <<<"$report")"
           matrix="$(jq -cn --argjson packages "$packages" '{include:$packages}')"
-          count="$(jq 'length' <<<"$packages")"
+          count="$(jq '.included | length' <<<"$report")"
+          REPORT_JSON="$report" python3 - <<'PY'
+          import json
+          import os
+
+          report = json.loads(os.environ["REPORT_JSON"])
+          rows = [
+              "# Package discovery and npm publishability", "",
+              "Static eligibility does not verify npm registry authorization.", "",
+              "| Package | Manifest | Scope | npm eligible | Discovery | What to change |",
+              "| --- | --- | --- | --- | --- | --- |",
+          ]
+          def safe(value):
+              return str(value).replace("|", "&#124;").replace("\n", " ")
+          for state, items in (("Included", [{"package": p, "reasons": []} for p in report["included"]]), ("Filtered", report["filtered"])):
+              for item in items:
+                  pkg = item["package"]
+                  scope = pkg.get("scope", "") if pkg.get("scoped") else "Unscoped"
+                  reasons = list(dict.fromkeys(item.get("reasons", []) + pkg.get("guidance", [])))
+                  rows.append("| " + safe(pkg["name"]) + " | `" + safe(pkg["directory"]) + "/package.json` | " + safe(scope) + " | " + ("Yes" if pkg.get("publishable") else "No") + " | " + state + " | " + safe("; ".join(reasons) or "—") + " |")
+                  if state == "Filtered":
+                      msg = safe(pkg["name"] + ": " + "; ".join(reasons))
+                      msg = msg.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+                      print("::warning file=" + pkg["directory"] + "/package.json,title=Package filtered::" + msg)
+          rows += ["", "**npm rules:** `private: true` blocks publishing. Unscoped packages are public; scoped packages need suitable access configuration for public publishing (`publishConfig.access: public` or `npm publish --access public`). A missing `publishConfig` does not itself prevent publishing, but the optional require-publish-config filter excludes it. npm permissions are verified separately.", ""]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf8") as output:
+              output.write("\n".join(rows))
+          PY
 
           {
-            echo "packages=$packages"
+            echo "packages=$report"
             echo "matrix=$matrix"
             echo "count=$count"
             if [ "$count" -gt 0 ]; then echo "has-packages=true"; else echo "has-packages=false"; fi
