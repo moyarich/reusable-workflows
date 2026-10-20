@@ -8,6 +8,9 @@ on:
       - "actions/**"
       - "vite.config.ts"
       - "package.json"
+      - "eslint.config.mjs"
+      - ".prettierignore"
+      - "tsconfig.tests.json"
       - ".github/workflows/action-cli-vitest.yml"
   workflow_dispatch:
 
@@ -24,8 +27,8 @@ jobs:
           node-version: "24"
       - name: Install dependencies
         run: npm install --ignore-scripts --no-package-lock --no-audit --no-fund
-      - name: Typecheck action sources and tests
-        run: npm run typecheck
+      - name: Lint and typecheck action sources and tests
+        run: npm run lint && npm run typecheck
       - name: Build action CLI distributions
         id: build
         run: npm run build:cli
