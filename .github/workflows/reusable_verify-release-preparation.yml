@@ -35,42 +35,13 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Require successful designated pull request CI
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          PR_HEAD: ${{ github.event.pull_request.head.ref }}
-          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          REQUIRED_WORKFLOWS: ${{ inputs.required-workflows }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          [[ -n "$REQUIRED_WORKFLOWS" ]] || {
-            echo "::error::required-workflows must identify the CI workflows that approve publication."
-            exit 1
-          }
-          IFS=',' read -ra paths <<< "$REQUIRED_WORKFLOWS"
-          for entry in "${paths[@]}"; do
-            workflow="$(printf '%s' "$entry" | xargs)"
-            [[ "$workflow" =~ ^\.github/workflows/[A-Za-z0-9_.-]+\.ya?ml$ ]] || {
-              echo "::error::Invalid required workflow path: $workflow"
-              exit 1
-            }
-            workflow_file="${workflow##*/}"
-            # GitHub may return pull_requests: [] for completed PR workflow runs.
-            # Match workflow identity, exact source head SHA and source branch directly.
-            runs="$(gh api --paginate --slurp "repos/$GH_REPO/actions/workflows/$workflow_file/runs?event=pull_request&head_sha=$PR_HEAD_SHA&per_page=100" |
-              jq -c '[.[] | .workflow_runs[]?]')"
-            jq -e --arg branch "$PR_HEAD" --arg sha "$PR_HEAD_SHA" --arg path "$workflow" '
-              [.[] | select(.path == $path and .head_branch == $branch and
-                .head_sha == $sha)] |
-              length > 0 and (sort_by(.created_at, .run_attempt, .id) | last |
-                .status == "completed" and .conclusion == "success")
-            ' <<< "$runs" >/dev/null || {
-              echo "::error::Latest PR CI run for $workflow is missing, pending, or unsuccessful."
-              exit 1
-            }
-            echo "Required CI workflow passed for approved head $PR_HEAD_SHA: $workflow" >> "$GITHUB_STEP_SUMMARY"
-          done
+        uses: moyarich/reusable-workflows/actions/verify-workflow-runs@main
+        with:
+          workflows: ${{ inputs.required-workflows }}
+          sha: ${{ github.event.pull_request.head.sha }}
+          branch: ${{ github.event.pull_request.head.ref }}
+          event: pull_request
+          token: ${{ github.token }}
       - name: Resolve final approved package versions
         id: validate
         env:
