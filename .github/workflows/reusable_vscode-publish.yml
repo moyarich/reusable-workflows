@@ -175,6 +175,25 @@ jobs:
           echo "name=$name" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
+      - name: Validate VS Code extension manifest
+        env:
+          DIRECTORY: ${{ inputs.package-directory }}
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const file = path.join(process.env.DIRECTORY, 'package.json');
+          const manifest = JSON.parse(fs.readFileSync(file, 'utf8'));
+          const errors = [];
+          if (!manifest.publisher || typeof manifest.publisher !== 'string') errors.push('publisher');
+          if (!manifest.engines || typeof manifest.engines.vscode !== 'string') errors.push('engines.vscode');
+          if (!manifest.name || typeof manifest.name !== 'string' || manifest.name.startsWith('@')) errors.push('unscoped name');
+          if (errors.length) {
+            console.error('::error title=Not a publishable VS Code extension::' + process.env.DIRECTORY + '/package.json is missing valid ' + errors.join(', ') + '. Select a VS Code extension, not an ordinary npm library.');
+            process.exitCode = 1;
+          }
+          NODE
       - name: Checkout bundled extension registry defaults
         uses: actions/checkout@v7
         with:
@@ -323,20 +342,48 @@ jobs:
         env:
           DRY_RUN: ${{ inputs.dry-run }}
           DIRECTORY: ${{ inputs.package-directory }}
-          VSIX: ${{ inputs.artifact-glob }}
+          VERSION: ${{ steps.identity.outputs.version }}
+          EXTENSION: ${{ steps.identity.outputs.name }}
+          VSIX: ${{ steps.vsix.outputs.glob }}
           REGISTRY: ${{ steps.registries.outputs.selected }}
           STATUS: ${{ job.status }}
+          RELEASE_TAG: ${{ inputs.release-tag }}
+          TAG_PREFIX: ${{ inputs.release-tag-prefix }}
+          ATTACH_RELEASE_ASSET: ${{ inputs.attach-release-asset }}
+        shell: bash
         run: |
+          set -euo pipefail
           {
-            echo "## VS Code extension publishing"
+            echo "## VS Code extension · Packaging"
+            echo
+            if [[ "$STATUS" == success ]]; then
+              echo "✅ **Packaging and validation succeeded**"
+            else
+              echo "❌ **Packaging or validation failed** — no extension was published by this job."
+            fi
             echo
             echo "| Setting | Value |"
-            echo "| --- | --- |"
-            printf '| Package directory | \`%s\` |\n' "$DIRECTORY"
-            printf '| VSIX artifacts | \`%s\` |\n' "$VSIX"
-            printf '| Registry | \`%s\` |\\n' "$REGISTRY"
-            printf '| Dry run | \`%s\` |\n' "$DRY_RUN"
-            printf '| Result | **%s** |\n' "$STATUS"
+            echo "| :--- | :--- |"
+            printf '| Extension | `%s` |\n' "${EXTENSION:-not resolved}"
+            printf '| Directory | `%s` |\n' "$DIRECTORY"
+            printf '| Version | `%s` |\n' "${VERSION:-not resolved}"
+            printf '| Registry targets | %s |\n' "${REGISTRY:-not resolved}"
+            printf '| Mode | %s |\n' "$([[ "$DRY_RUN" == true ]] && echo 'Dry run (no publishing)' || echo 'Live publishing requested')"
+            printf '| VSIX path | `%s` |\n' "${VSIX:-not generated}"
+            printf '| Release asset | %s |\n' "$([[ "$DRY_RUN" == true ]] && echo 'Not attached (dry run)' || [[ "$ATTACH_RELEASE_ASSET" == true ]] && echo 'Requested after successful publishing' || echo 'Disabled')"
+            printf '| Release tag | `%s` |\n' "${RELEASE_TAG:-${TAG_PREFIX}${VERSION:-<version>}}"
+            echo
+            if [[ "$STATUS" != success ]]; then
+              echo "### Troubleshooting"
+              echo
+              echo 'Check the first failed step above. The selected directory must contain a real VS Code extension manifest (`publisher`, `engines.vscode`, and an unscoped extension `name`).'
+              echo 'For custom packaging, set `package-command` and `artifact-glob` to produce exactly one .vsix.'
+              echo
+            elif [[ "$DRY_RUN" == true ]]; then
+              echo "### Next step"
+              echo
+              echo "The validated VSIX is available as a workflow artifact. Live registry publishing remains disabled."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
   publish:
