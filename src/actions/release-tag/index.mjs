@@ -88,7 +88,8 @@ try {
     if (!ref) throw new Error("Source tag does not exist.");
     sha = resolveCommit(ref);
     tag = "v" + match[1];
-    const all = api("repos/" + repository + "/releases?per_page=100");
+    const pages = execFileSync("gh", ["api", "--paginate", "--slurp", "repos/" + repository + "/releases?per_page=100"], { encoding: "utf8", env: { ...process.env, GH_TOKEN: token } });
+    const all = JSON.parse(pages).flat();
     const eligible = all.filter(
       (r) =>
         !r.draft && !r.prerelease && describe(r.tag_name)?.[1] === match[1],
