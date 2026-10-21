@@ -1,0 +1,191 @@
+name: Reusable · Self-heal distribution
+
+on:
+  workflow_call:
+    inputs:
+      checkout-sha:
+        type: string
+        default: ""
+      dist-path:
+        type: string
+        default: dist/
+      build-command:
+        type: string
+        default: npm run build
+      install-command:
+        type: string
+        default: npm install --no-package-lock --no-audit --no-fund
+      validation-command:
+        type: string
+        default: ""
+      node-version:
+        type: string
+        default: "24"
+      node-caching:
+        type: string
+        default: ""
+      artifact-name:
+        type: string
+        default: dist
+      repair:
+        description: Enable validation and optional commit on a target branch
+        type: boolean
+        default: false
+      commit:
+        description: Commit changed dist when repair is enabled
+        type: boolean
+        default: false
+      target-branch:
+        type: string
+        default: ""
+      expected-sha:
+        type: string
+        default: ""
+    outputs:
+      changed:
+        value: ${{ jobs.dist.outputs.changed }}
+      healed-sha:
+        value: ${{ jobs.dist.outputs.healed-sha }}
+
+permissions: {}
+
+jobs:
+  dist:
+    name: Build, compare and optionally repair dist
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      changed: ${{ steps.compare.outputs.changed }}
+      healed-sha: ${{ steps.head.outputs.sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.checkout-sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify target commit
+        if: inputs.repair
+        env:
+          EXPECTED_SHA: ${{ inputs.expected-sha }}
+          TARGET_BRANCH: ${{ inputs.target-branch }}
+        run: |
+          set -euo pipefail
+          test -n "$TARGET_BRANCH" || { echo "::error::Missing repair target branch"; exit 1; }
+          if [[ -n "$EXPECTED_SHA" && "$(git rev-parse HEAD)" != "$EXPECTED_SHA" ]]; then
+            echo "::error::Branch moved since dispatch"
+            exit 1
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: ${{ inputs.node-caching }}
+
+      - name: Install dependencies
+        env:
+          INSTALL_COMMAND: ${{ inputs.install-command }}
+        run: bash -euo pipefail -c "$INSTALL_COMMAND"
+
+      - name: Rebuild distribution
+        env:
+          BUILD_COMMAND: ${{ inputs.build-command }}
+        run: bash -euo pipefail -c "$BUILD_COMMAND"
+
+      - name: Compare distribution
+        id: compare
+        env:
+          DIST_PATH: ${{ inputs.dist-path }}
+          REPAIR: ${{ inputs.repair }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$DIST_PATH" || "$DIST_PATH" == /* || "$DIST_PATH" == *..* || ! -d "$DIST_PATH" ]]; then
+            echo "::error::dist-path must be an existing safe relative directory"
+            exit 1
+          fi
+          git add -f -- "$DIST_PATH"
+          if git diff --cached --quiet -- "$DIST_PATH"; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Distribution matches committed output."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git diff --cached --stat -- "$DIST_PATH"
+            if [[ "$REPAIR" != "true" ]]; then
+              echo "::error::Distribution differs from committed output."
+              exit 1
+            fi
+          fi
+
+      - name: Validate rebuilt distribution
+        if: inputs.validation-command != ''
+        env:
+          VALIDATION_COMMAND: ${{ inputs.validation-command }}
+        run: bash -euo pipefail -c "$VALIDATION_COMMAND"
+
+      - name: Commit regenerated distribution
+        if: inputs.repair && inputs.commit && steps.compare.outputs.changed == 'true'
+        env:
+          TARGET_BRANCH: ${{ inputs.target-branch }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "build: update action distribution"
+          git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)" push origin "HEAD:refs/heads/$TARGET_BRANCH"
+
+      - name: Record verified SHA
+        id: head
+        if: inputs.repair
+        env:
+          TARGET_BRANCH: ${{ inputs.target-branch }}
+          GH_TOKEN: ${{ github.token }}
+          COMMIT_CHANGES: ${{ inputs.commit }}
+          CHANGED: ${{ steps.compare.outputs.changed }}
+        run: |
+          set -euo pipefail
+          sha="$(git rev-parse HEAD)"
+          remote=""
+          if [[ "$COMMIT_CHANGES" == "true" ]]; then
+            remote="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TARGET_BRANCH" --jq .sha)"
+          fi
+          if [[ "$COMMIT_CHANGES" == "true" && "$remote" != "$sha" ]]; then
+            echo "::error::Target branch advanced during distribution repair"
+            exit 1
+          fi
+          if [[ "$COMMIT_CHANGES" != "true" && "$CHANGED" == "true" ]]; then
+            echo "Preview mode: distribution differs and was not committed."
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Upload rebuilt dist
+        if: always() && steps.compare.outputs.changed == 'true' && (!inputs.commit || failure())
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: ${{ inputs.dist-path }}
+
+      - name: Distribution summary
+        if: always()
+        env:
+          CHANGED: ${{ steps.compare.outputs.changed || 'unknown' }}
+          RESULT: ${{ job.status }}
+          REPAIR: ${{ inputs.repair }}
+          COMMIT: ${{ inputs.commit }}
+          SHA: ${{ steps.head.outputs.sha }}
+        run: |
+          {
+            echo "## Distribution verification"
+            echo
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+            echo "| Repair mode | $REPAIR |"
+            echo "| Distribution changed | $CHANGED |"
+            echo "| Commit requested | $COMMIT |"
+            echo "| Result | $RESULT |"
+            if [[ -n "$SHA" ]]; then echo "| Verified SHA | \`$SHA\` |"; fi
+          } >> "$GITHUB_STEP_SUMMARY"
