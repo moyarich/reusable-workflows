@@ -3,7 +3,7 @@ import {
   selectRun,
   validateRun,
   verify,
-} from "../src/verify-workflow-runs/index.mjs";
+} from "../packages/cli/src/verify-workflow-runs/index.mjs";
 
 const sha = "a".repeat(40);
 const path = ".github/workflows/ci.yml";
