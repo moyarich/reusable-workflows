@@ -3,6 +3,10 @@ name: Reusable · Self-heal distribution
 on:
   workflow_call:
     inputs:
+      config-file:
+        description: Caller repository configuration path; defaults to .github/check-dist.config.yml
+        type: string
+        default: .github/check-dist.config.yml
       checkout-sha:
         type: string
         default: ""
@@ -65,6 +69,48 @@ jobs:
           ref: ${{ inputs.checkout-sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Document caller distribution configuration
+        shell: bash
+        env:
+          CONFIG_FILE: ${{ inputs.config-file }}
+        run: |
+          set -euo pipefail
+          if [[ -f "$CONFIG_FILE" ]]; then
+            {
+              echo "## Distribution configuration"
+              echo
+              echo "Using caller-owned configuration: \`$CONFIG_FILE\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "$CONFIG_FILE" != ".github/check-dist.config.yml" ]]; then
+            echo "::error::Explicit check-dist config not found: $CONFIG_FILE"
+            exit 1
+          else
+            {
+              echo "## Optional distribution configuration"
+              echo
+              echo "No \`.github/check-dist.config.yml\` found in \`$GITHUB_REPOSITORY\`."
+              echo "Add it to this repository to describe package-specific outputs; do not add caller configuration to reusable-workflows."
+              echo
+              echo '~~~yaml'
+              echo '# .github/check-dist.config.yml'
+              echo 'defaults:'
+              echo '  distribution:'
+              echo '    path: "{package.directory}/dist"'
+              echo '    commit: false'
+              echo '  artifacts:'
+              echo '    enabled: true'
+              echo 'packages:'
+              echo '  my-package:'
+              echo '    build-command: npm run build'
+              echo '    distributions:'
+              echo '      - name: extension'
+              echo '        path: out/extension/'
+              echo '      - name: webview'
+              echo '        path: out/webview-ui/'
+              echo '~~~'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Verify target commit
         if: inputs.repair
