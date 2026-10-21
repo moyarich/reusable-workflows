@@ -1,4 +1,9 @@
-import { existsSync, readFileSync, writeFileSync, appendFileSync } from "node:fs";
+import {
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  appendFileSync,
+} from "node:fs";
 import process from "node:process";
 import { execFileSync } from "node:child_process";
 const GENERATED_START = "<!-- release-draft-sync:generated:start -->";
@@ -7,7 +12,7 @@ function changelogSection(markdown, version) {
   if (!version) return "";
   const escaped = version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const heading = new RegExp(
-    "^##\\s+\\[?" + escaped + "\\]?(?:\\s+-\\s+.+)?\\s*$"
+    "^##\\s+\\[?" + escaped + "\\]?(?:\\s+-\\s+.+)?\\s*$",
   );
   const notes = [];
   let collecting = false;
@@ -22,7 +27,12 @@ function changelogSection(markdown, version) {
   return notes.join("\n").trim();
 }
 function hasMeaningfulGeneratedBody(body) {
-  return body.replace(/[*-]\s*No changes\.?/gi, "").replace(/#+\s*(Changes|Release notes|What's Changed)/gi, "").trim().length > 0;
+  return (
+    body
+      .replace(/[*-]\s*No changes\.?/gi, "")
+      .replace(/#+\s*(Changes|Release notes|What's Changed)/gi, "")
+      .trim().length > 0
+  );
 }
 function commitFallback(targetPath) {
   const args = ["log", "--reverse", "--format=%s%x09%h", "HEAD"];
@@ -38,7 +48,7 @@ function commitFallback(targetPath) {
     "test",
     "style",
     "chore",
-    "refactor"
+    "refactor",
   ]);
   const seen = /* @__PURE__ */ new Set();
   const entries = [];
@@ -47,7 +57,7 @@ function commitFallback(targetPath) {
     const subject = rawSubject?.trim();
     if (!subject || /^release(?:\([^)]*\))?:/i.test(subject)) continue;
     const match = subject.match(
-      /^(feat|fix|perf|refactor|docs|build|ci|test|style|chore)(?:\([^)]*\))?!?:\s*(.+)$/i
+      /^(feat|fix|perf|refactor|docs|build|ci|test|style|chore)(?:\([^)]*\))?!?:\s*(.+)$/i,
     );
     const type = match?.[1]?.toLowerCase() ?? "";
     const summary = (match?.[2] ?? subject).replace(/\s*\(#\d+\)$/, "").trim();
@@ -66,13 +76,13 @@ function splitGeneratedRegion(body) {
   return {
     before: body.slice(0, start).trimEnd(),
     generated: body.slice(start + GENERATED_START.length, end).trim(),
-    after: body.slice(end + GENERATED_END.length).trimStart()
+    after: body.slice(end + GENERATED_END.length).trimStart(),
   };
 }
 function pullRequestMarkers(body) {
   const markers = /* @__PURE__ */ new Set();
   for (const match of body.matchAll(
-    /<!--\s*release-draft-sync:pr=(\d+)\s*-->/g
+    /<!--\s*release-draft-sync:pr=(\d+)\s*-->/g,
   )) {
     markers.add(match[1]);
   }
@@ -121,7 +131,9 @@ ${entries.join("\n")}`;
   }
   const prefix = lines.slice(0, insertAt);
   while (prefix.length && prefix.at(-1) === "") prefix.pop();
-  return [...prefix, ...entries, "", ...lines.slice(insertAt)].join("\n").trim();
+  return [...prefix, ...entries, "", ...lines.slice(insertAt)]
+    .join("\n")
+    .trim();
 }
 function mergeGeneratedEntries(existingGenerated, latestGenerated) {
   let merged = existingGenerated.trim();
@@ -140,7 +152,9 @@ function mergeGeneratedEntries(existingGenerated, latestGenerated) {
   return merged;
 }
 function generatedRegion(body) {
-  return [GENERATED_START, body.trim(), GENERATED_END].filter(Boolean).join("\n\n");
+  return [GENERATED_START, body.trim(), GENERATED_END]
+    .filter(Boolean)
+    .join("\n\n");
 }
 function ensureMetadata(body, targetKey, seedSha, source) {
   let result = body.trim();
@@ -152,7 +166,7 @@ ${result}`;
     result = result.replace(
       /^(<!--\s*release-draft-sync:target=.*?-->)/,
       `$1
-<!-- release-draft-sync:seed-sha=${seedSha} source=${source} -->`
+<!-- release-draft-sync:seed-sha=${seedSha} source=${source} -->`,
     );
   }
   return result.trim();
@@ -173,7 +187,7 @@ function resolveInitialSeed(options) {
       source: "commits",
       body: `## Release notes
 
-${commits}`
+${commits}`,
     };
   }
   return { source: "minimal", body: "## Release notes\n\nInitial release." };
@@ -181,14 +195,18 @@ ${commits}`
 function reconcileReleaseBody(options) {
   const existing = options.existingBody.trim();
   const generated = options.generatedBody.trim();
-  if (options.version && options.changelogPath && existsSync(options.changelogPath)) {
+  if (
+    options.version &&
+    options.changelogPath &&
+    existsSync(options.changelogPath)
+  ) {
     const curated = changelogSection(
       readFileSync(options.changelogPath, "utf8"),
-      options.version
+      options.version,
     );
     if (curated) {
       const existingSeed = existing.match(
-        /<!--\\s*release-draft-sync:seed-sha=([^\\s]+)(?:\\s+source=[^>]+)?\\s*-->/
+        /<!--\\s*release-draft-sync:seed-sha=([^\\s]+)(?:\\s+source=[^>]+)?\\s*-->/,
       );
       const seedSha = existingSeed?.[1] || options.seedSha;
       return ensureMetadata(curated, options.targetKey, seedSha, "changelog");
@@ -200,7 +218,7 @@ function reconcileReleaseBody(options) {
       seed.body,
       options.targetKey,
       options.seedSha,
-      seed.source
+      seed.source,
     );
   }
   let body = existing;
@@ -208,7 +226,9 @@ function reconcileReleaseBody(options) {
   if (hasMeaningfulGeneratedBody(generated)) {
     if (split) {
       const mergedGenerated = mergeGeneratedEntries(split.generated, generated);
-      body = [split.before, generatedRegion(mergedGenerated), split.after].filter(Boolean).join("\n\n");
+      body = [split.before, generatedRegion(mergedGenerated), split.after]
+        .filter(Boolean)
+        .join("\n\n");
     } else {
       const existingMarkers = pullRequestMarkers(body);
       let managed = "";
@@ -230,7 +250,10 @@ ${generatedRegion(managed)}`;
 }
 function input(name, required = false) {
   const suffix = name.toUpperCase();
-  const value = process.env[`INPUT_${suffix}`] ?? process.env[`INPUT_${suffix.replaceAll("-", "_")}`] ?? "";
+  const value =
+    process.env[`INPUT_${suffix}`] ??
+    process.env[`INPUT_${suffix.replaceAll("-", "_")}`] ??
+    "";
   if (required && !value) {
     throw new Error(`Missing required input: ${name}`);
   }
@@ -242,7 +265,7 @@ function setOutput(name, value) {
     appendFileSync(
       outputFile,
       `${name}=${value}
-`
+`,
     );
   }
 }
@@ -256,18 +279,22 @@ function runAction() {
   const seedSha = input("seed-sha");
   const targetPath = input("target-path");
   const result = reconcileReleaseBody({
-    existingBody: existsSync(existingBodyFile) ? readFileSync(existingBodyFile, "utf8") : "",
-    generatedBody: existsSync(generatedBodyFile) ? readFileSync(generatedBodyFile, "utf8") : "",
+    existingBody: existsSync(existingBodyFile)
+      ? readFileSync(existingBodyFile, "utf8")
+      : "",
+    generatedBody: existsSync(generatedBodyFile)
+      ? readFileSync(generatedBodyFile, "utf8")
+      : "",
     changelogPath,
     version,
     targetKey,
     seedSha,
-    targetPath
+    targetPath,
   });
   writeFileSync(
     outputFile,
     `${result.trim()}
-`
+`,
   );
   setOutput("body-file", outputFile);
   setOutput("seed-sha", seedSha);
@@ -285,6 +312,4 @@ function runEntryPoint() {
 if (process.env.GITHUB_ACTIONS === "true") {
   runEntryPoint();
 }
-export {
-  runAction
-};
+export { runAction };

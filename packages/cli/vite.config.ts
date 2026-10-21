@@ -16,7 +16,10 @@ export default defineConfig({
         "workspace-source": resolve(root, "src/bin/workspace-source.ts"),
         "release-validate": resolve(root, "src/bin/release-validate.ts"),
         browser: resolve(root, "src/bin/browser.ts"),
-        "setup-workspace-tools": resolve(root, "src/setup-workspace-tools/setup-workspace-tools-cli.ts"),
+        "setup-workspace-tools": resolve(
+          root,
+          "src/setup-workspace-tools/setup-workspace-tools-cli.ts",
+        ),
       },
       output: {
         entryFileNames: "[name].mjs",

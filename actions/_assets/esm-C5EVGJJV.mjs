@@ -4,7 +4,9 @@ import require$$2 from "node:path";
 import require$$3 from "node:fs";
 import process from "node:process";
 function getDefaultExportFromCjs(x) {
-  return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, "default") ? x["default"] : x;
+  return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, "default")
+    ? x["default"]
+    : x;
 }
 var commander$1 = {};
 var argument = {};
@@ -135,7 +137,7 @@ function requireArgument() {
       this.parseArg = (arg, previous) => {
         if (!this.argChoices.includes(arg)) {
           throw new InvalidArgumentError2(
-            `Allowed choices are ${this.argChoices.join(", ")}.`
+            `Allowed choices are ${this.argChoices.join(", ")}.`,
           );
         }
         if (this.variadic) {
@@ -226,7 +228,9 @@ function requireHelp() {
      */
     compareOptions(a, b) {
       const getSortKey = (option2) => {
-        return option2.short ? option2.short.replace(/^-/, "") : option2.long.replace(/^--/, "");
+        return option2.short
+          ? option2.short.replace(/^-/, "")
+          : option2.long.replace(/^--/, "");
       };
       return getSortKey(a).localeCompare(getSortKey(b));
     }
@@ -240,17 +244,18 @@ function requireHelp() {
       const visibleOptions = cmd.options.filter((option2) => !option2.hidden);
       const helpOption = cmd._getHelpOption();
       if (helpOption && !helpOption.hidden) {
-        const removeShort = helpOption.short && cmd._findOption(helpOption.short);
+        const removeShort =
+          helpOption.short && cmd._findOption(helpOption.short);
         const removeLong = helpOption.long && cmd._findOption(helpOption.long);
         if (!removeShort && !removeLong) {
           visibleOptions.push(helpOption);
         } else if (helpOption.long && !removeLong) {
           visibleOptions.push(
-            cmd.createOption(helpOption.long, helpOption.description)
+            cmd.createOption(helpOption.long, helpOption.description),
           );
         } else if (helpOption.short && !removeShort) {
           visibleOptions.push(
-            cmd.createOption(helpOption.short, helpOption.description)
+            cmd.createOption(helpOption.short, helpOption.description),
           );
         }
       }
@@ -268,9 +273,13 @@ function requireHelp() {
     visibleGlobalOptions(cmd) {
       if (!this.showGlobalOptions) return [];
       const globalOptions = [];
-      for (let ancestorCmd = cmd.parent; ancestorCmd; ancestorCmd = ancestorCmd.parent) {
+      for (
+        let ancestorCmd = cmd.parent;
+        ancestorCmd;
+        ancestorCmd = ancestorCmd.parent
+      ) {
         const visibleOptions = ancestorCmd.options.filter(
-          (option2) => !option2.hidden
+          (option2) => !option2.hidden,
         );
         globalOptions.push(...visibleOptions);
       }
@@ -288,7 +297,10 @@ function requireHelp() {
     visibleArguments(cmd) {
       if (cmd._argsDescription) {
         cmd.registeredArguments.forEach((argument2) => {
-          argument2.description = argument2.description || cmd._argsDescription[argument2.name()] || "";
+          argument2.description =
+            argument2.description ||
+            cmd._argsDescription[argument2.name()] ||
+            "";
         });
       }
       if (cmd.registeredArguments.find((argument2) => argument2.description)) {
@@ -303,9 +315,15 @@ function requireHelp() {
      * @returns {string}
      */
     subcommandTerm(cmd) {
-      const args = cmd.registeredArguments.map((arg) => humanReadableArgName(arg)).join(" ");
-      return cmd._name + (cmd._aliases[0] ? "|" + cmd._aliases[0] : "") + (cmd.options.length ? " [options]" : "") + // simplistic check for non-help option
-      (args ? " " + args : "");
+      const args = cmd.registeredArguments
+        .map((arg) => humanReadableArgName(arg))
+        .join(" ");
+      return (
+        cmd._name +
+        (cmd._aliases[0] ? "|" + cmd._aliases[0] : "") +
+        (cmd.options.length ? " [options]" : "") + // simplistic check for non-help option
+        (args ? " " + args : "")
+      );
     }
     /**
      * Get the option term to show in the list of options.
@@ -337,8 +355,8 @@ function requireHelp() {
         return Math.max(
           max,
           this.displayWidth(
-            helper.styleSubcommandTerm(helper.subcommandTerm(command2))
-          )
+            helper.styleSubcommandTerm(helper.subcommandTerm(command2)),
+          ),
         );
       }, 0);
     }
@@ -353,7 +371,7 @@ function requireHelp() {
       return helper.visibleOptions(cmd).reduce((max, option2) => {
         return Math.max(
           max,
-          this.displayWidth(helper.styleOptionTerm(helper.optionTerm(option2)))
+          this.displayWidth(helper.styleOptionTerm(helper.optionTerm(option2))),
         );
       }, 0);
     }
@@ -368,7 +386,7 @@ function requireHelp() {
       return helper.visibleGlobalOptions(cmd).reduce((max, option2) => {
         return Math.max(
           max,
-          this.displayWidth(helper.styleOptionTerm(helper.optionTerm(option2)))
+          this.displayWidth(helper.styleOptionTerm(helper.optionTerm(option2))),
         );
       }, 0);
     }
@@ -384,8 +402,8 @@ function requireHelp() {
         return Math.max(
           max,
           this.displayWidth(
-            helper.styleArgumentTerm(helper.argumentTerm(argument2))
-          )
+            helper.styleArgumentTerm(helper.argumentTerm(argument2)),
+          ),
         );
       }, 0);
     }
@@ -401,7 +419,11 @@ function requireHelp() {
         cmdName = cmdName + "|" + cmd._aliases[0];
       }
       let ancestorCmdNames = "";
-      for (let ancestorCmd = cmd.parent; ancestorCmd; ancestorCmd = ancestorCmd.parent) {
+      for (
+        let ancestorCmd = cmd.parent;
+        ancestorCmd;
+        ancestorCmd = ancestorCmd.parent
+      ) {
         ancestorCmdNames = ancestorCmd.name() + " " + ancestorCmdNames;
       }
       return ancestorCmdNames + cmdName + " " + cmd.usage();
@@ -436,14 +458,17 @@ function requireHelp() {
       if (option2.argChoices) {
         extraInfo.push(
           // use stringify to match the display of the default value
-          `choices: ${option2.argChoices.map((choice) => JSON.stringify(choice)).join(", ")}`
+          `choices: ${option2.argChoices.map((choice) => JSON.stringify(choice)).join(", ")}`,
         );
       }
       if (option2.defaultValue !== void 0) {
-        const showDefault = option2.required || option2.optional || option2.isBoolean() && typeof option2.defaultValue === "boolean";
+        const showDefault =
+          option2.required ||
+          option2.optional ||
+          (option2.isBoolean() && typeof option2.defaultValue === "boolean");
         if (showDefault) {
           extraInfo.push(
-            `default: ${option2.defaultValueDescription || JSON.stringify(option2.defaultValue)}`
+            `default: ${option2.defaultValueDescription || JSON.stringify(option2.defaultValue)}`,
           );
         }
       }
@@ -473,12 +498,12 @@ function requireHelp() {
       if (argument2.argChoices) {
         extraInfo.push(
           // use stringify to match the display of the default value
-          `choices: ${argument2.argChoices.map((choice) => JSON.stringify(choice)).join(", ")}`
+          `choices: ${argument2.argChoices.map((choice) => JSON.stringify(choice)).join(", ")}`,
         );
       }
       if (argument2.defaultValue !== void 0) {
         extraInfo.push(
-          `default: ${argument2.defaultValueDescription || JSON.stringify(argument2.defaultValue)}`
+          `default: ${argument2.defaultValueDescription || JSON.stringify(argument2.defaultValue)}`,
         );
       }
       if (extraInfo.length > 0) {
@@ -540,62 +565,68 @@ function requireHelp() {
       }
       let output = [
         `${helper.styleTitle("Usage:")} ${helper.styleUsage(helper.commandUsage(cmd))}`,
-        ""
+        "",
       ];
       const commandDescription = helper.commandDescription(cmd);
       if (commandDescription.length > 0) {
         output = output.concat([
           helper.boxWrap(
             helper.styleCommandDescription(commandDescription),
-            helpWidth
+            helpWidth,
           ),
-          ""
+          "",
         ]);
       }
       const argumentList = helper.visibleArguments(cmd).map((argument2) => {
         return callFormatItem(
           helper.styleArgumentTerm(helper.argumentTerm(argument2)),
-          helper.styleArgumentDescription(helper.argumentDescription(argument2))
+          helper.styleArgumentDescription(
+            helper.argumentDescription(argument2),
+          ),
         );
       });
       output = output.concat(
-        this.formatItemList("Arguments:", argumentList, helper)
+        this.formatItemList("Arguments:", argumentList, helper),
       );
       const optionGroups = this.groupItems(
         cmd.options,
         helper.visibleOptions(cmd),
-        (option2) => option2.helpGroupHeading ?? "Options:"
+        (option2) => option2.helpGroupHeading ?? "Options:",
       );
       optionGroups.forEach((options, group) => {
         const optionList = options.map((option2) => {
           return callFormatItem(
             helper.styleOptionTerm(helper.optionTerm(option2)),
-            helper.styleOptionDescription(helper.optionDescription(option2))
+            helper.styleOptionDescription(helper.optionDescription(option2)),
           );
         });
         output = output.concat(this.formatItemList(group, optionList, helper));
       });
       if (helper.showGlobalOptions) {
-        const globalOptionList = helper.visibleGlobalOptions(cmd).map((option2) => {
-          return callFormatItem(
-            helper.styleOptionTerm(helper.optionTerm(option2)),
-            helper.styleOptionDescription(helper.optionDescription(option2))
-          );
-        });
+        const globalOptionList = helper
+          .visibleGlobalOptions(cmd)
+          .map((option2) => {
+            return callFormatItem(
+              helper.styleOptionTerm(helper.optionTerm(option2)),
+              helper.styleOptionDescription(helper.optionDescription(option2)),
+            );
+          });
         output = output.concat(
-          this.formatItemList("Global Options:", globalOptionList, helper)
+          this.formatItemList("Global Options:", globalOptionList, helper),
         );
       }
       const commandGroups = this.groupItems(
         cmd.commands,
         helper.visibleCommands(cmd),
-        (sub) => sub.helpGroup() || "Commands:"
+        (sub) => sub.helpGroup() || "Commands:",
       );
       commandGroups.forEach((commands, group) => {
         const commandList = commands.map((sub) => {
           return callFormatItem(
             helper.styleSubcommandTerm(helper.subcommandTerm(sub)),
-            helper.styleSubcommandDescription(helper.subcommandDescription(sub))
+            helper.styleSubcommandDescription(
+              helper.subcommandDescription(sub),
+            ),
           );
         });
         output = output.concat(this.formatItemList(group, commandList, helper));
@@ -621,13 +652,16 @@ function requireHelp() {
       return str;
     }
     styleUsage(str) {
-      return str.split(" ").map((word) => {
-        if (word === "[options]") return this.styleOptionText(word);
-        if (word === "[command]") return this.styleSubcommandText(word);
-        if (word[0] === "[" || word[0] === "<")
-          return this.styleArgumentText(word);
-        return this.styleCommandText(word);
-      }).join(" ");
+      return str
+        .split(" ")
+        .map((word) => {
+          if (word === "[options]") return this.styleOptionText(word);
+          if (word === "[command]") return this.styleSubcommandText(word);
+          if (word[0] === "[" || word[0] === "<")
+            return this.styleArgumentText(word);
+          return this.styleCommandText(word);
+        })
+        .join(" ");
     }
     styleCommandDescription(str) {
       return this.styleDescriptionText(str);
@@ -648,12 +682,15 @@ function requireHelp() {
       return this.styleOptionText(str);
     }
     styleSubcommandTerm(str) {
-      return str.split(" ").map((word) => {
-        if (word === "[options]") return this.styleOptionText(word);
-        if (word[0] === "[" || word[0] === "<")
-          return this.styleArgumentText(word);
-        return this.styleSubcommandText(word);
-      }).join(" ");
+      return str
+        .split(" ")
+        .map((word) => {
+          if (word === "[options]") return this.styleOptionText(word);
+          if (word[0] === "[" || word[0] === "<")
+            return this.styleArgumentText(word);
+          return this.styleSubcommandText(word);
+        })
+        .join(" ");
     }
     styleArgumentTerm(str) {
       return this.styleArgumentText(str);
@@ -682,7 +719,7 @@ function requireHelp() {
         helper.longestOptionTermLength(cmd, helper),
         helper.longestGlobalOptionTermLength(cmd, helper),
         helper.longestSubcommandTermLength(cmd, helper),
-        helper.longestArgumentTermLength(cmd, helper)
+        helper.longestArgumentTermLength(cmd, helper),
       );
     }
     /**
@@ -712,23 +749,34 @@ function requireHelp() {
       const itemIndentStr = " ".repeat(itemIndent);
       if (!description) return itemIndentStr + term;
       const paddedTerm = term.padEnd(
-        termWidth + term.length - helper.displayWidth(term)
+        termWidth + term.length - helper.displayWidth(term),
       );
       const spacerWidth = 2;
       const helpWidth = this.helpWidth ?? 80;
       const remainingWidth = helpWidth - termWidth - spacerWidth - itemIndent;
       let formattedDescription;
-      if (remainingWidth < this.minWidthToWrap || helper.preformatted(description)) {
+      if (
+        remainingWidth < this.minWidthToWrap ||
+        helper.preformatted(description)
+      ) {
         formattedDescription = description;
       } else {
         const wrappedDescription = helper.boxWrap(description, remainingWidth);
         formattedDescription = wrappedDescription.replace(
           /\n/g,
-          "\n" + " ".repeat(termWidth + spacerWidth)
+          "\n" + " ".repeat(termWidth + spacerWidth),
         );
       }
-      return itemIndentStr + paddedTerm + " ".repeat(spacerWidth) + formattedDescription.replace(/\n/g, `
-${itemIndentStr}`);
+      return (
+        itemIndentStr +
+        paddedTerm +
+        " ".repeat(spacerWidth) +
+        formattedDescription.replace(
+          /\n/g,
+          `
+${itemIndentStr}`,
+        )
+      );
     }
     /**
      * Wrap a string at whitespace, preserving existing line breaks.
@@ -941,7 +989,7 @@ function requireOption() {
       this.parseArg = (arg, previous) => {
         if (!this.argChoices.includes(arg)) {
           throw new InvalidArgumentError2(
-            `Allowed choices are ${this.argChoices.join(", ")}.`
+            `Allowed choices are ${this.argChoices.join(", ")}.`,
           );
         }
         if (this.variadic) {
@@ -1069,7 +1117,7 @@ function requireOption() {
           `${baseError}
 - a short flag is a single dash and a single character
   - either use a single dash and a single character (for a short flag)
-  - or use a double dash for a long option (and can have two, like '--ws, --workspace')`
+  - or use a double dash for a long option (and can have two, like '--ws, --workspace')`,
         );
       if (shortFlagExp.test(unsupportedFlag))
         throw new Error(`${baseError}
@@ -1082,7 +1130,7 @@ function requireOption() {
     }
     if (shortFlag === void 0 && longFlag === void 0)
       throw new Error(
-        `option creation failed due to no flags found in '${flags}'.`
+        `option creation failed due to no flags found in '${flags}'.`,
       );
     return { shortFlag, longFlag };
   }
@@ -1119,7 +1167,7 @@ function requireSuggestSimilar() {
           // deletion
           d[i][j - 1] + 1,
           // insertion
-          d[i - 1][j - 1] + cost
+          d[i - 1][j - 1] + cost,
           // substitution
         );
         if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
@@ -1229,11 +1277,17 @@ function requireCommand() {
         writeOut: (str) => process$1.stdout.write(str),
         writeErr: (str) => process$1.stderr.write(str),
         outputError: (str, write) => write(str),
-        getOutHelpWidth: () => process$1.stdout.isTTY ? process$1.stdout.columns : void 0,
-        getErrHelpWidth: () => process$1.stderr.isTTY ? process$1.stderr.columns : void 0,
-        getOutHasColors: () => useColor() ?? (process$1.stdout.isTTY && process$1.stdout.hasColors?.()),
-        getErrHasColors: () => useColor() ?? (process$1.stderr.isTTY && process$1.stderr.hasColors?.()),
-        stripColor: (str) => stripColor(str)
+        getOutHelpWidth: () =>
+          process$1.stdout.isTTY ? process$1.stdout.columns : void 0,
+        getErrHelpWidth: () =>
+          process$1.stderr.isTTY ? process$1.stderr.columns : void 0,
+        getOutHasColors: () =>
+          useColor() ??
+          (process$1.stdout.isTTY && process$1.stdout.hasColors?.()),
+        getErrHasColors: () =>
+          useColor() ??
+          (process$1.stderr.isTTY && process$1.stderr.hasColors?.()),
+        stripColor: (str) => stripColor(str),
       };
       this._hidden = false;
       this._helpOption = void 0;
@@ -1259,7 +1313,8 @@ function requireCommand() {
       this._helpConfiguration = sourceCommand._helpConfiguration;
       this._exitCallback = sourceCommand._exitCallback;
       this._storeOptionsAsProperties = sourceCommand._storeOptionsAsProperties;
-      this._combineFlagAndOptionalValue = sourceCommand._combineFlagAndOptionalValue;
+      this._combineFlagAndOptionalValue =
+        sourceCommand._combineFlagAndOptionalValue;
       this._allowExcessArguments = sourceCommand._allowExcessArguments;
       this._enablePositionalOptions = sourceCommand._enablePositionalOptions;
       this._showHelpAfterError = sourceCommand._showHelpAfterError;
@@ -1384,7 +1439,7 @@ function requireCommand() {
       if (configuration === void 0) return this._outputConfiguration;
       this._outputConfiguration = {
         ...this._outputConfiguration,
-        ...configuration
+        ...configuration,
       };
       return this;
     }
@@ -1482,9 +1537,12 @@ function requireCommand() {
      * @return {Command} `this` command for chaining
      */
     arguments(names) {
-      names.trim().split(/ +/).forEach((detail) => {
-        this.argument(detail);
-      });
+      names
+        .trim()
+        .split(/ +/)
+        .forEach((detail) => {
+          this.argument(detail);
+        });
       return this;
     }
     /**
@@ -1497,12 +1555,16 @@ function requireCommand() {
       const previousArgument = this.registeredArguments.slice(-1)[0];
       if (previousArgument?.variadic) {
         throw new Error(
-          `only the last argument can be variadic '${previousArgument.name()}'`
+          `only the last argument can be variadic '${previousArgument.name()}'`,
         );
       }
-      if (argument2.required && argument2.defaultValue !== void 0 && argument2.parseArg === void 0) {
+      if (
+        argument2.required &&
+        argument2.defaultValue !== void 0 &&
+        argument2.parseArg === void 0
+      ) {
         throw new Error(
-          `a default value for a required argument is never used: '${argument2.name()}'`
+          `a default value for a required argument is never used: '${argument2.name()}'`,
         );
       }
       this.registeredArguments.push(argument2);
@@ -1538,7 +1600,8 @@ function requireCommand() {
       if (helpDescription) helpCommand.description(helpDescription);
       this._addImplicitHelpCommand = true;
       this._helpCommand = helpCommand;
-      if (enableOrNameAndArgs || description) this._initCommandGroup(helpCommand);
+      if (enableOrNameAndArgs || description)
+        this._initCommandGroup(helpCommand);
       return this;
     }
     /**
@@ -1565,7 +1628,11 @@ function requireCommand() {
      * @package
      */
     _getHelpCommand() {
-      const hasImplicitHelpCommand = this._addImplicitHelpCommand ?? (this.commands.length && !this._actionHandler && !this._findCommand("help"));
+      const hasImplicitHelpCommand =
+        this._addImplicitHelpCommand ??
+        (this.commands.length &&
+          !this._actionHandler &&
+          !this._findCommand("help"));
       if (hasImplicitHelpCommand) {
         if (this._helpCommand === void 0) {
           this.helpCommand(void 0, void 0);
@@ -1697,9 +1764,14 @@ Expecting one of '${allowedValues.join("', '")}'`);
      * @private
      */
     _registerOption(option2) {
-      const matchingOption = option2.short && this._findOption(option2.short) || option2.long && this._findOption(option2.long);
+      const matchingOption =
+        (option2.short && this._findOption(option2.short)) ||
+        (option2.long && this._findOption(option2.long));
       if (matchingOption) {
-        const matchingFlag = option2.long && this._findOption(option2.long) ? option2.long : option2.short;
+        const matchingFlag =
+          option2.long && this._findOption(option2.long)
+            ? option2.long
+            : option2.short;
         throw new Error(`Cannot add option '${option2.flags}'${this._name && ` to command '${this._name}'`} due to conflicting flag '${matchingFlag}'
 -  already used by option '${matchingOption.flags}'`);
       }
@@ -1717,14 +1789,14 @@ Expecting one of '${allowedValues.join("', '")}'`);
       const knownBy = (cmd) => {
         return [cmd.name()].concat(cmd.aliases());
       };
-      const alreadyUsed = knownBy(command2).find(
-        (name) => this._findCommand(name)
+      const alreadyUsed = knownBy(command2).find((name) =>
+        this._findCommand(name),
       );
       if (alreadyUsed) {
         const existingCmd = knownBy(this._findCommand(alreadyUsed)).join("|");
         const newCmd = knownBy(command2).join("|");
         throw new Error(
-          `cannot add command '${newCmd}' as already have command '${existingCmd}'`
+          `cannot add command '${newCmd}' as already have command '${existingCmd}'`,
         );
       }
       this._initCommandGroup(command2);
@@ -1746,7 +1818,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
           this.setOptionValueWithSource(
             name,
             option2.defaultValue === void 0 ? true : option2.defaultValue,
-            "default"
+            "default",
           );
         }
       } else if (option2.defaultValue !== void 0) {
@@ -1794,7 +1866,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
     _optionEx(config, flags, description, fn, defaultValue) {
       if (typeof flags === "object" && flags instanceof Option2) {
         throw new Error(
-          "To add an Option object use addOption() instead of option() or requiredOption()"
+          "To add an Option object use addOption() instead of option() or requiredOption()",
         );
       }
       const option2 = this.createOption(flags, description);
@@ -1855,7 +1927,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
         flags,
         description,
         parseArg,
-        defaultValue
+        defaultValue,
       );
     }
     /**
@@ -1923,9 +1995,13 @@ Expecting one of '${allowedValues.join("', '")}'`);
      * @private
      */
     _checkForBrokenPassThrough() {
-      if (this.parent && this._passThroughOptions && !this.parent._enablePositionalOptions) {
+      if (
+        this.parent &&
+        this._passThroughOptions &&
+        !this.parent._enablePositionalOptions
+      ) {
         throw new Error(
-          `passThroughOptions cannot be used for '${this._name}' without turning on enablePositionalOptions for parent command(s)`
+          `passThroughOptions cannot be used for '${this._name}' without turning on enablePositionalOptions for parent command(s)`,
         );
       }
     }
@@ -1938,11 +2014,13 @@ Expecting one of '${allowedValues.join("', '")}'`);
      */
     storeOptionsAsProperties(storeAsProperties = true) {
       if (this.options.length) {
-        throw new Error("call .storeOptionsAsProperties() before adding options");
+        throw new Error(
+          "call .storeOptionsAsProperties() before adding options",
+        );
       }
       if (Object.keys(this._optionValues).length) {
         throw new Error(
-          "call .storeOptionsAsProperties() before setting option values"
+          "call .storeOptionsAsProperties() before setting option values",
         );
       }
       this._storeOptionsAsProperties = !!storeAsProperties;
@@ -2029,7 +2107,12 @@ Expecting one of '${allowedValues.join("', '")}'`);
           parseOptions.from = "electron";
         }
         const execArgv = process$1.execArgv ?? [];
-        if (execArgv.includes("-e") || execArgv.includes("--eval") || execArgv.includes("-p") || execArgv.includes("--print")) {
+        if (
+          execArgv.includes("-e") ||
+          execArgv.includes("--eval") ||
+          execArgv.includes("-p") ||
+          execArgv.includes("--print")
+        ) {
           parseOptions.from = "eval";
         }
       }
@@ -2060,7 +2143,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
           break;
         default:
           throw new Error(
-            `unexpected parse option { from: '${parseOptions.from}' }`
+            `unexpected parse option { from: '${parseOptions.from}' }`,
           );
       }
       if (!this._name && this._scriptPath)
@@ -2142,7 +2225,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
         // option values before parse have default values (including false for negated options)
         // shallow clones
         _optionValues: { ...this._optionValues },
-        _optionValueSources: { ...this._optionValueSources }
+        _optionValueSources: { ...this._optionValueSources },
       };
     }
     /**
@@ -2172,7 +2255,9 @@ Expecting one of '${allowedValues.join("', '")}'`);
      */
     _checkForMissingExecutable(executableFile, executableDir, subcommandName) {
       if (fs.existsSync(executableFile)) return;
-      const executableDirMessage = executableDir ? `searched for local subcommand relative to directory '${executableDir}'` : "no directory for search for local subcommand, use .executableDir() to supply a custom directory";
+      const executableDirMessage = executableDir
+        ? `searched for local subcommand relative to directory '${executableDir}'`
+        : "no directory for search for local subcommand, use .executableDir() to supply a custom directory";
       const executableMissing = `'${executableFile}' does not exist
  - if '${subcommandName}' is not meant to be an executable command, remove description parameter from '.command()' and use '.description()' instead
  - if the default executable name is not suitable, use the executableFile option to supply a custom name or path
@@ -2192,15 +2277,16 @@ Expecting one of '${allowedValues.join("', '")}'`);
         const localBin = path.resolve(baseDir, baseName);
         if (fs.existsSync(localBin)) return localBin;
         if (sourceExt.includes(path.extname(baseName))) return void 0;
-        const foundExt = sourceExt.find(
-          (ext) => fs.existsSync(`${localBin}${ext}`)
+        const foundExt = sourceExt.find((ext) =>
+          fs.existsSync(`${localBin}${ext}`),
         );
         if (foundExt) return `${localBin}${foundExt}`;
         return void 0;
       }
       this._checkForMissingMandatoryOptions();
       this._checkForConflictingOptions();
-      let executableFile = subcommand._executableFile || `${this._name}-${subcommand._name}`;
+      let executableFile =
+        subcommand._executableFile || `${this._name}-${subcommand._name}`;
       let executableDir = this._executableDir || "";
       if (this._scriptPath) {
         let resolvedScriptPath;
@@ -2211,7 +2297,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
         }
         executableDir = path.resolve(
           path.dirname(resolvedScriptPath),
-          executableDir
+          executableDir,
         );
       }
       if (executableDir) {
@@ -2219,12 +2305,12 @@ Expecting one of '${allowedValues.join("', '")}'`);
         if (!localFile && !subcommand._executableFile && this._scriptPath) {
           const legacyName = path.basename(
             this._scriptPath,
-            path.extname(this._scriptPath)
+            path.extname(this._scriptPath),
           );
           if (legacyName !== this._name) {
             localFile = findFile(
               executableDir,
-              `${legacyName}-${subcommand._name}`
+              `${legacyName}-${subcommand._name}`,
             );
           }
         }
@@ -2236,7 +2322,9 @@ Expecting one of '${allowedValues.join("', '")}'`);
         if (launchWithNode) {
           args.unshift(executableFile);
           args = incrementNodeInspectorPort(process$1.execArgv).concat(args);
-          proc = childProcess.spawn(process$1.argv[0], args, { stdio: "inherit" });
+          proc = childProcess.spawn(process$1.argv[0], args, {
+            stdio: "inherit",
+          });
         } else {
           proc = childProcess.spawn(executableFile, args, { stdio: "inherit" });
         }
@@ -2244,11 +2332,13 @@ Expecting one of '${allowedValues.join("', '")}'`);
         this._checkForMissingExecutable(
           executableFile,
           executableDir,
-          subcommand._name
+          subcommand._name,
         );
         args.unshift(executableFile);
         args = incrementNodeInspectorPort(process$1.execArgv).concat(args);
-        proc = childProcess.spawn(process$1.execPath, args, { stdio: "inherit" });
+        proc = childProcess.spawn(process$1.execPath, args, {
+          stdio: "inherit",
+        });
       }
       if (!proc.killed) {
         const signals = ["SIGUSR1", "SIGUSR2", "SIGTERM", "SIGINT", "SIGHUP"];
@@ -2270,8 +2360,8 @@ Expecting one of '${allowedValues.join("', '")}'`);
             new CommanderError2(
               code,
               "commander.executeSubCommandAsync",
-              "(close)"
-            )
+              "(close)",
+            ),
           );
         }
       });
@@ -2280,7 +2370,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
           this._checkForMissingExecutable(
             executableFile,
             executableDir,
-            subcommand._name
+            subcommand._name,
           );
         } else if (err.code === "EACCES") {
           throw new Error(`'${executableFile}' not executable`);
@@ -2291,7 +2381,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
           const wrappedError = new CommanderError2(
             1,
             "commander.executeSubCommandAsync",
-            "(error)"
+            "(error)",
           );
           wrappedError.nestedError = err;
           exitCallback(wrappedError);
@@ -2310,7 +2400,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
       promiseChain = this._chainOrCallSubCommandHook(
         promiseChain,
         subCommand,
-        "preSubcommand"
+        "preSubcommand",
       );
       promiseChain = this._chainOrCall(promiseChain, () => {
         if (subCommand._executableHandler) {
@@ -2338,7 +2428,11 @@ Expecting one of '${allowedValues.join("', '")}'`);
       return this._dispatchSubcommand(
         subcommandName,
         [],
-        [this._getHelpOption()?.long ?? this._getHelpOption()?.short ?? "--help"]
+        [
+          this._getHelpOption()?.long ??
+            this._getHelpOption()?.short ??
+            "--help",
+        ],
       );
     }
     /**
@@ -2352,7 +2446,10 @@ Expecting one of '${allowedValues.join("', '")}'`);
           this.missingArgument(arg.name());
         }
       });
-      if (this.registeredArguments.length > 0 && this.registeredArguments[this.registeredArguments.length - 1].variadic) {
+      if (
+        this.registeredArguments.length > 0 &&
+        this.registeredArguments[this.registeredArguments.length - 1].variadic
+      ) {
         return;
       }
       if (this.args.length > this.registeredArguments.length) {
@@ -2373,7 +2470,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
             argument2,
             value,
             previous,
-            invalidValueMessage
+            invalidValueMessage,
           );
         }
         return parsedValue;
@@ -2427,11 +2524,14 @@ Expecting one of '${allowedValues.join("', '")}'`);
     _chainOrCallHooks(promise, event) {
       let result = promise;
       const hooks = [];
-      this._getCommandAndAncestors().reverse().filter((cmd) => cmd._lifeCycleHooks[event] !== void 0).forEach((hookedCommand) => {
-        hookedCommand._lifeCycleHooks[event].forEach((callback) => {
-          hooks.push({ hookedCommand, callback });
+      this._getCommandAndAncestors()
+        .reverse()
+        .filter((cmd) => cmd._lifeCycleHooks[event] !== void 0)
+        .forEach((hookedCommand) => {
+          hookedCommand._lifeCycleHooks[event].forEach((callback) => {
+            hooks.push({ hookedCommand, callback });
+          });
         });
-      });
       if (event === "postAction") {
         hooks.reverse();
       }
@@ -2475,9 +2575,16 @@ Expecting one of '${allowedValues.join("', '")}'`);
       unknown = parsed.unknown;
       this.args = operands.concat(unknown);
       if (operands && this._findCommand(operands[0])) {
-        return this._dispatchSubcommand(operands[0], operands.slice(1), unknown);
+        return this._dispatchSubcommand(
+          operands[0],
+          operands.slice(1),
+          unknown,
+        );
       }
-      if (this._getHelpCommand() && operands[0] === this._getHelpCommand().name()) {
+      if (
+        this._getHelpCommand() &&
+        operands[0] === this._getHelpCommand().name()
+      ) {
         return this._dispatchHelpCommand(operands[1]);
       }
       if (this._defaultCommandName) {
@@ -2485,10 +2592,15 @@ Expecting one of '${allowedValues.join("', '")}'`);
         return this._dispatchSubcommand(
           this._defaultCommandName,
           operands,
-          unknown
+          unknown,
         );
       }
-      if (this.commands.length && this.args.length === 0 && !this._actionHandler && !this._defaultCommandName) {
+      if (
+        this.commands.length &&
+        this.args.length === 0 &&
+        !this._actionHandler &&
+        !this._defaultCommandName
+      ) {
         this.help({ error: true });
       }
       this._outputHelpIfRequested(parsed.unknown);
@@ -2505,9 +2617,8 @@ Expecting one of '${allowedValues.join("', '")}'`);
         this._processArguments();
         let promiseChain;
         promiseChain = this._chainOrCallHooks(promiseChain, "preAction");
-        promiseChain = this._chainOrCall(
-          promiseChain,
-          () => this._actionHandler(this.processedArgs)
+        promiseChain = this._chainOrCall(promiseChain, () =>
+          this._actionHandler(this.processedArgs),
         );
         if (this.parent) {
           promiseChain = this._chainOrCall(promiseChain, () => {
@@ -2550,7 +2661,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
     _findCommand(name) {
       if (!name) return void 0;
       return this.commands.find(
-        (cmd) => cmd._name === name || cmd._aliases.includes(name)
+        (cmd) => cmd._name === name || cmd._aliases.includes(name),
       );
     }
     /**
@@ -2572,7 +2683,10 @@ Expecting one of '${allowedValues.join("', '")}'`);
     _checkForMissingMandatoryOptions() {
       this._getCommandAndAncestors().forEach((cmd) => {
         cmd.options.forEach((anOption) => {
-          if (anOption.mandatory && cmd.getOptionValue(anOption.attributeName()) === void 0) {
+          if (
+            anOption.mandatory &&
+            cmd.getOptionValue(anOption.attributeName()) === void 0
+          ) {
             cmd.missingMandatoryOptionValue(anOption);
           }
         });
@@ -2592,11 +2706,11 @@ Expecting one of '${allowedValues.join("', '")}'`);
         return this.getOptionValueSource(optionKey) !== "default";
       });
       const optionsWithConflicting = definedNonDefaultOptions.filter(
-        (option2) => option2.conflictsWith.length > 0
+        (option2) => option2.conflictsWith.length > 0,
       );
       optionsWithConflicting.forEach((option2) => {
-        const conflictingAndDefined = definedNonDefaultOptions.find(
-          (defined) => option2.conflictsWith.includes(defined.attributeName())
+        const conflictingAndDefined = definedNonDefaultOptions.find((defined) =>
+          option2.conflictsWith.includes(defined.attributeName()),
         );
         if (conflictingAndDefined) {
           this._conflictingOption(option2, conflictingAndDefined);
@@ -2640,8 +2754,10 @@ Expecting one of '${allowedValues.join("', '")}'`);
       }
       const negativeNumberArg = (arg) => {
         if (!/^-(\d+|\d*\.\d+)(e[+-]?\d+)?$/.test(arg)) return false;
-        return !this._getCommandAndAncestors().some(
-          (cmd) => cmd.options.map((opt) => opt.short).some((short) => /^-\d$/.test(short))
+        return !this._getCommandAndAncestors().some((cmd) =>
+          cmd.options
+            .map((opt) => opt.short)
+            .some((short) => /^-\d$/.test(short)),
         );
       };
       let activeVariadicOption = null;
@@ -2655,7 +2771,10 @@ Expecting one of '${allowedValues.join("', '")}'`);
           dest.push(...args.slice(i));
           break;
         }
-        if (activeVariadicOption && (!maybeOption(arg) || negativeNumberArg(arg))) {
+        if (
+          activeVariadicOption &&
+          (!maybeOption(arg) || negativeNumberArg(arg))
+        ) {
           this.emit(`option:${activeVariadicOption.name()}`, arg);
           continue;
         }
@@ -2669,7 +2788,10 @@ Expecting one of '${allowedValues.join("', '")}'`);
               this.emit(`option:${option2.name()}`, value);
             } else if (option2.optional) {
               let value = null;
-              if (i < args.length && (!maybeOption(args[i]) || negativeNumberArg(args[i]))) {
+              if (
+                i < args.length &&
+                (!maybeOption(args[i]) || negativeNumberArg(args[i]))
+              ) {
                 value = args[i++];
               }
               this.emit(`option:${option2.name()}`, value);
@@ -2683,7 +2805,10 @@ Expecting one of '${allowedValues.join("', '")}'`);
         if (arg.length > 2 && arg[0] === "-" && arg[1] !== "-") {
           const option2 = this._findOption(`-${arg[1]}`);
           if (option2) {
-            if (option2.required || option2.optional && this._combineFlagAndOptionalValue) {
+            if (
+              option2.required ||
+              (option2.optional && this._combineFlagAndOptionalValue)
+            ) {
               this.emit(`option:${option2.name()}`, arg.slice(2));
             } else {
               this.emit(`option:${option2.name()}`);
@@ -2700,15 +2825,26 @@ Expecting one of '${allowedValues.join("', '")}'`);
             continue;
           }
         }
-        if (dest === operands && maybeOption(arg) && !(this.commands.length === 0 && negativeNumberArg(arg))) {
+        if (
+          dest === operands &&
+          maybeOption(arg) &&
+          !(this.commands.length === 0 && negativeNumberArg(arg))
+        ) {
           dest = unknown;
         }
-        if ((this._enablePositionalOptions || this._passThroughOptions) && operands.length === 0 && unknown.length === 0) {
+        if (
+          (this._enablePositionalOptions || this._passThroughOptions) &&
+          operands.length === 0 &&
+          unknown.length === 0
+        ) {
           if (this._findCommand(arg)) {
             operands.push(arg);
             unknown.push(...args.slice(i));
             break;
-          } else if (this._getHelpCommand() && arg === this._getHelpCommand().name()) {
+          } else if (
+            this._getHelpCommand() &&
+            arg === this._getHelpCommand().name()
+          ) {
             operands.push(arg, ...args.slice(i));
             break;
           } else if (this._defaultCommandName) {
@@ -2735,7 +2871,8 @@ Expecting one of '${allowedValues.join("', '")}'`);
         const len = this.options.length;
         for (let i = 0; i < len; i++) {
           const key = this.options[i].attributeName();
-          result[key] = key === this._versionOptionName ? this._version : this[key];
+          result[key] =
+            key === this._versionOptionName ? this._version : this[key];
         }
         return result;
       }
@@ -2749,7 +2886,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
     optsWithGlobals() {
       return this._getCommandAndAncestors().reduce(
         (combinedOptions, cmd) => Object.assign(combinedOptions, cmd.opts()),
-        {}
+        {},
       );
     }
     /**
@@ -2764,7 +2901,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
       this._outputConfiguration.outputError(
         `${message}
 `,
-        this._outputConfiguration.writeErr
+        this._outputConfiguration.writeErr,
       );
       if (typeof this._showHelpAfterError === "string") {
         this._outputConfiguration.writeErr(`${this._showHelpAfterError}
@@ -2788,11 +2925,17 @@ Expecting one of '${allowedValues.join("', '")}'`);
       this.options.forEach((option2) => {
         if (option2.envVar && option2.envVar in process$1.env) {
           const optionKey = option2.attributeName();
-          if (this.getOptionValue(optionKey) === void 0 || ["default", "config", "env"].includes(
-            this.getOptionValueSource(optionKey)
-          )) {
+          if (
+            this.getOptionValue(optionKey) === void 0 ||
+            ["default", "config", "env"].includes(
+              this.getOptionValueSource(optionKey),
+            )
+          ) {
             if (option2.required || option2.optional) {
-              this.emit(`optionEnv:${option2.name()}`, process$1.env[option2.envVar]);
+              this.emit(
+                `optionEnv:${option2.name()}`,
+                process$1.env[option2.envVar],
+              );
             } else {
               this.emit(`optionEnv:${option2.name()}`);
             }
@@ -2808,22 +2951,32 @@ Expecting one of '${allowedValues.join("', '")}'`);
     _parseOptionsImplied() {
       const dualHelper = new DualOptions(this.options);
       const hasCustomOptionValue = (optionKey) => {
-        return this.getOptionValue(optionKey) !== void 0 && !["default", "implied"].includes(this.getOptionValueSource(optionKey));
+        return (
+          this.getOptionValue(optionKey) !== void 0 &&
+          !["default", "implied"].includes(this.getOptionValueSource(optionKey))
+        );
       };
-      this.options.filter(
-        (option2) => option2.implied !== void 0 && hasCustomOptionValue(option2.attributeName()) && dualHelper.valueFromOption(
-          this.getOptionValue(option2.attributeName()),
-          option2
+      this.options
+        .filter(
+          (option2) =>
+            option2.implied !== void 0 &&
+            hasCustomOptionValue(option2.attributeName()) &&
+            dualHelper.valueFromOption(
+              this.getOptionValue(option2.attributeName()),
+              option2,
+            ),
         )
-      ).forEach((option2) => {
-        Object.keys(option2.implied).filter((impliedKey) => !hasCustomOptionValue(impliedKey)).forEach((impliedKey) => {
-          this.setOptionValueWithSource(
-            impliedKey,
-            option2.implied[impliedKey],
-            "implied"
-          );
+        .forEach((option2) => {
+          Object.keys(option2.implied)
+            .filter((impliedKey) => !hasCustomOptionValue(impliedKey))
+            .forEach((impliedKey) => {
+              this.setOptionValueWithSource(
+                impliedKey,
+                option2.implied[impliedKey],
+                "implied",
+              );
+            });
         });
-      });
     }
     /**
      * Argument `name` is missing.
@@ -2867,12 +3020,17 @@ Expecting one of '${allowedValues.join("', '")}'`);
         const optionKey = option3.attributeName();
         const optionValue = this.getOptionValue(optionKey);
         const negativeOption = this.options.find(
-          (target) => target.negate && optionKey === target.attributeName()
+          (target) => target.negate && optionKey === target.attributeName(),
         );
         const positiveOption = this.options.find(
-          (target) => !target.negate && optionKey === target.attributeName()
+          (target) => !target.negate && optionKey === target.attributeName(),
         );
-        if (negativeOption && (negativeOption.presetArg === void 0 && optionValue === false || negativeOption.presetArg !== void 0 && optionValue === negativeOption.presetArg)) {
+        if (
+          negativeOption &&
+          ((negativeOption.presetArg === void 0 && optionValue === false) ||
+            (negativeOption.presetArg !== void 0 &&
+              optionValue === negativeOption.presetArg))
+        ) {
           return negativeOption;
         }
         return positiveOption || option3;
@@ -2902,7 +3060,11 @@ Expecting one of '${allowedValues.join("', '")}'`);
         let candidateFlags = [];
         let command2 = this;
         do {
-          const moreFlags = command2.createHelp().visibleOptions(command2).filter((option2) => option2.long).map((option2) => option2.long);
+          const moreFlags = command2
+            .createHelp()
+            .visibleOptions(command2)
+            .filter((option2) => option2.long)
+            .map((option2) => option2.long);
           candidateFlags = candidateFlags.concat(moreFlags);
           command2 = command2.parent;
         } while (command2 && !command2._enablePositionalOptions);
@@ -2935,10 +3097,12 @@ Expecting one of '${allowedValues.join("', '")}'`);
       let suggestion = "";
       if (this._showSuggestionAfterError) {
         const candidateNames = [];
-        this.createHelp().visibleCommands(this).forEach((command2) => {
-          candidateNames.push(command2.name());
-          if (command2.alias()) candidateNames.push(command2.alias());
-        });
+        this.createHelp()
+          .visibleCommands(this)
+          .forEach((command2) => {
+            candidateNames.push(command2.name());
+            if (command2.alias()) candidateNames.push(command2.alias());
+          });
         suggestion = suggestSimilar2(unknownName, candidateNames);
       }
       const message = `error: unknown command '${unknownName}'${suggestion}`;
@@ -3009,16 +3173,21 @@ Expecting one of '${allowedValues.join("', '")}'`);
     alias(alias) {
       if (alias === void 0) return this._aliases[0];
       let command2 = this;
-      if (this.commands.length !== 0 && this.commands[this.commands.length - 1]._executableHandler) {
+      if (
+        this.commands.length !== 0 &&
+        this.commands[this.commands.length - 1]._executableHandler
+      ) {
         command2 = this.commands[this.commands.length - 1];
       }
       if (alias === command2._name)
         throw new Error("Command alias can't be the same as its name");
       const matchingCommand = this.parent?._findCommand(alias);
       if (matchingCommand) {
-        const existingCmd = [matchingCommand.name()].concat(matchingCommand.aliases()).join("|");
+        const existingCmd = [matchingCommand.name()]
+          .concat(matchingCommand.aliases())
+          .join("|");
         throw new Error(
-          `cannot add alias '${alias}' to command '${this.name()}' as already have command '${existingCmd}'`
+          `cannot add alias '${alias}' to command '${this.name()}' as already have command '${existingCmd}'`,
         );
       }
       command2._aliases.push(alias);
@@ -3049,11 +3218,13 @@ Expecting one of '${allowedValues.join("', '")}'`);
         const args = this.registeredArguments.map((arg) => {
           return humanReadableArgName(arg);
         });
-        return [].concat(
-          this.options.length || this._helpOption !== null ? "[options]" : [],
-          this.commands.length ? "[command]" : [],
-          this.registeredArguments.length ? args : []
-        ).join(" ");
+        return []
+          .concat(
+            this.options.length || this._helpOption !== null ? "[options]" : [],
+            this.commands.length ? "[command]" : [],
+            this.registeredArguments.length ? args : [],
+          )
+          .join(" ");
       }
       this._usage = str;
       return this;
@@ -3176,7 +3347,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
       helper.prepareContext({
         error: context.error,
         helpWidth: context.helpWidth,
-        outputHasColors: context.hasColors
+        outputHasColors: context.hasColors,
       });
       const text = helper.formatHelp(this, helper);
       if (context.hasColors) return text;
@@ -3231,15 +3402,24 @@ Expecting one of '${allowedValues.join("', '")}'`);
       const eventContext = {
         error: outputContext.error,
         write: outputContext.write,
-        command: this
+        command: this,
       };
-      this._getCommandAndAncestors().reverse().forEach((command2) => command2.emit("beforeAllHelp", eventContext));
+      this._getCommandAndAncestors()
+        .reverse()
+        .forEach((command2) => command2.emit("beforeAllHelp", eventContext));
       this.emit("beforeHelp", eventContext);
-      let helpInformation = this.helpInformation({ error: outputContext.error });
+      let helpInformation = this.helpInformation({
+        error: outputContext.error,
+      });
       if (deprecatedCallback) {
         helpInformation = deprecatedCallback(helpInformation);
-        if (typeof helpInformation !== "string" && !Buffer.isBuffer(helpInformation)) {
-          throw new Error("outputHelp callback must return a string or a Buffer");
+        if (
+          typeof helpInformation !== "string" &&
+          !Buffer.isBuffer(helpInformation)
+        ) {
+          throw new Error(
+            "outputHelp callback must return a string or a Buffer",
+          );
         }
       }
       outputContext.write(helpInformation);
@@ -3247,8 +3427,8 @@ Expecting one of '${allowedValues.join("', '")}'`);
         this.emit(this._getHelpOption().long);
       }
       this.emit("afterHelp", eventContext);
-      this._getCommandAndAncestors().forEach(
-        (command2) => command2.emit("afterAllHelp", eventContext)
+      this._getCommandAndAncestors().forEach((command2) =>
+        command2.emit("afterAllHelp", eventContext),
       );
     }
     /**
@@ -3277,7 +3457,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
       }
       this._helpOption = this.createOption(
         flags ?? "-h, --help",
-        description ?? "display help for command"
+        description ?? "display help for command",
       );
       if (flags || description) this._initOptionGroup(this._helpOption);
       return this;
@@ -3317,7 +3497,12 @@ Expecting one of '${allowedValues.join("', '")}'`);
     help(contextOptions) {
       this.outputHelp(contextOptions);
       let exitCode = Number(process$1.exitCode ?? 0);
-      if (exitCode === 0 && contextOptions && typeof contextOptions !== "function" && contextOptions.error) {
+      if (
+        exitCode === 0 &&
+        contextOptions &&
+        typeof contextOptions !== "function" &&
+        contextOptions.error
+      ) {
         exitCode = 1;
       }
       this._exit(exitCode, "commander.help", "(outputHelp)");
@@ -3369,7 +3554,8 @@ Expecting one of '${allowedValues.join("', '")}'`);
      */
     _outputHelpIfRequested(args) {
       const helpOption = this._getHelpOption();
-      const helpRequested = helpOption && args.find((arg) => helpOption.is(arg));
+      const helpRequested =
+        helpOption && args.find((arg) => helpOption.is(arg));
       if (helpRequested) {
         this.outputHelp();
         this._exit(0, "commander.helpDisplayed", "(outputHelp)");
@@ -3387,14 +3573,18 @@ Expecting one of '${allowedValues.join("', '")}'`);
       let match;
       if ((match = arg.match(/^(--inspect(-brk)?)$/)) !== null) {
         debugOption = match[1];
-      } else if ((match = arg.match(/^(--inspect(-brk|-port)?)=([^:]+)$/)) !== null) {
+      } else if (
+        (match = arg.match(/^(--inspect(-brk|-port)?)=([^:]+)$/)) !== null
+      ) {
         debugOption = match[1];
         if (/^\d+$/.test(match[3])) {
           debugPort = match[3];
         } else {
           debugHost = match[3];
         }
-      } else if ((match = arg.match(/^(--inspect(-brk|-port)?)=([^:]+):(\d+)$/)) !== null) {
+      } else if (
+        (match = arg.match(/^(--inspect(-brk|-port)?)=([^:]+):(\d+)$/)) !== null
+      ) {
         debugOption = match[1];
         debugHost = match[3];
         debugPort = match[4];
@@ -3406,7 +3596,11 @@ Expecting one of '${allowedValues.join("', '")}'`);
     });
   }
   function useColor() {
-    if (process$1.env.NO_COLOR || process$1.env.FORCE_COLOR === "0" || process$1.env.FORCE_COLOR === "false")
+    if (
+      process$1.env.NO_COLOR ||
+      process$1.env.FORCE_COLOR === "0" ||
+      process$1.env.FORCE_COLOR === "false"
+    )
       return false;
     if (process$1.env.FORCE_COLOR || process$1.env.CLICOLOR_FORCE !== void 0)
       return true;
@@ -3422,13 +3616,18 @@ function requireCommander() {
   hasRequiredCommander = 1;
   const { Argument: Argument2 } = requireArgument();
   const { Command: Command2 } = requireCommand();
-  const { CommanderError: CommanderError2, InvalidArgumentError: InvalidArgumentError2 } = requireError();
+  const {
+    CommanderError: CommanderError2,
+    InvalidArgumentError: InvalidArgumentError2,
+  } = requireError();
   const { Help: Help2 } = requireHelp();
   const { Option: Option2 } = requireOption();
   commander$1.program = new Command2();
   commander$1.createCommand = (name) => new Command2(name);
-  commander$1.createOption = (flags, description) => new Option2(flags, description);
-  commander$1.createArgument = (name, description) => new Argument2(name, description);
+  commander$1.createOption = (flags, description) =>
+    new Option2(flags, description);
+  commander$1.createArgument = (name, description) =>
+    new Argument2(name, description);
   commander$1.Command = Command2;
   commander$1.Option = Option2;
   commander$1.Argument = Argument2;
@@ -3452,9 +3651,6 @@ const {
   Command,
   Argument,
   Option,
-  Help
+  Help,
 } = commander;
-export {
-  Command as C,
-  InvalidArgumentError as I
-};
+export { Command as C, InvalidArgumentError as I };
