@@ -39,7 +39,10 @@ const runtimeFiles = {
 // Refuse unexpected paths before doing any destructive work. Only the repository
 // root actions/ directory may be replaced; authored sources are read-only.
 const expectedOutput = resolve(repositoryRoot, "actions");
-if (resolve(outputRoot) !== expectedOutput || resolve(outputRoot) === resolve(sourceRoot)) {
+if (
+  resolve(outputRoot) !== expectedOutput ||
+  resolve(outputRoot) === resolve(sourceRoot)
+) {
   throw new Error("Unsafe generated actions output directory");
 }
 for (const protectedPath of [repositoryRoot, packageRoot, sourceRoot]) {
@@ -51,14 +54,19 @@ if (existsSync(outputRoot) && lstatSync(outputRoot).isSymbolicLink()) {
   throw new Error("Refusing to modify symlinked generated actions directory");
 }
 if (realpathSync(sourceRoot).startsWith(expectedOutput + "/")) {
-  throw new Error("Action source directory must be outside generated distribution");
+  throw new Error(
+    "Action source directory must be outside generated distribution",
+  );
 }
 for (const [name, files] of Object.entries(runtimeFiles)) {
   for (const source of Object.values(files)) {
     const file = resolve(repositoryRoot, source);
-    if (!file.startsWith(realpathSync(repositoryRoot) + "/") ||
-        !existsSync(file) || lstatSync(file).isSymbolicLink() ||
-        !realpathSync(file).startsWith(realpathSync(repositoryRoot) + "/")) {
+    if (
+      !file.startsWith(realpathSync(repositoryRoot) + "/") ||
+      !existsSync(file) ||
+      lstatSync(file).isSymbolicLink() ||
+      !realpathSync(file).startsWith(realpathSync(repositoryRoot) + "/")
+    ) {
       throw new Error("Unsafe runtime source for " + name + ": " + source);
     }
   }
