@@ -2,12 +2,14 @@ import { InvalidArgumentError } from "commander";
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
+/** Validated workspace-tools source mode and reference. */
 export type WorkspaceToolsSource = {
   mode: "registry" | "current" | "upstream";
   value: string;
   source: string;
 };
 
+/** Parse and validate workspace-tools installation source syntax. */
 export function parseWorkspaceToolsSource(
   source: string,
 ): WorkspaceToolsSource {
@@ -43,6 +45,7 @@ export function parseWorkspaceToolsSource(
   throw new InvalidArgumentError(`Invalid workspace-tools source: ${source}`);
 }
 
+/** Resolve the executable directory for a workspace-tools installation mode. */
 export function resolveBinDir(
   mode: WorkspaceToolsSource["mode"],
   paths: { workspace: string; runnerTemp: string; releaseBin?: string },
@@ -61,6 +64,7 @@ export function resolveBinDir(
   return dirname(resolve(paths.releaseBin));
 }
 
+/** Verify that the required workspace-tools executable files exist. */
 export function validateBinDir(dir: string): void {
   for (const cli of ["workspace-release.mjs", "workspace-publish.mjs"]) {
     if (!existsSync(join(dir, cli)))

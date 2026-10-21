@@ -2,6 +2,7 @@ import { Command } from "commander";
 import { readFileSync } from "node:fs";
 import { validateReleaseMarker } from "../release-draft-sync/identity";
 
+/** Create the release metadata validation Commander command. */
 export function createReleaseValidateCommand() {
   return new Command("release-validate")
     .description("Validate release identity in a Markdown file")

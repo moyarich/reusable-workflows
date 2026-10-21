@@ -1,7 +1,9 @@
 import { readFileSync } from "node:fs";
 import { resolve, relative, join } from "node:path";
 import process from "node:process";
+/** Public store API. */
 export type Store = "chrome" | "firefox" | "all";
+/** Public safe dir API. */
 export function safeDir(value: string) {
   const root = process.cwd();
   const absolute = resolve(root, value);
@@ -15,6 +17,7 @@ export function safeDir(value: string) {
     throw new Error("Directory must be inside the workspace");
   return absolute;
 }
+/** Public validate API. */
 export function validate(directory: string, registry: Store, firefoxId = "") {
   const dir = safeDir(directory);
   const manifest = JSON.parse(readFileSync(join(dir, "manifest.json"), "utf8"));

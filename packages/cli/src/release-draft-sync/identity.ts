@@ -8,6 +8,7 @@ export interface ReleaseIdentity {
   source?: string;
 }
 
+/** Parsed canonical, legacy, or missing release identity marker. */
 export type ReleaseMarker =
   | ({ format: "v2" } & ReleaseIdentity)
   | { format: "legacy"; target?: string; "seed-sha"?: string; source?: string }
@@ -54,6 +55,7 @@ const parsers: Record<string, MarkerParser> = {
   v2: parseV2,
 };
 
+/** Parse the canonical or legacy identity marker from release notes. */
 export function parseReleaseMarker(body: string = ""): ParsedMarker | null {
   const matches = [...body.matchAll(versionedMarker)];
   if (matches.length > 1)
@@ -69,6 +71,7 @@ export function parseReleaseMarker(body: string = ""): ParsedMarker | null {
   }
   return parseLegacy(body);
 }
+/** Validate release identity against expected metadata. */
 export function validateReleaseMarker(
   body: string,
   expected: Partial<ReleaseIdentity>,
@@ -93,6 +96,7 @@ export function validateReleaseMarker(
   }
   return marker;
 }
+/** Write a canonical release identity marker while preserving Markdown content. */
 export function writeReleaseMarker(
   body: string,
   expected: ReleaseIdentity,

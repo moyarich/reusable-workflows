@@ -1,4 +1,5 @@
 import { Command } from "commander";
+/** Create the browser extension Commander subcommand. */
 export function createBrowserCommand() {
   return new Command("browser")
     .description("Browser extension publishing utilities")
