@@ -4,14 +4,20 @@
   "type": "module",
   "description": "Commander CLI for reusable workflows",
   "bin": {
-    "reusable-workflows": "dist/cli.mjs"
+    "reusable-workflows-cli": "dist/cli.mjs",
+    "reusable-workflows": "dist/cli.mjs",
+    "reusable-workflows-workspace-source": "dist/workspace-source.mjs",
+    "reusable-workflows-release-validate": "dist/release-validate.mjs",
+    "reusable-workflows-browser": "dist/browser.mjs",
+    "reusable-workflows-setup-workspace-tools": "dist/setup-workspace-tools.mjs"
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "vite build --config vite.config.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "build": "vite build --config vite.config.ts && vite build --config vite.lib.config.ts && tsc -p tsconfig.build.json && node scripts/ensure-bin-executable.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "check:pack": "npm pack --dry-run"
   },
   "dependencies": {
     "commander": "^14.0.0"
@@ -21,5 +27,25 @@
   },
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "default": "./dist/lib/index.mjs"
+    },
+    "./release-identity": {
+      "types": "./dist/types/release-draft-sync/identity.d.ts",
+      "default": "./dist/lib/release-identity.mjs"
+    },
+    "./workspace-source": {
+      "types": "./dist/types/setup-workspace-tools/setup-workspace-tools.d.ts",
+      "default": "./dist/lib/workspace-source.mjs"
+    },
+    "./browser-manifest": {
+      "types": "./dist/types/browser-extension-publish/manifest.d.ts",
+      "default": "./dist/lib/browser-manifest.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/types/index.d.ts"
 }

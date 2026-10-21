@@ -122,11 +122,11 @@ jobs:
           BUILD_DIR: ${{ inputs.build-directory || 'dist' }}
           REGISTRY: ${{ inputs.registry || 'all' }}
           FIREFOX_ID: ${{ inputs.firefox-addon-id }}
-        run: node .github/browser-publisher/actions/dist/browser-extension-publish.mjs validate --build-directory "$BUILD_DIR" --registry "$REGISTRY" --firefox-addon-id "$FIREFOX_ID"
+        run: node .github/browser-publisher/actions/browser-extension-publish/index.mjs validate --build-directory "$BUILD_DIR" --registry "$REGISTRY" --firefox-addon-id "$FIREFOX_ID"
       - name: Package extension ZIP
         env:
           BUILD_DIR: ${{ inputs.build-directory || 'dist' }}
-        run: node .github/browser-publisher/actions/dist/browser-extension-publish.mjs package --build-directory "$BUILD_DIR" --output extension.zip
+        run: node .github/browser-publisher/actions/browser-extension-publish/index.mjs package --build-directory "$BUILD_DIR" --output extension.zip
       - uses: actions/upload-artifact@v7
         with:
           name: browser-extension-zip
@@ -140,14 +140,14 @@ jobs:
           CHROME_CLIENT_ID: ${{ secrets.chrome-client-id }}
           CHROME_CLIENT_SECRET: ${{ secrets.chrome-client-secret }}
           CHROME_REFRESH_TOKEN: ${{ secrets.chrome-refresh-token }}
-        run: node .github/browser-publisher/actions/dist/browser-extension-publish.mjs publish-chrome --archive extension.zip --publisher-id "$PUBLISHER_ID" --extension-id "$EXTENSION_ID"
+        run: node .github/browser-publisher/actions/browser-extension-publish/index.mjs publish-chrome --archive extension.zip --publisher-id "$PUBLISHER_ID" --extension-id "$EXTENSION_ID"
       - name: Submit Firefox Add-ons listing
         if: ${{ !inputs.dry-run && (inputs.registry == 'firefox' || inputs.registry == 'all') }}
         env:
           BUILD_DIR: ${{ inputs.build-directory || 'dist' }}
           FIREFOX_API_KEY: ${{ secrets.firefox-api-key }}
           FIREFOX_API_SECRET: ${{ secrets.firefox-api-secret }}
-        run: node .github/browser-publisher/actions/dist/browser-extension-publish.mjs publish-firefox --build-directory "$BUILD_DIR" --output-directory firefox-signed
+        run: node .github/browser-publisher/actions/browser-extension-publish/index.mjs publish-firefox --build-directory "$BUILD_DIR" --output-directory firefox-signed
       - name: Upload Firefox signed artifacts
         if: ${{ !inputs.dry-run && (inputs.registry == 'firefox' || inputs.registry == 'all') }}
         uses: actions/upload-artifact@v7

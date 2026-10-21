@@ -10,15 +10,17 @@
   "scripts": {
     "dev": "npm run dev --workspace @moyarich/reusable-workflows-playground",
     "build:playground": "npm run build --workspace @moyarich/reusable-workflows-playground",
-    "build:cli": "vite build",
-    "check:cli-dist": "npm run build:cli && git diff --exit-code -- actions/dist/",
+    "build:cli": "npm run build -w @moyarich/reusable-workflows-cli",
+    "check:cli-dist": "npm run build:actions && git diff --exit-code -- actions/",
     "typecheck": "npm run typecheck --workspaces --if-present && tsc -p tsconfig.tests.json --noEmit",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "npm run lint -- --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "checks": "npm run format:check && npm run lint && npm run typecheck",
-    "build:package": "npm run build --workspace @moyarich/reusable-workflows-cli"
+    "build:package": "npm run build:cli",
+    "build:actions": "npm run build -w @moyarich/reusable-workflows-actions",
+    "build:all": "npm run build:cli && npm run build:actions"
   },
   "engines": {
     "node": ">=24"
@@ -33,13 +35,12 @@
   },
   "devDependencies": {
     "prettier": "^3.6.2",
-    "vite": "^7.1.5",
+    "vite": "^8.3.4",
     "vitest": "^3.2.4",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.70.0",
     "@types/node": "^24.3.1",
     "@eslint/js": "^10.0.1",
-    "eslint": "^10.0.0",
-    "@moyarich/vite-github-actions": "git+https://github.com/moyarich/vite-github-actions.git#main"
+    "eslint": "^10.0.0"
   }
 }

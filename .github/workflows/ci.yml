@@ -5,6 +5,7 @@ on:
     paths:
       - "src/**"
       - "packages/cli/**"
+      - "packages/actions/**"
       - "tests/**"
       - ".storybook/**"
       - "**/.storybook/**"
@@ -34,7 +35,7 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: ci-${{ github.repository }}-${{ inputs.checkout-sha || github.ref }}
+  group: ci-${{ github.repository }}-${{ github.workflow }}-${{ github.event.pull_request.number || inputs.checkout-sha || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -88,6 +89,33 @@ jobs:
         id: build-package
         run: npm run build:package
 
+      - name: Recreate actions from empty distribution
+        id: build-actions
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf actions/
+          npm run build:actions
+          # Authored source files must survive Vite cleanup and regeneration.
+          git diff --exit-code -- packages/cli/src/ packages/actions/actions/ packages/actions/scripts/
+          git diff --exit-code -- actions/
+          if [[ -n "$(git ls-files --others --exclude-standard -- actions/)" ]]; then
+            echo "::error::Action build created untracked generated files. Commit regenerated actions/."
+            git ls-files --others --exclude-standard -- actions/
+            exit 1
+          fi
+
+      - name: Verify npm exports and action bundles
+        run: |
+          node --input-type=module -e "import { parseWorkspaceToolsSource } from '@moyarich/reusable-workflows-cli'; if (parseWorkspaceToolsSource('registry:npm:latest').mode !== 'registry') process.exit(1)"
+          test -f actions/setup-workspace-tools/index.mjs
+          test -f actions/release-draft-sync/index.mjs
+          test -f actions/validate-release-identity/index.mjs
+          test -f actions/check-dist/action.yml
+          test -f actions/resolve-workspaces/action.yml
+          test -f packages/cli/dist/lib/index.mjs
+          test -f packages/cli/dist/types/index.d.ts
+
       - name: Run Vitest
         id: vitest
         run: npx --no-install vitest run
@@ -96,8 +124,20 @@ jobs:
         id: verify-package
         run: |
           node packages/cli/dist/cli.mjs --help
+          node packages/cli/dist/workspace-source.mjs --help
+          node packages/cli/dist/release-validate.mjs --help
+          node packages/cli/dist/browser.mjs --help
+          node packages/cli/dist/setup-workspace-tools.mjs --help
+          npm exec --workspace @moyarich/reusable-workflows-cli -- reusable-workflows-cli --help
           node packages/cli/dist/cli.mjs workspace-source --source registry:npm:latest
           npm pack --workspace @moyarich/reusable-workflows-cli --dry-run
+          node --input-type=module <<'NODE'
+          import { readFileSync, existsSync } from 'node:fs';
+          const manifest = JSON.parse(readFileSync('packages/cli/package.json', 'utf8'));
+          for (const [name, file] of Object.entries(manifest.bin)) {
+            if (!existsSync('packages/cli/' + file)) throw new Error(`Missing npm bin ${name}: ${file}`);
+          }
+          NODE
 
       - name: Discover Storybook test scripts
         id: storybook

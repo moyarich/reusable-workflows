@@ -31,4 +31,4 @@ runs:
         VERIFY_SHA: ${{ inputs.sha }}
         VERIFY_BRANCH: ${{ inputs.branch }}
         VERIFY_EVENT: ${{ inputs.event }}
-      run: node "$GITHUB_ACTION_PATH/../../src/verify-workflow-runs/index.mjs"
+      run: node "$GITHUB_ACTION_PATH/index.mjs"

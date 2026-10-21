@@ -3,10 +3,12 @@ name: "Self-heal · Action distribution"
 on:
   push:
     paths:
-      - "src/actions/**"
-      - "src/workflow-dispatch/**"
-      - "src/verify-workflow-runs/**"
-      - "vite.config.ts"
+      - "packages/cli/src/**"
+      - "packages/actions/actions/**"
+      - "packages/actions/scripts/**"
+      - "packages/cli/src/workflow-dispatch/**"
+      - "packages/cli/src/verify-workflow-runs/**"
+      - "packages/actions/vite.config.ts"
       - "vitest.config.ts"
       - "package.json"
       - "package-lock.json"
@@ -14,7 +16,7 @@ on:
       - ".prettierrc.json"
       - ".prettierignore"
       - "tests/**"
-      - "actions/dist/**"
+      - "actions/**"
       - ".github/workflows/self-heal-ci.yml"
   workflow_dispatch:
     inputs:
@@ -38,7 +40,7 @@ permissions:
   packages: read
 
 concurrency:
-  group: self-heal-${{ github.ref }}
+  group: self-heal-${{ github.repository }}-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -82,7 +84,7 @@ jobs:
         run: npm install --no-package-lock --no-audit --no-fund
 
       - name: Build action distribution
-        run: npm run build:cli
+        run: npm run build:actions
 
       - name: Test built setup CLI
         run: npx vitest run
@@ -92,7 +94,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git add -f -- actions/dist/
+          git add -f -- actions/
           if git diff --cached --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "Action distribution is already current."
@@ -127,8 +129,8 @@ jobs:
             echo
             echo "| Check | Result |"
             echo "| --- | --- |"
-            echo '| Source | `src/actions/` |'
-            echo '| Distribution | `actions/dist/` |'
+            echo '| Source | `packages/cli/src/actions/` |'
+            echo '| Distribution | `actions/` (generated metadata and bundles) |'
             echo "| Commit step | $BUILD |"
             echo "| Distribution updated | ${CHANGED:-not completed} |"
             echo "| Result | $RESULT |"

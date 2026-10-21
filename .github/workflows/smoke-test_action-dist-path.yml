@@ -3,9 +3,10 @@ name: "Smoke-test · Setup Workspace Tools distribution"
 on:
   pull_request:
     paths:
-      - "src/actions/setup-workspace-tools/**"
+      - "packages/cli/src/setup-workspace-tools/**"
       - "actions/setup-workspace-tools/**"
-      - "actions/dist/setup-workspace-tools.mjs"
+      - "actions/_assets/**"
+      - "packages/actions/**"
       - ".github/workflows/smoke-test_action-dist-path.yml"
   workflow_dispatch:
 
@@ -26,7 +27,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node actions/dist/setup-workspace-tools.mjs \
+          node actions/setup-workspace-tools/index.mjs \
             --workspace-tools-source registry:npm:latest \
             --mode resolve
           grep -qx 'mode=registry' "$GITHUB_OUTPUT"
@@ -39,17 +40,17 @@ jobs:
           {
             echo "## Setup Workspace Tools — local bundle"
             echo
-            echo '| Entry point | `actions/dist/setup-workspace-tools.mjs` |'
+            echo '| Entry point | `actions/setup-workspace-tools/index.mjs` |'
             echo '| --- | --- |'
             echo "| Result | $RESULT |"
           } >> "$GITHUB_STEP_SUMMARY"
 
   remote-path:
-    name: Remote composite action with shared bundle
+    name: Remote composite action with generated entry
     runs-on: ubuntu-latest
     steps:
       - name: Execute published-style action from this PR branch
-        uses: moyarich/reusable-workflows/actions/setup-workspace-tools@fix/require-structured-discovery-json
+        uses: moyarich/reusable-workflows/actions/setup-workspace-tools@fix/isolate-workflow-concurrency-20261021
         id: setup
         with:
           workspace-tools-source: registry:npm:latest
@@ -75,7 +76,7 @@ jobs:
             echo
             echo '| Action | `actions/setup-workspace-tools` |'
             echo '| --- | --- |'
-            echo '| Bundle | `../dist/setup-workspace-tools.mjs` |'
+            echo '| Bundle | `index.mjs` |'
             echo "| Composite action | $SETUP |"
             echo "| CLI validation | $ASSERTION |"
           } >> "$GITHUB_STEP_SUMMARY"
