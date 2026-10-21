@@ -9,9 +9,9 @@ Every public workflow lives directly in `.github/workflows/` and uses the `reusa
 
 ## CI and quality
 
-- `reusable_node-ci.yml` — Node.js install, build, and test orchestration.
+- `reusable_node-ci.yml` — root, single-package, or multi-package Node CI with package discovery and a unified matrix.
 - `reusable_check-dist.yml` — rebuild committed distribution output, fail when it differs, and upload the rebuilt output for inspection.
-- `reusable_package-ci.yml` — package discovery plus per-package Node CI.
+- `reusable_node-ci.yml` — package discovery plus per-package Node CI.
 - `reusable_prettier.yml` — Prettier formatting with optional self-healing commits.
 - `reusable_discover-packages.yml` — workspace package discovery using `@moyarich/workspace-tools`.
 
