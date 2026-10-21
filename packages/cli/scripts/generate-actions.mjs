@@ -16,6 +16,12 @@ const repositoryRoot = resolve(packageRoot, "../..");
 const sourceRoot = join(packageRoot, "actions");
 const outputRoot = join(repositoryRoot, "actions");
 const bundledRoot = join(outputRoot, "dist");
+const bundles = new Map([
+  ["browser-extension-publish", "browser-extension-publish.mjs"],
+  ["release-draft-sync", "release-draft-sync.mjs"],
+  ["setup-workspace-tools", "setup-workspace-tools.mjs"],
+  ["validate-release-identity", "validate-release-identity.mjs"],
+]);
 
 // Composite actions ship their runtime dependencies beside action.yml.
 // Referencing packages/cli/src in a published action is not portable.
@@ -116,6 +122,12 @@ for (const name of actionNames) {
       return true;
     },
   });
+  const bundle = bundles.get(name);
+  if (bundle) {
+    const bundledFile = join(bundledRoot, bundle);
+    if (!existsSync(bundledFile)) throw new Error(`Missing Vite bundle: ${bundledFile}`);
+    cpSync(bundledFile, join(outputDir, "index.mjs"));
+  }
   for (const [target, source] of Object.entries(runtimeFiles[name] ?? {})) {
     const sourceFile = resolve(repositoryRoot, source);
     if (!existsSync(sourceFile))
@@ -146,4 +158,6 @@ for (const name of actionNames) {
     }
   }
 }
-console.log(`Generated ${actionNames.length} GitHub Actions in actions/`);
+// Staging is disposable. Public bundles must be next to each action.yml.
+rmSync(bundledRoot, { recursive: true, force: true });
+console.log(`Generated ${actionNames.length} self-contained GitHub Actions in actions/`);
