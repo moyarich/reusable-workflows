@@ -88,9 +88,19 @@ jobs:
         id: build-package
         run: npm run build:package
 
-      - name: Bundle GitHub Actions
+      - name: Recreate actions from empty distribution
         id: build-actions
-        run: npm run build:actions
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf actions/
+          npm run build:actions
+          git diff --exit-code -- actions/
+          if [[ -n "$(git ls-files --others --exclude-standard -- actions/)" ]]; then
+            echo "::error::Action build created untracked generated files. Commit regenerated actions/."
+            git ls-files --others --exclude-standard -- actions/
+            exit 1
+          fi
 
       - name: Verify npm exports and action bundles
         run: |
