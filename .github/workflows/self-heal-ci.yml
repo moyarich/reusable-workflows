@@ -4,6 +4,8 @@ on:
   push:
     paths:
       - "packages/cli/src/actions/**"
+      - "packages/cli/actions/**"
+      - "packages/cli/scripts/**"
       - "packages/cli/src/workflow-dispatch/**"
       - "packages/cli/src/verify-workflow-runs/**"
       - "packages/cli/vite.action.config.ts"
@@ -92,7 +94,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git add -f -- actions/dist/
+          git add -f -- actions/
           if git diff --cached --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "Action distribution is already current."
@@ -128,7 +130,7 @@ jobs:
             echo "| Check | Result |"
             echo "| --- | --- |"
             echo '| Source | `packages/cli/src/actions/` |'
-            echo '| Distribution | `actions/dist/` |'
+            echo '| Distribution | `actions/` (generated metadata and bundles) |'
             echo "| Commit step | $BUILD |"
             echo "| Distribution updated | ${CHANGED:-not completed} |"
             echo "| Result | $RESULT |"
