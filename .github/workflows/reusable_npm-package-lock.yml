@@ -101,6 +101,8 @@ jobs:
       - name: Commit recreated package-lock.json
         if: ${{ inputs.commit && steps.recreate.outputs.changed == 'true' }}
         shell: bash
+        env:
+          TARGET_REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}
         run: |
           set -euo pipefail
 
@@ -109,7 +111,7 @@ jobs:
 
           git add package-lock.json
           git commit -m "chore: self-heal package-lock.json"
-          TARGET_REF="${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}"
+          TARGET_REF="$TARGET_REF"
           # Preserve new commits when the branch advances during lockfile generation.
           # Recompute the lockfile if package manifests changed upstream.
           for attempt in 1 2 3; do
@@ -139,6 +141,8 @@ jobs:
       - name: Package-lock summary
         if: ${{ always() }}
         shell: bash
+        env:
+          SUMMARY_REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}
         run: |
           {
             echo "# npm lockfile self-heal"
@@ -148,7 +152,7 @@ jobs:
             echo "| Node.js | \`${{ inputs.node-version }}\` |"
             echo "| Changed | **${{ steps.recreate.outputs.changed || 'unknown' }}** |"
             echo "| Commit requested | **${{ inputs.commit }}** |"
-            echo "| Branch | \`${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}\` |"
+            echo "| Branch | \`$SUMMARY_REF\` |"
             echo "| Result | **${{ job.status }}** |"
 
             if [ -s /tmp/package-lock-stat.txt ]; then
