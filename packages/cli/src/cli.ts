@@ -7,12 +7,16 @@ const program = new Command()
   .name("reusable-workflows")
   .description("Reusable Workflows command-line utilities");
 
-program.command("workspace-source")
+program
+  .command("workspace-source")
   .requiredOption("--source <source>")
   .description("Parse a workspace-tools source selection")
-  .action(({ source }) => console.log(JSON.stringify(parseWorkspaceToolsSource(source))));
+  .action(({ source }) =>
+    console.log(JSON.stringify(parseWorkspaceToolsSource(source))),
+  );
 
-program.command("release-validate")
+program
+  .command("release-validate")
   .requiredOption("--file <file>")
   .option("--tag <tag>")
   .option("--package <name>")
@@ -26,11 +30,13 @@ program.command("release-validate")
       version: opts.version,
       target: opts.target,
     });
-    if (marker.format === "none") throw new Error("Release identity marker not found");
+    if (marker.format === "none")
+      throw new Error("Release identity marker not found");
     console.log(JSON.stringify(marker));
   });
 
-program.command("browser")
+program
+  .command("browser")
   .description("Browser extension publishing utilities")
   .allowUnknownOption()
   .allowExcessArguments()
