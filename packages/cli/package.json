@@ -15,7 +15,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "vite build --config vite.config.ts && vite build --config vite.lib.config.ts && tsc -p tsconfig.build.json",
+    "build": "vite build --config vite.config.ts && vite build --config vite.lib.config.ts && tsc -p tsconfig.build.json && node scripts/ensure-bin-executable.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "check:pack": "npm pack --dry-run"
   },
