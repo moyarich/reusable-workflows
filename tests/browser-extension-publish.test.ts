@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { validate } from "../src/actions/browser-extension-publish/manifest";
+import { validate } from "../packages/cli/src/actions/browser-extension-publish/manifest";
 
 describe("browser extension manifest validation", () => {
   it("accepts Chrome and Firefox manifests, validating Gecko ID", () => {
