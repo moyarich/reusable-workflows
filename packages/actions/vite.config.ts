@@ -8,7 +8,7 @@ const repositoryRoot = resolve(packageRoot, "../..");
 const sourceRoot = resolve(packageRoot, "../cli/src");
 const metadataRoot = resolve(packageRoot, "actions");
 const generatedRoot = resolve(repositoryRoot, "actions");
-const stagingRoot = resolve(generatedRoot, ".bundles");
+const stagingRoot = resolve(packageRoot, "dist/.bundles");
 
 const entries: Record<string, string> = {
   "browser-extension-publish":
