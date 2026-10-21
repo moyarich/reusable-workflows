@@ -98,7 +98,8 @@ jobs:
           test -f actions/dist/setup-workspace-tools.mjs
           test -f actions/dist/release-draft-sync.mjs
           test -f actions/dist/validate-release-identity.mjs
-          test -f actions/dist/check-dist.mjs
+          test -f actions/check-dist/action.yml
+          test -f actions/resolve-workspaces/action.yml
           test -f packages/cli/dist/lib/index.mjs
           test -f packages/cli/dist/types/index.d.ts
 
