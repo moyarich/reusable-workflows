@@ -3,10 +3,10 @@ name: "Self-heal · Action distribution"
 on:
   push:
     paths:
-      - "src/actions/**"
-      - "src/workflow-dispatch/**"
-      - "src/verify-workflow-runs/**"
-      - "vite.config.ts"
+      - "packages/cli/src/actions/**"
+      - "packages/cli/src/workflow-dispatch/**"
+      - "packages/cli/src/verify-workflow-runs/**"
+      - "packages/cli/vite.action.config.ts"
       - "vitest.config.ts"
       - "package.json"
       - "package-lock.json"
@@ -82,7 +82,7 @@ jobs:
         run: npm install --no-package-lock --no-audit --no-fund
 
       - name: Build action distribution
-        run: npm run build:cli
+        run: npm run build:actions
 
       - name: Test built setup CLI
         run: npx vitest run
@@ -127,7 +127,7 @@ jobs:
             echo
             echo "| Check | Result |"
             echo "| --- | --- |"
-            echo '| Source | `src/actions/` |'
+            echo '| Source | `packages/cli/src/actions/` |'
             echo '| Distribution | `actions/dist/` |'
             echo "| Commit step | $BUILD |"
             echo "| Distribution updated | ${CHANGED:-not completed} |"
