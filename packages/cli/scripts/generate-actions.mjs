@@ -131,7 +131,8 @@ for (const name of actionNames) {
       recursive: true,
       force: true,
       filter: (source) => {
-        if (lstatSync(source).isSymbolicLink()) throw new Error("Refusing symlinked compiled bundle: " + source);
+        if (lstatSync(source).isSymbolicLink())
+          throw new Error("Refusing symlinked compiled bundle: " + source);
         return true;
       },
     });
