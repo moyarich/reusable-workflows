@@ -159,11 +159,11 @@ for (const name of actionNames) {
     }
   }
 }
-// Shared Vite chunks and assets live at actions/assets/. Each action entry
+// Shared Vite chunks and assets live at actions/_assets/. Each action entry
 // references them via ../assets/ so generated Actions need only this tree.
-const sharedAssets = join(bundledRoot, "assets");
+const sharedAssets = join(bundledRoot, "_assets");
 if (existsSync(sharedAssets)) {
-  const publicAssets = join(outputRoot, "assets");
+  const publicAssets = join(outputRoot, "_assets");
   if (existsSync(publicAssets) && lstatSync(publicAssets).isSymbolicLink()) {
     throw new Error("Refusing symlinked shared assets directory");
   }
