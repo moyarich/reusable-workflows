@@ -7,6 +7,11 @@ on:
         description: Generated CLI distribution path to commit
         required: true
         type: string
+      install-command:
+        description: Dependency installation command for the distribution build
+        required: false
+        default: npm install --no-package-lock --no-audit --no-fund
+        type: string
       build-command:
         description: Command to regenerate the distribution
         required: false
@@ -72,11 +77,32 @@ jobs:
           node-version: ${{ inputs.node-version }}
           cache: npm
       - name: Install dependencies
-        run: npm ci --ignore-scripts
+        env:
+          INSTALL_COMMAND: ${{ inputs.install-command }}
+        run: bash -euo pipefail -c "$INSTALL_COMMAND"
       - name: Regenerate distribution
         env:
           BUILD_COMMAND: ${{ inputs.build-command }}
         run: bash -euo pipefail -c "$BUILD_COMMAND"
+      - name: Compare rebuilt distribution
+        id: compare
+        env:
+          DIST_PATH: ${{ inputs.dist-path }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$DIST_PATH" || "$DIST_PATH" == /* || "$DIST_PATH" == *..* || ! -d "$DIST_PATH" ]]; then
+            echo "::error::dist-path must be an existing safe relative directory"
+            exit 1
+          fi
+          git add -f -- "$DIST_PATH"
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Distribution matches the committed files."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git diff --cached --stat -- "$DIST_PATH"
+          fi
       - name: Validate regenerated distribution
         env:
           VALIDATION_COMMAND: ${{ inputs.validation-command }}
@@ -91,38 +117,40 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ -z "$DIST_PATH" || "$DIST_PATH" == /* || "$DIST_PATH" == *..* ]]; then
-            echo "::error::dist-path must be a safe repository-relative path"
-            exit 1
-          fi
-          if [[ ! -e "$DIST_PATH" ]]; then
-            echo "::error::Distribution path does not exist: $DIST_PATH"
-            exit 1
-          fi
-          git add -f -- "$DIST_PATH"
-          if git diff --cached --quiet; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
+          echo "changed=${{ steps.compare.outputs.changed }}" >> "$GITHUB_OUTPUT"
+          if [[ "${{ steps.compare.outputs.changed }}" != "true" ]]; then
             echo "Generated distribution is already current."
+            exit 0
+          fi
+          if [[ "$COMMIT_CHANGES" != "true" ]]; then
+            echo "Preview mode: distribution differs; no files committed."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          echo "changed=true" >> "$GITHUB_OUTPUT"
-          if [[ "$COMMIT_CHANGES" != "true" ]]; then
-            echo "Preview mode: generated distribution was not committed."
-            exit 0
-          fi
           git commit -m "build: update CLI dist"
           git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)" push origin "HEAD:refs/heads/$TARGET_BRANCH"
       - name: Record exact healed commit
         id: head
         shell: bash
-        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+        env:
+          TARGET_BRANCH: ${{ inputs.target-branch }}
+          GH_TOKEN: ${{ github.token }}
+          COMMIT_CHANGES: ${{ inputs.commit }}
+          CHANGED: ${{ steps.compare.outputs.changed }}
+        run: |
+          set -euo pipefail
+          sha="$(git rev-parse HEAD)"
+          remote="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TARGET_BRANCH" --jq .sha)"
+          if [[ "$COMMIT_CHANGES" == "true" || "$CHANGED" != "true" ]]; then
+            test "$remote" = "$sha" || { echo "::error::Branch moved during distribution repair"; exit 1; }
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
       - name: Write healing summary
         if: always()
         shell: bash
         env:
-          CHANGED: ${{ steps.commit.outputs.changed || 'false' }}
+          CHANGED: ${{ steps.compare.outputs.changed || 'false' }}
           RESULT: ${{ job.status }}
           DIST_PATH: ${{ inputs.dist-path }}
         run: |
