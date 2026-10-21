@@ -8,7 +8,7 @@ publication directory or the npm `dist/` folder as a GitHub Action runtime.
 | ------------------------- | -------------------------------------------------------- | ----------------------------------------------- | ----------------------------- | ---------------------------- |
 | npm executable            | `packages/cli/src/cli.ts`                                | `npm run build:package`                         | `packages/cli/dist/cli.mjs`   | npm `bin.reusable-workflows` |
 | npm importable modules    | side-effect-free modules in `packages/cli/src/`          | `npm run build:package`                         | `packages/cli/dist/lib/*.mjs` | npm package `exports`        |
-| JavaScript GitHub Actions | `packages/cli/src/*/index.ts`                            | `npm run build:actions`                         | `actions/_assets/*.mjs`          | `actions/*/action.yml`       |
+| JavaScript GitHub Actions | `packages/cli/src/*/index.ts`                            | `npm run build:actions`                         | `actions/_assets/*.mjs`       | `actions/*/action.yml`       |
 | Composite Actions         | `actions/*/action.yml` or source-side composite metadata | no JavaScript bundling required for shell steps | repository source             | GitHub `uses:`               |
 
 ## Rules
