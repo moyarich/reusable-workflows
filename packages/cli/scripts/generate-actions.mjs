@@ -127,7 +127,14 @@ for (const name of actionNames) {
     const bundledFile = join(bundledRoot, bundle);
     if (!existsSync(bundledFile))
       throw new Error(`Missing Vite bundle: ${bundledFile}`);
-    cpSync(bundledFile, join(outputDir, "index.mjs"));
+    cpSync(dirname(bundledFile), outputDir, {
+      recursive: true,
+      force: true,
+      filter: (source) => {
+        if (lstatSync(source).isSymbolicLink()) throw new Error("Refusing symlinked compiled bundle: " + source);
+        return true;
+      },
+    });
   }
   for (const [target, source] of Object.entries(runtimeFiles[name] ?? {})) {
     const sourceFile = resolve(repositoryRoot, source);
