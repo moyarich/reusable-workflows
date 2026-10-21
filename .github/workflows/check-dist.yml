@@ -39,7 +39,7 @@ on:
       include-root-package:
         description: Include buildable root package in discovery
         type: boolean
-        default: true
+        default: false
       workspace-tools-source:
         description: Workspace Tools CLI source for discovery
         type: choice
@@ -82,20 +82,9 @@ jobs:
         uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - name: Checkout reusable check-dist action
-        uses: actions/checkout@v7
-        with:
-          repository: moyarich/reusable-workflows
-          ref: main
-          path: .github/check-dist-runtime
-          sparse-checkout: |
-            src/actions/check-dist
-            reusable-configurations/check-dist-config.schema.json
-          sparse-checkout-cone-mode: false
-          persist-credentials: false
       - name: Select and validate distribution packages
         id: select
-        uses: ./.github/check-dist-runtime/src/actions/check-dist
+        uses: ./actions/check-dist
         with:
           discovered: ${{ needs.discover-packages.outputs.packages }}
           package: ${{ inputs.package }}
