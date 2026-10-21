@@ -1,46 +1,129 @@
-name: "Check · distribution"
+name: Check distribution
+
+run-name: >-
+  Check dist · ${{ inputs.package }}
 
 on:
-  pull_request:
-    paths:
-      - "src/actions/**"
-      - "actions/dist/**"
-      - "vite.config.ts"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/check-dist.yml"
-      - ".github/workflows/reusable_self-heal-dist.yml"
   workflow_dispatch:
     inputs:
-      dry-run:
-        description: Preview regenerated distribution without committing
-        type: boolean
+      package:
+        description: all, package directory, or package name
+        type: string
         required: true
+        default: all
+      dist-path:
+        description: "Distribution path template. Supports {packageDir}, {package}, {packageName}, {workspace}; blank uses repository configuration or {packageDir}/dist."
+        type: string
+        default: ""
+      build-command:
+        description: Build command override (for example npm run build:cli); 
+          empty uses the selected workspace build
+        type: string
+        default: ""
+      install-command:
+        description: Dependency install command
+        type: string
+        default: npm ci --ignore-scripts
+      dry-run:
+        description: Upload rebuilt artifacts, without committing or pushing
+        type: boolean
         default: true
+      commit:
+        description: Commit updated output only when dry-run is false (single package only)
+        type: boolean
+        default: false
+      node-caching:
+        description: Node cache mode (npm or empty to disable)
+        type: string
+        default: npm
+      include-root-package:
+        description: Include buildable root package in discovery
+        type: boolean
+        default: true
+      workspace-tools-source:
+        description: Workspace Tools CLI source for discovery
+        type: choice
+        required: true
+        default: auto
+        options:
+          - auto
+          - checkout:current
+          - checkout:upstream;branch:main
+          - registry:npm:latest
 
-permissions:
-  contents: read
-
-concurrency:
-  group: check-dist-${{ github.repository }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: false
+permissions: {}
 
 jobs:
-  distribution:
-    name: Build, compare, validate and heal distribution
+  discover-packages:
+    name: Discover workspace packages
+    permissions:
+      contents: read
+    uses: 
+      moyarich/reusable-workflows/.github/workflows/reusable_discover-packages.yml@main
+    with:
+      packages-directory: packages
+      use-workspaces: true
+      require-build-script: true
+      include-private: true
+      include-root-package: ${{ inputs.include-root-package }}
+      workspace-tools-source: ${{ inputs.workspace-tools-source }}
+
+  select-packages:
+    name: Select distributions
+    needs: discover-packages
+    runs-on: ubuntu-latest
+    permissions: {}
+    outputs:
+      matrix: ${{ steps.select.outputs.matrix }}
+      has-packages: ${{ steps.select.outputs.has-packages }}
+      single-package: ${{ steps.select.outputs.single-package }}
+    steps:
+      - name: Checkout configuration
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Checkout reusable check-dist action
+        uses: actions/checkout@v7
+        with:
+          repository: moyarich/reusable-workflows
+          ref: main
+          path: .github/check-dist-runtime
+          sparse-checkout: |
+            src/actions/check-dist
+            reusable-configurations/check-dist-config.schema.json
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - name: Select and validate distribution packages
+        id: select
+        uses: ./.github/check-dist-runtime/src/actions/check-dist
+        with:
+          discovered: ${{ needs.discover-packages.outputs.packages }}
+          package: ${{ inputs.package }}
+          dist-path: ${{ inputs.dist-path }}
+          build-command: ${{ inputs.build-command }}
+
+  check-dist:
+    name: "dist: ${{ matrix.name }}"
+    needs: select-packages
+    if: ${{ needs.select-packages.outputs.has-packages == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.select-packages.outputs.matrix) }}
     permissions:
       contents: write
-    uses: ./.github/workflows/reusable_self-heal-dist.yml
+    uses: 
+      moyarich/reusable-workflows/.github/workflows/reusable_self-heal-dist.yml@main
     with:
-      dist-path: actions/dist/
-      build-command: npm run build:cli
-      install-command: npm install --no-package-lock --no-audit --no-fund
-      validation-command: npx --no-install vitest run
+      dist-path: ${{ matrix.distTemplate }}
+      build-command: ${{ matrix.buildCommand }}
+      install-command: ${{ inputs.install-command }}
+      node-caching: ${{ inputs.node-caching }}
+      package-name: ${{ matrix.name }}
+      package-directory: ${{ matrix.directory }}
+      artifact-name: ${{ format('dist-{0}', matrix.artifactSuffix) }}
       node-version: "24"
-      node-caching: ""
-      artifact-name: action-dist-preview
       repair: true
-      commit: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || (github.event_name == 'workflow_dispatch' && !inputs.dry-run) }}
-      checkout-sha: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
-      expected-sha: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
-      target-branch: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
+      commit: ${{ inputs.commit && !inputs.dry-run && needs.select-packages.outputs.single-package == 'true' }}
+      target-branch: ${{ github.ref_name }}
+      expected-sha: ${{ github.sha }}
+      checkout-sha: ${{ github.sha }}
