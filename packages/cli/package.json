@@ -11,7 +11,9 @@
   ],
   "scripts": {
     "build": "vite build --config vite.config.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build:actions": "vite build --config vite.action.config.ts",
+    "check:pack": "npm pack --dry-run"
   },
   "dependencies": {
     "commander": "^14.0.0"
