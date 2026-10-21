@@ -1,3 +1,4 @@
+/** Build configuration for CLI executable and library output. @module */
 import { defineConfig } from "vite";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";

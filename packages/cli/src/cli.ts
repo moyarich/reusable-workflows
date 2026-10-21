@@ -1,3 +1,4 @@
+/** Root Commander command and subcommand registration. @module */
 import { Command } from "commander";
 import { createWorkspaceSourceCommand } from "./bin/workspace-source";
 import { createReleaseValidateCommand } from "./bin/release-validate";

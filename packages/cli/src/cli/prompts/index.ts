@@ -1,3 +1,4 @@
+/** Interactive CLI prompting utilities. @module */
 import { spawnSync } from "node:child_process";
 import process from "node:process";
 

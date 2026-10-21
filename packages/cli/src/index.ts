@@ -1,3 +1,4 @@
+/** Public CLI module exports and feature entry point. @module */
 export {
   parseWorkspaceToolsSource,
   resolveBinDir,

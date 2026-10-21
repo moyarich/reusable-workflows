@@ -1,3 +1,4 @@
+/** Interactive CLI prompting utilities. @module */
 import { readdirSync, existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
