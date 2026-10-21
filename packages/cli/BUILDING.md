@@ -2,10 +2,10 @@
 
 The monorepo contains two build workspaces and **one publishable npm package**.
 
-| Workspace | Responsibility | Publication | Output |
-| --- | --- | --- | --- |
-| `packages/cli` | CLI, reusable modules and public npm exports | Public npm | `packages/cli/dist/` |
-| `packages/actions` | GitHub Action metadata and bundling | Private | Root `actions/` |
+| Workspace          | Responsibility                               | Publication | Output               |
+| ------------------ | -------------------------------------------- | ----------- | -------------------- |
+| `packages/cli`     | CLI, reusable modules and public npm exports | Public npm  | `packages/cli/dist/` |
+| `packages/actions` | GitHub Action metadata and bundling          | Private     | Root `actions/`      |
 
 `packages/actions` imports reusable modules directly from `packages/cli/src/<feature>/` at **build time**. Vite includes their runtime dependencies in the generated Action bundles, so users do not need to install `@moyarich/reusable-workflows-cli` to run an Action. The npm package does not declare any dependency on the private Actions workspace.
 
