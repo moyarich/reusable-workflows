@@ -1,15 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/moyarich/reusable-workflows/main/reusable-configurations/check-dist-config.schema.json
-# Check-dist settings specific to reusable-workflows.
-# The shared caller remains identical across repositories.
-# Root generates public GitHub Actions; packages/cli separately builds the npm tarball.
-# Never point the root target at a temporary Vite staging directory.
-extraPackages:
-  - name: reusable-workflows-workspace
-    directory: .
+# Distribution targets come directly from the two workspace packages.
+# The private Actions package builds root actions/; CLI publishes packages/cli/dist/.
 packages:
-  ".":
+  "packages/actions":
     distPath: actions
     buildCommand: npm run build:actions
   "packages/cli":
     distPath: packages/cli/dist
-    buildCommand: npm run build:package
+    buildCommand: npm run build:cli
