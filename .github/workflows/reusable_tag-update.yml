@@ -1,4 +1,4 @@
-name: "Reusable · Publish action version"
+name: "Reusable · Update action major tag"
 
 on:
   workflow_dispatch:
@@ -22,7 +22,7 @@ permissions: {}
 
 jobs:
   publish:
-    name: "job: Publish major action version"
+    name: "job: Update major action tag"
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -31,7 +31,7 @@ jobs:
 
     steps:
       - id: publish
-        name: Publish major tag
+        name: Update major tag
         env:
           GH_TOKEN: ${{ github.token }}
           SOURCE_TAG: ${{ inputs.source-tag }}
@@ -74,7 +74,7 @@ jobs:
           echo "major-tag=$MAJOR_TAG" >> "$GITHUB_OUTPUT"
 
           {
-            echo "# Publish action version"
+            echo "# Update action major tag"
             echo
             echo "| Setting | Value |"
             echo "| --- | --- |"
