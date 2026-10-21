@@ -30,15 +30,15 @@
       "default": "./dist/lib/index.mjs"
     },
     "./release-identity": {
-      "types": "./dist/types/actions/release-draft-sync/identity.d.ts",
+      "types": "./dist/types/release-draft-sync/identity.d.ts",
       "default": "./dist/lib/release-identity.mjs"
     },
     "./workspace-source": {
-      "types": "./dist/types/actions/setup-workspace-tools/setup-workspace-tools.d.ts",
+      "types": "./dist/types/setup-workspace-tools/setup-workspace-tools.d.ts",
       "default": "./dist/lib/workspace-source.mjs"
     },
     "./browser-manifest": {
-      "types": "./dist/types/actions/browser-extension-publish/manifest.d.ts",
+      "types": "./dist/types/browser-extension-publish/manifest.d.ts",
       "default": "./dist/lib/browser-manifest.mjs"
     },
     "./package.json": "./package.json"
