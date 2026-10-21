@@ -1,7 +1,7 @@
 import require$$0 from "node:events";
 import require$$1 from "node:child_process";
-import path from "node:path";
-import fs from "node:fs";
+import require$$2 from "node:path";
+import require$$3 from "node:fs";
 import process from "node:process";
 function getDefaultExportFromCjs(x) {
   return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, "default") ? x["default"] : x;
@@ -1177,8 +1177,8 @@ function requireCommand() {
   hasRequiredCommand = 1;
   const EventEmitter = require$$0.EventEmitter;
   const childProcess = require$$1;
-  const path$1 = path;
-  const fs$1 = fs;
+  const path = require$$2;
+  const fs = require$$3;
   const process$1 = process;
   const { Argument: Argument2, humanReadableArgName } = requireArgument();
   const { CommanderError: CommanderError2 } = requireError();
@@ -2171,7 +2171,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
      * @param {string} subcommandName
      */
     _checkForMissingExecutable(executableFile, executableDir, subcommandName) {
-      if (fs$1.existsSync(executableFile)) return;
+      if (fs.existsSync(executableFile)) return;
       const executableDirMessage = executableDir ? `searched for local subcommand relative to directory '${executableDir}'` : "no directory for search for local subcommand, use .executableDir() to supply a custom directory";
       const executableMissing = `'${executableFile}' does not exist
  - if '${subcommandName}' is not meant to be an executable command, remove description parameter from '.command()' and use '.description()' instead
@@ -2189,11 +2189,11 @@ Expecting one of '${allowedValues.join("', '")}'`);
       let launchWithNode = false;
       const sourceExt = [".js", ".ts", ".tsx", ".mjs", ".cjs"];
       function findFile(baseDir, baseName) {
-        const localBin = path$1.resolve(baseDir, baseName);
-        if (fs$1.existsSync(localBin)) return localBin;
-        if (sourceExt.includes(path$1.extname(baseName))) return void 0;
+        const localBin = path.resolve(baseDir, baseName);
+        if (fs.existsSync(localBin)) return localBin;
+        if (sourceExt.includes(path.extname(baseName))) return void 0;
         const foundExt = sourceExt.find(
-          (ext) => fs$1.existsSync(`${localBin}${ext}`)
+          (ext) => fs.existsSync(`${localBin}${ext}`)
         );
         if (foundExt) return `${localBin}${foundExt}`;
         return void 0;
@@ -2205,21 +2205,21 @@ Expecting one of '${allowedValues.join("', '")}'`);
       if (this._scriptPath) {
         let resolvedScriptPath;
         try {
-          resolvedScriptPath = fs$1.realpathSync(this._scriptPath);
+          resolvedScriptPath = fs.realpathSync(this._scriptPath);
         } catch {
           resolvedScriptPath = this._scriptPath;
         }
-        executableDir = path$1.resolve(
-          path$1.dirname(resolvedScriptPath),
+        executableDir = path.resolve(
+          path.dirname(resolvedScriptPath),
           executableDir
         );
       }
       if (executableDir) {
         let localFile = findFile(executableDir, executableFile);
         if (!localFile && !subcommand._executableFile && this._scriptPath) {
-          const legacyName = path$1.basename(
+          const legacyName = path.basename(
             this._scriptPath,
-            path$1.extname(this._scriptPath)
+            path.extname(this._scriptPath)
           );
           if (legacyName !== this._name) {
             localFile = findFile(
@@ -2230,7 +2230,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
         }
         executableFile = localFile || executableFile;
       }
-      launchWithNode = sourceExt.includes(path$1.extname(executableFile));
+      launchWithNode = sourceExt.includes(path.extname(executableFile));
       let proc;
       if (process$1.platform !== "win32") {
         if (launchWithNode) {
@@ -3145,7 +3145,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
      * @return {Command}
      */
     nameFromFilename(filename) {
-      this._name = path$1.basename(filename, path$1.extname(filename));
+      this._name = path.basename(filename, path.extname(filename));
       return this;
     }
     /**
