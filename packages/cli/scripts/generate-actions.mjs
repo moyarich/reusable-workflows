@@ -15,12 +15,12 @@ const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repositoryRoot = resolve(packageRoot, "../..");
 const sourceRoot = join(packageRoot, "actions");
 const outputRoot = join(repositoryRoot, "actions");
-const bundledRoot = join(outputRoot, "dist");
+const bundledRoot = join(outputRoot, ".bundles");
 const bundles = new Map([
-  ["browser-extension-publish", "browser-extension-publish.mjs"],
-  ["release-draft-sync", "release-draft-sync.mjs"],
-  ["setup-workspace-tools", "setup-workspace-tools.mjs"],
-  ["validate-release-identity", "validate-release-identity.mjs"],
+  ["browser-extension-publish", "browser-extension-publish/index.mjs"],
+  ["release-draft-sync", "release-draft-sync/index.mjs"],
+  ["setup-workspace-tools", "setup-workspace-tools/index.mjs"],
+  ["validate-release-identity", "validate-release-identity/index.mjs"],
 ]);
 
 // Composite actions ship their runtime dependencies beside action.yml.
@@ -92,7 +92,7 @@ if (!actionNames.length) throw new Error("No source actions found");
 for (const entry of readdirSync(outputRoot, { withFileTypes: true })) {
   if (
     entry.isDirectory() &&
-    entry.name !== "dist" &&
+    entry.name !== ".bundles" &&
     !actionNames.includes(entry.name)
   ) {
     rmSync(join(outputRoot, entry.name), { recursive: true, force: true });
