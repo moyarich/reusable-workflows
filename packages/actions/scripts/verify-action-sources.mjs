@@ -10,21 +10,43 @@ import { join, resolve } from "node:path";
 const root = resolve(import.meta.dirname, "../../..");
 const source = join(root, "packages/actions/actions");
 const output = join(root, "actions");
-const canonicalSchema = join(root, "reusable-configurations/check-dist-config.schema.json");
-const canonicalExample = join(root, "reusable-configurations/check-dist-config.yml");
+const canonicalSchema = join(
+  root,
+  "reusable-configurations/check-dist-config.schema.json",
+);
+const canonicalExample = join(
+  root,
+  "reusable-configurations/check-dist-config.yml",
+);
 const runtimeSources = new Map([
   ["check-dist/select.mjs", "packages/cli/src/check-dist/select.mjs"],
-  ["check-dist/config.schema.json", "reusable-configurations/check-dist-config.schema.json"],
-  ["resolve-workspaces/index.mjs", "packages/cli/src/resolve-workspaces/index.mjs"],
-  ["workflow-dispatch/index.mjs", "packages/cli/src/workflow-dispatch/workflow-dispatch.mjs"],
-  ["verify-workflow-runs/index.mjs", "packages/cli/src/verify-workflow-runs/index.mjs"],
+  [
+    "check-dist/config.schema.json",
+    "reusable-configurations/check-dist-config.schema.json",
+  ],
+  [
+    "resolve-workspaces/index.mjs",
+    "packages/cli/src/resolve-workspaces/index.mjs",
+  ],
+  [
+    "workflow-dispatch/index.mjs",
+    "packages/cli/src/workflow-dispatch/workflow-dispatch.mjs",
+  ],
+  [
+    "verify-workflow-runs/index.mjs",
+    "packages/cli/src/verify-workflow-runs/index.mjs",
+  ],
 ]);
 const errors = [];
 const actionNames = readdirSync(source, { withFileTypes: true })
-  .filter(item => item.isDirectory()).map(item => item.name).sort();
-if (!actionNames.length) errors.push("No authored actions in packages/actions/actions");
+  .filter((item) => item.isDirectory())
+  .map((item) => item.name)
+  .sort();
+if (!actionNames.length)
+  errors.push("No authored actions in packages/actions/actions");
 for (const required of [canonicalSchema, canonicalExample]) {
-  if (!existsSync(required)) errors.push("Missing canonical configuration: " + required);
+  if (!existsSync(required))
+    errors.push("Missing canonical configuration: " + required);
 }
 for (const name of actionNames) {
   const actionFile = join(source, name, "action.yml");
@@ -41,7 +63,9 @@ for (const name of actionNames) {
   }
   if (!existsSync(join(output, name, "action.yml"))) {
     errors.push("Generated action missing: " + name);
-  } else if (readFileSync(join(output, name, "action.yml"), "utf8") !== action) {
+  } else if (
+    readFileSync(join(output, name, "action.yml"), "utf8") !== action
+  ) {
     errors.push("Generated action metadata differs from source: " + name);
   }
 }
@@ -50,8 +74,11 @@ for (const [generated, authored] of runtimeSources) {
   const to = join(output, generated);
   if (!existsSync(from)) errors.push("Missing runtime source: " + authored);
   if (!existsSync(to)) errors.push("Missing generated runtime: " + generated);
-  if (existsSync(from) && existsSync(to) &&
-      readFileSync(from).compare(readFileSync(to)) !== 0) {
+  if (
+    existsSync(from) &&
+    existsSync(to) &&
+    readFileSync(from).compare(readFileSync(to)) !== 0
+  ) {
     errors.push("Outdated generated runtime: " + generated);
   }
 }
@@ -62,8 +89,10 @@ for (const entry of readdirSync(output, { withFileTypes: true })) {
   }
 }
 if (errors.length) {
-  console.error(errors.map(error => "- " + error).join("\n"));
+  console.error(errors.map((error) => "- " + error).join("\n"));
   process.exitCode = 1;
 } else {
-  console.log(`Verified ${actionNames.length} regenerated action directories and ${runtimeSources.size} copied runtime files against authored sources.`);
+  console.log(
+    `Verified ${actionNames.length} regenerated action directories and ${runtimeSources.size} copied runtime files against authored sources.`,
+  );
 }
