@@ -54,7 +54,7 @@ jobs:
     name: Build, compare and optionally repair dist
     runs-on: ubuntu-latest
     permissions:
-      contents: ${{ inputs.repair && inputs.commit && 'write' || 'read' }}
+      contents: write
     outputs:
       changed: ${{ steps.compare.outputs.changed }}
       healed-sha: ${{ steps.head.outputs.sha }}
