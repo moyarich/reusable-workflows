@@ -22,7 +22,7 @@ npm run build:actions
 npm run check:cli-dist
 ```
 
-The build stages temporary JS bundles under `packages/actions/dist/.bundles` (not under root `actions/`), recreates the root distribution directory if absent, copies source action metadata and composite runtimes, and checks the output against authored sources. Vite-generated shared assets are copied to `actions/_assets/`.
+The build stages temporary JS bundles under `packages/actions/dist/.bundles` (not under root `actions/`), recreates the root distribution directory if absent, copies source action metadata and composite runtimes, and prepares the generated distribution for the existing check-dist workflow. Vite-generated shared assets are copied to `actions/_assets/`.
 
 A useful destructive recovery test in a **clean disposable checkout or worktree** is:
 
