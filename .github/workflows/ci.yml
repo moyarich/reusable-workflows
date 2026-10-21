@@ -124,8 +124,19 @@ jobs:
         id: verify-package
         run: |
           node packages/cli/dist/cli.mjs --help
+          node packages/cli/dist/workspace-source.mjs --help
+          node packages/cli/dist/release-validate.mjs --help
+          node packages/cli/dist/browser.mjs --help
+          npm exec --workspace @moyarich/reusable-workflows-cli -- reusable-workflows-cli --help
           node packages/cli/dist/cli.mjs workspace-source --source registry:npm:latest
           npm pack --workspace @moyarich/reusable-workflows-cli --dry-run
+          node --input-type=module <<'NODE'
+          import { readFileSync, existsSync } from 'node:fs';
+          const manifest = JSON.parse(readFileSync('packages/cli/package.json', 'utf8'));
+          for (const [name, file] of Object.entries(manifest.bin)) {
+            if (!existsSync('packages/cli/' + file)) throw new Error(`Missing npm bin ${name}: ${file}`);
+          }
+          NODE
 
       - name: Discover Storybook test scripts
         id: storybook
