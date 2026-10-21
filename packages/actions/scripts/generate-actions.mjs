@@ -15,7 +15,7 @@ const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repositoryRoot = resolve(packageRoot, "../..");
 const sourceRoot = join(packageRoot, "actions");
 const outputRoot = join(repositoryRoot, "actions");
-const bundledRoot = join(outputRoot, ".bundles");
+const bundledRoot = join(packageRoot, "dist/.bundles");
 const bundles = new Map([
   ["browser-extension-publish", "browser-extension-publish/index.mjs"],
   ["release-draft-sync", "release-draft-sync/index.mjs"],
@@ -88,11 +88,10 @@ const actionNames = readdirSync(sourceRoot, { withFileTypes: true })
   .sort();
 if (!actionNames.length) throw new Error("No source actions found");
 
-// Root actions/ is fully generated. Preserve Vite action bundles in dist/.
+// Root actions/ is fully generated. Vite stages bundles in packages/actions/dist/.
 for (const entry of readdirSync(outputRoot, { withFileTypes: true })) {
   if (
     entry.isDirectory() &&
-    entry.name !== ".bundles" &&
     !actionNames.includes(entry.name)
   ) {
     rmSync(join(outputRoot, entry.name), { recursive: true, force: true });
