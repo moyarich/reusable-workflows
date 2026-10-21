@@ -239,6 +239,17 @@ jobs:
     if: ${{ !inputs.dry-run && inputs.update-major-tag }}
     permissions:
       contents: write
-    uses: ./.github/workflows/reusable_tag-update.yml
-    with:
-      source-tag: ${{ format('v{0}', needs.resolve.outputs.version) }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout action implementation
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Promote major compatibility tag
+        uses: ./actions/release-tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          mode: promote
+          source-tag: ${{ format('v{0}', needs.resolve.outputs.version) }}
+          dry-run: "false"
