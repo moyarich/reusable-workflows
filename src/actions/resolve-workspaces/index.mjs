@@ -17,7 +17,7 @@ function globRegex(glob) {
         } else pattern += ".*";
       } else pattern += "[^/]*";
     } else if (c === "?") pattern += "[^/]";
-    else pattern += /[.+^$(){}|\[\]\\]/.test(c) ? "\\" + c : c;
+    else pattern += new Set([".", "+", "^", "$", "(", ")", "{", "}", "|", "[", "]", "\\"]).has(c) ? "\\" + c : c;
   }
   return new RegExp(pattern + "$");
 }
@@ -202,7 +202,12 @@ export async function resolveWorkspaces({
       dependenciesResolved: result.reduce((n, p) => n + p.changes.length, 0),
       batches: batches.length,
     },
-    packages: result.map(({ absolute, manifest, ...publicItem }) => publicItem),
+    packages: result.map((item) => {
+      const publicItem = { ...item };
+      delete publicItem.absolute;
+      delete publicItem.manifest;
+      return publicItem;
+    }),
     publish: {
       order: batches.flat(),
       batches: batches.map((packages, level) => ({ level, packages })),
