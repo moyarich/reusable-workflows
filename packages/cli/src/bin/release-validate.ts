@@ -17,7 +17,8 @@ export function createReleaseValidateCommand() {
         version: opts.version,
         target: opts.target,
       });
-      if (marker.format === "none") throw new Error("Release identity marker not found");
+      if (marker.format === "none")
+        throw new Error("Release identity marker not found");
       console.log(JSON.stringify(marker));
     });
 }
