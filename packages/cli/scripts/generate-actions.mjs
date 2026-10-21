@@ -171,7 +171,8 @@ if (existsSync(sharedAssets)) {
   cpSync(sharedAssets, publicAssets, {
     recursive: true,
     filter: (source) => {
-      if (lstatSync(source).isSymbolicLink()) throw new Error("Symlink in shared Vite assets: " + source);
+      if (lstatSync(source).isSymbolicLink())
+        throw new Error("Symlink in shared Vite assets: " + source);
       return true;
     },
   });
