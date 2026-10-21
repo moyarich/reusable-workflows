@@ -37,3 +37,25 @@ npm pack -w @moyarich/reusable-workflows-cli --dry-run
 It must be safe to delete the entire root `actions/` folder and run `npm run build:actions` to reconstruct it deterministically. Neither Vite nor the generator may delete or overwrite authored files under `packages/cli/src/` or `packages/actions/actions/`. CI checks clean regeneration and verifies the authored source tree is unchanged.
 
 `check-dist` uses separate distribution targets: `actions/` for GitHub Actions and `packages/cli/dist/` for the npm CLI. Only `packages/cli` is eligible for npm publication.
+
+## Commander binaries
+
+The public npm package exposes individual CLI entry files under `packages/cli/src/bin/`.
+Each utility owns its own Commander command; shared logic stays in `packages/cli/src/<feature>/`.
+The combined `reusable-workflows-cli` command reuses these command factories.
+
+```sh
+# Published package is scoped; this selects the intended npm package explicitly.
+npx --yes --package @moyarich/reusable-workflows-cli reusable-workflows-cli --help
+npx --yes --package @moyarich/reusable-workflows-cli reusable-workflows-cli workspace-source --source registry:npm:latest
+
+# Dedicated binaries are exposed through package.json bin:
+npx --yes --package @moyarich/reusable-workflows-cli reusable-workflows-workspace-source --source registry:npm:latest
+npx --yes --package @moyarich/reusable-workflows-cli reusable-workflows-release-validate --file CHANGELOG.md
+npx --yes --package @moyarich/reusable-workflows-cli reusable-workflows-browser --help
+npx --yes --package @moyarich/reusable-workflows-cli reusable-workflows-setup-workspace-tools --help
+```
+
+`npx reusable-workflows-cli` by itself refers to the **unscoped** package name and will not select the scoped `@moyarich/reusable-workflows-cli` package. Use the explicit `--package` form above unless an unscoped npm package is published separately.
+
+The npm package build produces `dist/cli.mjs` and each declared `dist/<name>.mjs`; CI checks that all bin targets exist.
