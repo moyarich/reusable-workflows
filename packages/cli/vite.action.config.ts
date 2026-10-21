@@ -59,8 +59,8 @@ export default defineConfig({
       input: inputs,
       output: {
         entryFileNames: "[name]/index.mjs",
-        chunkFileNames: "assets/[name]-[hash].mjs",
-        assetFileNames: "assets/[name]-[hash][extname]",
+        chunkFileNames: "_assets/[name]-[hash].mjs",
+        assetFileNames: "_assets/[name]-[hash][extname]",
       },
     },
   },
