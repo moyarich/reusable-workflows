@@ -33,4 +33,4 @@ outputs:
     description: created, updated, unchanged, would-create, or would-update
 runs:
   using: node24
-  main: ../../src/actions/release-tag/index.mjs
+  main: ../dist/release-tag.mjs
