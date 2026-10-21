@@ -95,6 +95,8 @@ jobs:
           set -euo pipefail
           rm -rf actions/
           npm run build:actions
+          # Authored source files must survive Vite cleanup and regeneration.
+          git diff --exit-code -- packages/cli/src/ packages/cli/actions/ packages/cli/scripts/
           git diff --exit-code -- actions/
           if [[ -n "$(git ls-files --others --exclude-standard -- actions/)" ]]; then
             echo "::error::Action build created untracked generated files. Commit regenerated actions/."
