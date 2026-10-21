@@ -46,4 +46,4 @@ runs:
         DISPATCH_SHA_INPUT: ${{ inputs.sha-input }}
         DISPATCH_TIMEOUT: ${{ inputs.timeout-seconds }}
         DISPATCH_POLL_INTERVAL: ${{ inputs.poll-seconds }}
-      run: node "$GITHUB_ACTION_PATH/../../src/workflow-dispatch/index.mjs"
+      run: node "$GITHUB_ACTION_PATH/../../packages/cli/src/workflow-dispatch/workflow-dispatch.mjs"
