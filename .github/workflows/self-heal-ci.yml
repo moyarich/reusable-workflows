@@ -38,7 +38,7 @@ permissions:
   packages: read
 
 concurrency:
-  group: self-heal-${{ github.ref }}
+  group: self-heal-${{ github.repository }}-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
 jobs:
