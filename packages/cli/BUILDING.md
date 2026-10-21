@@ -13,10 +13,11 @@ publication directory or the npm `dist/` folder as a GitHub Action runtime.
 
 ## Rules
 
-1. Each bundled JavaScript action has a real `index.ts` entry and its
+1. Each bundled JavaScript action has a real TypeScript CLI or `index.ts` entry and its
    externally usable `actions/<name>/action.yml` points into
-   `../dist/<name>.mjs`. An action requiring a separate `*.mjs` script can
-   remain composite; do not create a fake runtime entry solely to satisfy Vite.
+   `../dist/<name>.mjs`. Composite actions live in `actions/<name>/action.yml` and may invoke
+   JavaScript sources under `packages/cli/src/actions/` without generating a
+   redundant `actions/dist/<name>.mjs` bundle.
 2. Shared logic belongs in importable, side-effect-free modules. A command
    entry can import this logic, but shared libraries must **not** import command
    entry points (which can parse arguments or write GitHub outputs).
