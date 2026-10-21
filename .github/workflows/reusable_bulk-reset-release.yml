@@ -7,17 +7,17 @@ on:
         default: auto
       package:
         description: "Package selector: all, package name, or directory"
-        required: true
+        required: false
         default: all
         type: string
       target-branch:
         description: Release target branch
-        required: true
+        required: false
         default: main
         type: string
       match-mode:
         description: Find release by package version or exact tag
-        required: true
+        required: false
         default: package-json
         type: string
       exact-tag:
@@ -27,7 +27,7 @@ on:
         type: string
       dry-run:
         description: Preview the reset without mutating the release or tag
-        required: true
+        required: false
         default: true
         type: boolean
 

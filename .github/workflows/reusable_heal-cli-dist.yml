@@ -7,6 +7,11 @@ on:
         description: Generated CLI distribution path to commit
         required: true
         type: string
+      install-command:
+        description: Dependency installation command for the distribution build
+        required: false
+        default: npm install --no-package-lock --no-audit --no-fund
+        type: string
       build-command:
         description: Command to regenerate the distribution
         required: false
@@ -15,6 +20,15 @@ on:
       node-version:
         required: false
         default: "24"
+        type: string
+      commit:
+        description: Commit generated files to the target branch
+        type: boolean
+        default: true
+      expected-sha:
+        description: Expected branch SHA produced by preceding repair stage
+        required: false
+        default: ""
         type: string
       target-branch:
         required: false
@@ -25,17 +39,12 @@ on:
         required: false
         default: npm run checks
         type: string
-      validation-workflow:
-        description: Workflow file to dispatch after a successful heal
-        required: false
-        default: ci.yml
-        type: string
     outputs:
       changed:
         description: Whether generated distribution files changed
         value: ${{ jobs.heal.outputs.changed }}
       healed-sha:
-        description: Exact commit to validate in CI
+        description: Final distribution repair commit SHA
         value: ${{ jobs.heal.outputs.healed-sha }}
 permissions: {}
 jobs:
@@ -46,7 +55,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      actions: write
     steps:
       - name: Checkout target branch
         uses: actions/checkout@v7
@@ -54,17 +62,47 @@ jobs:
           ref: ${{ inputs.target-branch }}
           fetch-depth: 0
           persist-credentials: false
+      - name: Reject branch movement since preceding repair
+        if: ${{ inputs.expected-sha != '' }}
+        env:
+          EXPECTED_SHA: ${{ inputs.expected-sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA" || {
+            echo "::error::Branch moved since preceding repair; restart self-heal"
+            exit 1
+          }
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
           node-version: ${{ inputs.node-version }}
           cache: npm
       - name: Install dependencies
-        run: npm ci --ignore-scripts
+        env:
+          INSTALL_COMMAND: ${{ inputs.install-command }}
+        run: bash -euo pipefail -c "$INSTALL_COMMAND"
       - name: Regenerate distribution
         env:
           BUILD_COMMAND: ${{ inputs.build-command }}
         run: bash -euo pipefail -c "$BUILD_COMMAND"
+      - name: Compare rebuilt distribution
+        id: compare
+        env:
+          DIST_PATH: ${{ inputs.dist-path }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$DIST_PATH" || "$DIST_PATH" == /* || "$DIST_PATH" == *..* || ! -d "$DIST_PATH" ]]; then
+            echo "::error::dist-path must be an existing safe relative directory"
+            exit 1
+          fi
+          git add -f -- "$DIST_PATH"
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Distribution matches the committed files."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git diff --cached --stat -- "$DIST_PATH"
+          fi
       - name: Validate regenerated distribution
         env:
           VALIDATION_COMMAND: ${{ inputs.validation-command }}
@@ -75,68 +113,46 @@ jobs:
           DIST_PATH: ${{ inputs.dist-path }}
           TARGET_BRANCH: ${{ inputs.target-branch }}
           GH_TOKEN: ${{ github.token }}
+          COMMIT_CHANGES: ${{ inputs.commit }}
         shell: bash
         run: |
           set -euo pipefail
-          if [[ -z "$DIST_PATH" || "$DIST_PATH" == /* || "$DIST_PATH" == *..* ]]; then
-            echo "::error::dist-path must be a safe repository-relative path"
-            exit 1
-          fi
-          if [[ ! -e "$DIST_PATH" ]]; then
-            echo "::error::Distribution path does not exist: $DIST_PATH"
-            exit 1
-          fi
-          git add -f -- "$DIST_PATH"
-          if git diff --cached --quiet; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
+          echo "changed=${{ steps.compare.outputs.changed }}" >> "$GITHUB_OUTPUT"
+          if [[ "${{ steps.compare.outputs.changed }}" != "true" ]]; then
             echo "Generated distribution is already current."
+            exit 0
+          fi
+          if [[ "$COMMIT_CHANGES" != "true" ]]; then
+            echo "Preview mode: distribution differs; no files committed."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "build: update CLI dist"
-          echo "changed=true" >> "$GITHUB_OUTPUT"
           git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)" push origin "HEAD:refs/heads/$TARGET_BRANCH"
       - name: Record exact healed commit
         id: head
         shell: bash
-        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-      - name: Dispatch CI for healed commit and wait
-        id: validation
-        uses: the-actions-org/workflow-dispatch@v4
-        with:
-          workflow: ${{ inputs.validation-workflow }}
-          ref: ${{ inputs.target-branch }}
-          token: ${{ github.token }}
-          inputs: >-
-            {"checkout-sha":"${{ steps.head.outputs.sha }}"}
-          wait-for-completion: true
-          wait-for-completion-timeout: 30m
-
-      - name: Verify dispatched CI head SHA
         env:
+          TARGET_BRANCH: ${{ inputs.target-branch }}
           GH_TOKEN: ${{ github.token }}
-          RUN_ID: ${{ steps.validation.outputs.workflow-id }}
-          EXPECTED_SHA: ${{ steps.head.outputs.sha }}
-        shell: bash
+          COMMIT_CHANGES: ${{ inputs.commit }}
+          CHANGED: ${{ steps.compare.outputs.changed }}
         run: |
           set -euo pipefail
-          test -n "$RUN_ID"
-          actual="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq '.head_sha')"
-          if [[ "$actual" != "$EXPECTED_SHA" ]]; then
-            echo "::error::CI ran at $actual instead of $EXPECTED_SHA"
-            exit 1
+          sha="$(git rev-parse HEAD)"
+          remote="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TARGET_BRANCH" --jq .sha)"
+          if [[ "$COMMIT_CHANGES" == "true" || "$CHANGED" != "true" ]]; then
+            test "$remote" = "$sha" || { echo "::error::Branch moved during distribution repair"; exit 1; }
           fi
-
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
       - name: Write healing summary
         if: always()
         shell: bash
         env:
-          CHANGED: ${{ steps.commit.outputs.changed || 'false' }}
+          CHANGED: ${{ steps.compare.outputs.changed || 'false' }}
           RESULT: ${{ job.status }}
           DIST_PATH: ${{ inputs.dist-path }}
-          CI_URL: ${{ steps.validation.outputs.workflow-url }}
-          CI_CONCLUSION: ${{ steps.validation.outputs.workflow-conclusion }}
         run: |
           {
             echo "## Generated distribution self-heal"
@@ -147,8 +163,6 @@ jobs:
             echo "| Files changed | $CHANGED |"
             echo "| Outcome | $RESULT |"
             echo
-            echo "| CI conclusion | ${CI_CONCLUSION:-not completed} |"
-            if [[ -n "$CI_URL" ]]; then echo "| CI run | [View run]($CI_URL) |"; fi
             echo
-            echo "CI is dispatched for the healed SHA, and the job waits for its result."
+            echo "This worker only repairs generated distribution and returns the final SHA."
           } >> "$GITHUB_STEP_SUMMARY"

@@ -98,7 +98,7 @@ export function writeReleaseMarker(
   expected: ReleaseIdentity,
 ): string {
   const previous = validateReleaseMarker(body, expected);
-  const data = {
+  const data: Record<string, string | undefined> = {
     package: expected.package,
     version: expected.version,
     tag: expected.tag,

@@ -1,5 +1,4 @@
-
-name: CLI build and Vitest
+name: CLI
 
 on:
   pull_request:
@@ -7,8 +6,6 @@ on:
       - "src/**"
       - "packages/cli/**"
       - "tests/**"
-      - "actions/**"
-      - "vite.config.ts"
       - "vitest.config.*"
       - "playwright.config.*"
       - "**/playwright.config.*"
@@ -18,7 +15,8 @@ on:
       - ".prettierignore"
       - "tsconfig.json"
       - "tsconfig.tests.json"
-      - ".github/workflows/action-cli-vitest.yml"
+      - ".github/workflows/cli.yml"
+      - ".github/workflows/reusable_actionlint.yml"
 
   workflow_dispatch:
     inputs:
@@ -40,7 +38,7 @@ jobs:
     name: Validate workflow syntax
     permissions:
       contents: read
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_actionlint.yml@main
+    uses: ./.github/workflows/reusable_actionlint.yml
 
   cli:
     name: CLI build, typecheck and tests
@@ -60,8 +58,11 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci --include=optional
+        run: npm install --no-package-lock --no-audit --no-fund
         
+      - name: Run lint
+        run: npm run lint
+
       - name: Run Typecheck
         id: typecheck
         shell: bash
@@ -75,10 +76,6 @@ jobs:
           else
             echo "No TypeScript configuration found; skipping tsc."
           fi
-
-      - name: Build action CLI distributions
-        id: build
-        run: npm run build
 
       - name: Build npm Commander CLI
         id: build-package
@@ -95,16 +92,6 @@ jobs:
           node packages/cli/dist/cli.mjs workspace-source --source registry:npm:latest
           npm pack --workspace @moyarich/reusable-workflows-cli --dry-run
 
-      - name: Verify tracked action distributions
-        id: verify-dist
-        run: |
-          git diff --exit-code -- actions/dist/
-          test -f actions/dist/browser-extension-publish.mjs
-          test -f actions/dist/setup-workspace-tools.mjs
-          test -f actions/dist/release-draft-sync.mjs
-          test -f actions/dist/validate-release-identity.mjs
-          test -z "$(git ls-files --others --exclude-standard -- actions/dist/)"
-          
       # Detect browser-test changes only on pull requests.
       # Manual dispatch runs Playwright when configured.
       - name: Detect Playwright changes
@@ -119,7 +106,7 @@ jobs:
               - '**/playwright.config.*'
               - 'package.json'
               - 'package-lock.json'
-              - '.github/workflows/action-cli-vitest.yml'
+              - '.github/workflows/cli.yml'
 
       # Only install browsers when Playwright is configured
       # and the relevant files have changed (or manually dispatched).
@@ -152,11 +139,9 @@ jobs:
         env:
           STATUS: ${{ job.status }}
           TYPECHECK: ${{ steps.typecheck.outcome }}
-          BUILD: ${{ steps.build.outcome }}
           BUILD_PACKAGE: ${{ steps.build-package.outcome }}
           VITEST: ${{ steps.vitest.outcome }}
           VERIFY_PACKAGE: ${{ steps.verify-package.outcome }}
-          VERIFY_DIST: ${{ steps.verify-dist.outcome }}
           PLAYWRIGHT: ${{ steps.playwright.outcome }}
         run: |
           {
@@ -165,16 +150,13 @@ jobs:
             echo "| Check | Result |"
             echo "|---|---|"
             echo "| Typecheck | $TYPECHECK |"
-            echo "| Action CLI build | $BUILD |"
             echo "| npm Commander CLI build | $BUILD_PACKAGE |"
             echo "| Vitest | $VITEST |"
             echo "| npm package verification | $VERIFY_PACKAGE |"
-            echo "| Action distribution verification | $VERIFY_DIST |"
             echo "| Playwright | $PLAYWRIGHT |"
             echo
             echo "**Overall:** $STATUS"
             echo
-            echo 'Source: `src/actions/` | Output: `actions/dist/`'
             echo
             echo "Node.js 24"
           } >> "$GITHUB_STEP_SUMMARY"

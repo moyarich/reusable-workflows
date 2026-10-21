@@ -4,7 +4,10 @@ on:
   push:
     paths:
       - "src/actions/**"
+      - "src/workflow-dispatch/**"
+      - "src/verify-workflow-runs/**"
       - "vite.config.ts"
+      - "vitest.config.ts"
       - "package.json"
       - "package-lock.json"
       - "eslint.config.mjs"
@@ -12,7 +15,7 @@ on:
       - ".prettierignore"
       - "tests/**"
       - "actions/dist/**"
-      - ".github/workflows/self-heal.yml"
+      - ".github/workflows/self-heal-ci.yml"
   workflow_dispatch:
     inputs:
       repair:
@@ -76,13 +79,13 @@ jobs:
           node-version: "24"
 
       - name: Install build dependencies
-        run: npm install --ignore-scripts --no-package-lock --no-audit --no-fund
+        run: npm install --no-package-lock --no-audit --no-fund
 
       - name: Build action distribution
         run: npm run build:cli
 
       - name: Test built setup CLI
-        run: npm run test:cli
+        run: npx vitest run
 
       - name: Commit rebuilt action distribution
         id: commit
