@@ -34,7 +34,7 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: ci-${{ github.repository }}-${{ inputs.checkout-sha || github.ref }}
+  group: ci-${{ github.repository }}-${{ github.workflow }}-${{ github.event.pull_request.number || inputs.checkout-sha || github.run_id }}
   cancel-in-progress: false
 
 jobs:
