@@ -8,7 +8,8 @@
     "reusable-workflows": "dist/cli.mjs",
     "reusable-workflows-workspace-source": "dist/workspace-source.mjs",
     "reusable-workflows-release-validate": "dist/release-validate.mjs",
-    "reusable-workflows-browser": "dist/browser.mjs"
+    "reusable-workflows-browser": "dist/browser.mjs",
+    "reusable-workflows-setup-workspace-tools": "dist/setup-workspace-tools.mjs"
   },
   "files": [
     "dist"
