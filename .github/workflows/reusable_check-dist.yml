@@ -62,7 +62,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.repair && inputs.target-branch || inputs.checkout-sha || github.sha }}
+          ref: ${{ inputs.checkout-sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -121,7 +121,7 @@ jobs:
           fi
 
       - name: Validate rebuilt distribution
-        if: inputs.repair && inputs.validation-command != ''
+        if: inputs.validation-command != ''
         env:
           VALIDATION_COMMAND: ${{ inputs.validation-command }}
         run: bash -euo pipefail -c "$VALIDATION_COMMAND"
@@ -149,8 +149,11 @@ jobs:
         run: |
           set -euo pipefail
           sha="$(git rev-parse HEAD)"
-          remote="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TARGET_BRANCH" --jq .sha)"
-          if [[ "$remote" != "$sha" ]]; then
+          remote=""
+          if [[ "$COMMIT_CHANGES" == "true" ]]; then
+            remote="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TARGET_BRANCH" --jq .sha)"
+          fi
+          if [[ "$COMMIT_CHANGES" == "true" && "$remote" != "$sha" ]]; then
             echo "::error::Target branch advanced during distribution repair"
             exit 1
           fi
@@ -160,7 +163,7 @@ jobs:
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
       - name: Upload rebuilt dist
-        if: failure() && steps.compare.outcome == 'failure'
+        if: always() && steps.compare.outputs.changed == 'true' && (!inputs.commit || failure())
         uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs.artifact-name }}
