@@ -125,7 +125,8 @@ for (const name of actionNames) {
   const bundle = bundles.get(name);
   if (bundle) {
     const bundledFile = join(bundledRoot, bundle);
-    if (!existsSync(bundledFile)) throw new Error(`Missing Vite bundle: ${bundledFile}`);
+    if (!existsSync(bundledFile))
+      throw new Error(`Missing Vite bundle: ${bundledFile}`);
     cpSync(bundledFile, join(outputDir, "index.mjs"));
   }
   for (const [target, source] of Object.entries(runtimeFiles[name] ?? {})) {
@@ -160,4 +161,6 @@ for (const name of actionNames) {
 }
 // Staging is disposable. Public bundles must be next to each action.yml.
 rmSync(bundledRoot, { recursive: true, force: true });
-console.log(`Generated ${actionNames.length} self-contained GitHub Actions in actions/`);
+console.log(
+  `Generated ${actionNames.length} self-contained GitHub Actions in actions/`,
+);

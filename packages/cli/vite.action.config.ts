@@ -11,7 +11,8 @@ const generatedRoot = resolve(repositoryRoot, "actions");
 const stagingRoot = resolve(generatedRoot, ".bundles");
 
 const entries: Record<string, string> = {
-  "browser-extension-publish": "browser-extension-publish/browser-extension-publish-cli.ts",
+  "browser-extension-publish":
+    "browser-extension-publish/browser-extension-publish-cli.ts",
   "release-draft-sync": "release-draft-sync/index.ts",
   "setup-workspace-tools": "setup-workspace-tools/setup-workspace-tools-cli.ts",
   "validate-release-identity": "validate-release-identity/index.ts",
@@ -22,10 +23,15 @@ export default defineConfig(({ mode }) => {
   if (!entry) throw new Error("Unknown action bundle: " + mode);
   const source = resolve(sourceRoot, entry);
   const output = resolve(stagingRoot, mode);
-  if (!existsSync(source) || !existsSync(metadataRoot)) throw new Error("Missing authored action source: " + mode);
+  if (!existsSync(source) || !existsSync(metadataRoot))
+    throw new Error("Missing authored action source: " + mode);
   for (const protectedDir of [sourceRoot, metadataRoot]) {
-    if (lstatSync(protectedDir).isSymbolicLink() || output === protectedDir ||
-        output.startsWith(protectedDir + "/") || protectedDir.startsWith(output + "/")) {
+    if (
+      lstatSync(protectedDir).isSymbolicLink() ||
+      output === protectedDir ||
+      output.startsWith(protectedDir + "/") ||
+      protectedDir.startsWith(output + "/")
+    ) {
       throw new Error("Vite output overlaps protected source: " + protectedDir);
     }
   }
@@ -34,7 +40,10 @@ export default defineConfig(({ mode }) => {
       throw new Error("Refusing symlinked action distribution: " + dir);
     }
   }
-  if (existsSync(generatedRoot) && realpathSync(generatedRoot) !== generatedRoot) {
+  if (
+    existsSync(generatedRoot) &&
+    realpathSync(generatedRoot) !== generatedRoot
+  ) {
     throw new Error("Generated Action root resolves outside repository");
   }
   return {
