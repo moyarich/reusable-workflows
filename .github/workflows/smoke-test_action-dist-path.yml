@@ -3,7 +3,7 @@ name: "Smoke-test · Setup Workspace Tools distribution"
 on:
   pull_request:
     paths:
-      - "src/actions/setup-workspace-tools/**"
+      - "packages/cli/src/actions/setup-workspace-tools/**"
       - "actions/setup-workspace-tools/**"
       - "actions/dist/setup-workspace-tools.mjs"
       - ".github/workflows/smoke-test_action-dist-path.yml"
