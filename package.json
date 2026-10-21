@@ -11,7 +11,7 @@
     "dev": "npm run dev --workspace @moyarich/reusable-workflows-playground",
     "build:playground": "npm run build --workspace @moyarich/reusable-workflows-playground",
     "build:cli": "npm run build:actions",
-    "check:cli-dist": "npm run build:cli && git diff --exit-code -- actions/dist/",
+    "check:cli-dist": "npm run build:actions && git diff --exit-code -- actions/",
     "typecheck": "npm run typecheck --workspaces --if-present && tsc -p tsconfig.tests.json --noEmit",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "npm run lint -- --fix",
@@ -19,7 +19,7 @@
     "format:check": "prettier --check .",
     "checks": "npm run format:check && npm run lint && npm run typecheck",
     "build:package": "npm run build --workspace @moyarich/reusable-workflows-cli",
-    "build:actions": "vite build --config packages/cli/vite.action.config.ts && node packages/cli/scripts/generate-actions.mjs",
+    "build:actions": "node packages/cli/scripts/build-actions.mjs",
     "build:all": "npm run build:actions && npm run build:package"
   },
   "engines": {
