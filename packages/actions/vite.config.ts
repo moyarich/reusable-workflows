@@ -5,7 +5,7 @@ import { defineConfig } from "vite";
 
 const packageRoot = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(packageRoot, "../..");
-const sourceRoot = resolve(packageRoot, "src");
+const sourceRoot = resolve(packageRoot, "../cli/src");
 const metadataRoot = resolve(packageRoot, "actions");
 const generatedRoot = resolve(repositoryRoot, "actions");
 const stagingRoot = resolve(generatedRoot, ".bundles");
