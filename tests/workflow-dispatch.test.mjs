@@ -3,7 +3,7 @@ import {
   normalizeInputs,
   assertRun,
   dispatchAndWait,
-} from "../src/workflow-dispatch/index.mjs";
+} from "../packages/cli/src/workflow-dispatch/workflow-dispatch.mjs";
 
 const sha = "a".repeat(40);
 const config = {
