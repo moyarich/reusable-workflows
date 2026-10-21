@@ -16,8 +16,10 @@ function entriesForActions(): Record<string, string> {
   for (const dir of readdirSync(sourcesDir, { withFileTypes: true })) {
     if (!dir.isDirectory()) continue;
     const name = dir.name;
-    const source = [join(sourcesDir, name, "index.ts"), join(sourcesDir, name, name + "-cli.ts")]
-      .find((filename) => existsSync(filename));
+    const source = [
+      join(sourcesDir, name, "index.ts"),
+      join(sourcesDir, name, name + "-cli.ts"),
+    ].find((filename) => existsSync(filename));
     if (!source) throw new Error(`Missing bundled action entry: ${name}`);
     entries[name] = source;
 
@@ -26,12 +28,18 @@ function entriesForActions(): Record<string, string> {
     const metadata = join(actionsDir, name, "action.yml");
     if (existsSync(metadata)) {
       const yaml = readFileSync(metadata, "utf8");
-      if (/using:\\s*node24/.test(yaml) && !yaml.includes("../dist/" + name + ".mjs")) {
-        throw new Error(`Node action metadata must reference ../dist/${name}.mjs: ${metadata}`);
+      if (
+        /using:\\s*node24/.test(yaml) &&
+        !yaml.includes("../dist/" + name + ".mjs")
+      ) {
+        throw new Error(
+          `Node action metadata must reference ../dist/${name}.mjs: ${metadata}`,
+        );
       }
     }
   }
-  if (!Object.keys(entries).length) throw new Error("No GitHub Action entries found");
+  if (!Object.keys(entries).length)
+    throw new Error("No GitHub Action entries found");
   return entries;
 }
 

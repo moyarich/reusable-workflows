@@ -7,11 +7,6 @@
     "rootDir": "src",
     "outDir": "dist/types"
   },
-  "include": [
-    "src/index.ts"
-  ],
-  "exclude": [
-    "dist",
-    "node_modules"
-  ]
+  "include": ["src/index.ts"],
+  "exclude": ["dist", "node_modules"]
 }
