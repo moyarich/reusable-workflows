@@ -18,49 +18,43 @@ const entries: Record<string, string> = {
   "validate-release-identity": "validate-release-identity/index.ts",
 };
 
-export default defineConfig(({ mode }) => {
-  const entry = entries[mode];
-  if (!entry) throw new Error("Unknown action bundle: " + mode);
-  const source = resolve(sourceRoot, entry);
-  const output = resolve(stagingRoot, mode);
-  if (!existsSync(source) || !existsSync(metadataRoot))
-    throw new Error("Missing authored action source: " + mode);
-  for (const protectedDir of [sourceRoot, metadataRoot]) {
-    if (
-      lstatSync(protectedDir).isSymbolicLink() ||
-      output === protectedDir ||
-      output.startsWith(protectedDir + "/") ||
-      protectedDir.startsWith(output + "/")
-    ) {
-      throw new Error("Vite output overlaps protected source: " + protectedDir);
-    }
+const inputs = Object.fromEntries(
+  Object.entries(entries).map(([name, file]) => {
+    const source = resolve(sourceRoot, file);
+    if (!existsSync(source)) throw new Error("Missing action entry: " + source);
+    return [name, source];
+  }),
+);
+for (const protectedDir of [sourceRoot, metadataRoot]) {
+  if (!existsSync(protectedDir) || lstatSync(protectedDir).isSymbolicLink() ||
+      stagingRoot === protectedDir || stagingRoot.startsWith(protectedDir + "/")) {
+    throw new Error("Unsafe Vite output overlapping sources: " + protectedDir);
   }
-  for (const dir of [generatedRoot, stagingRoot, output]) {
-    if (existsSync(dir) && lstatSync(dir).isSymbolicLink()) {
-      throw new Error("Refusing symlinked action distribution: " + dir);
-    }
+}
+for (const dir of [generatedRoot, stagingRoot]) {
+  if (existsSync(dir) && lstatSync(dir).isSymbolicLink()) {
+    throw new Error("Refusing symlinked action distribution: " + dir);
   }
-  if (
-    existsSync(generatedRoot) &&
-    realpathSync(generatedRoot) !== generatedRoot
-  ) {
-    throw new Error("Generated Action root resolves outside repository");
-  }
-  return {
-    ssr: { noExternal: true },
-    build: {
-      ssr: source,
-      target: "node24",
-      outDir: output,
-      emptyOutDir: true,
-      minify: false,
-      rollupOptions: {
-        output: {
-          entryFileNames: "index.mjs",
-          chunkFileNames: "chunks/[name]-[hash].mjs",
-          assetFileNames: "assets/[name]-[hash][extname]",
-        },
+}
+if (existsSync(generatedRoot) && realpathSync(generatedRoot) !== generatedRoot) {
+  throw new Error("Generated Action root resolves outside repository");
+}
+
+export default defineConfig({
+  ssr: { noExternal: true },
+  build: {
+    ssr: true,
+    target: "node24",
+    outDir: stagingRoot,
+    emptyOutDir: true,
+    minify: false,
+    rollupOptions: {
+      input: inputs,
+      output: {
+        entryFileNames: "[name]/index.mjs",
+        chunkFileNames: "assets/[name]-[hash].mjs",
+        assetFileNames: "assets/[name]-[hash][extname]",
       },
     },
-  };
+  },
 });
