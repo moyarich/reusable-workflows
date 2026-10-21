@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "npm run dev --workspace @moyarich/reusable-workflows-playground",
     "build:playground": "npm run build --workspace @moyarich/reusable-workflows-playground",
-    "build:cli": "npm run build:actions",
+    "build:cli": "npm run build -w @moyarich/reusable-workflows-cli",
     "check:cli-dist": "npm run build:actions && git diff --exit-code -- actions/",
     "typecheck": "npm run typecheck --workspaces --if-present && tsc -p tsconfig.tests.json --noEmit",
     "lint": "eslint . --max-warnings 0",
@@ -18,9 +18,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "checks": "npm run format:check && npm run lint && npm run typecheck",
-    "build:package": "npm run build --workspace @moyarich/reusable-workflows-cli",
-    "build:actions": "node packages/cli/scripts/build-actions.mjs",
-    "build:all": "npm run build:actions && npm run build:package"
+    "build:package": "npm run build:cli",
+    "build:actions": "npm run build -w @moyarich/reusable-workflows-actions",
+    "build:all": "npm run build:cli && npm run build:actions"
   },
   "engines": {
     "node": ">=24"
