@@ -15,6 +15,7 @@ export default defineConfig({
     minify: false,
     rollupOptions: {
       input: {
+        index: resolve(root, "src/index.ts"),
         "release-identity": resolve(
           root,
           "src/actions/release-draft-sync/identity.ts",
