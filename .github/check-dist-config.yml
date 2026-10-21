@@ -10,3 +10,6 @@ packages:
   ".":
     distPath: actions
     buildCommand: npm run build:actions
+  "packages/cli":
+    distPath: packages/cli/dist
+    buildCommand: npm run build:package
