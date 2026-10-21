@@ -30,9 +30,17 @@ jobs:
       major-tag: ${{ steps.publish.outputs.major-tag }}
 
     steps:
+      - name: Checkout reusable action implementation
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .github/reusable-workflows-runtime
+          persist-credentials: false
+
       - id: publish
         name: Promote highest published stable major tag
-        uses: moyarich/reusable-workflows/actions/release-tag@feat/release-tag-action
+        uses: ./.github/reusable-workflows-runtime/actions/release-tag
         env:
           GH_TOKEN: ${{ github.token }}
         with:
