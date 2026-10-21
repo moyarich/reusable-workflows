@@ -8,7 +8,6 @@ on:
       - "vite.config.ts"
       - "package.json"
       - "package-lock.json"
-      - ".github/workflows/reusable_heal-cli-dist.yml"
       - ".github/workflows/check-dist.yml"
       - ".github/workflows/reusable_check-dist.yml"
   workflow_dispatch:
@@ -40,7 +39,7 @@ jobs:
     name: Rebuild, verify and repair distribution
     permissions:
       contents: write
-    uses: ./.github/workflows/reusable_heal-cli-dist.yml
+    uses: ./.github/workflows/reusable_check-dist.yml
     with:
       dist-path: actions/dist/
       build-command: npm run build:cli
@@ -49,4 +48,5 @@ jobs:
       target-branch: ${{ github.ref_name }}
       expected-sha: ${{ github.sha }}
       node-version: "24"
+      repair: true
       commit: ${{ inputs.commit }}
