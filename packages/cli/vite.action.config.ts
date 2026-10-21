@@ -11,7 +11,7 @@ import { defineConfig } from "vite";
 
 const packageRoot = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(packageRoot, "../..");
-const sourcesDir = resolve(packageRoot, "src/actions");
+const sourcesDir = resolve(packageRoot, "src");
 const actionsDir = resolve(repositoryRoot, "actions");
 const outputDir = resolve(actionsDir, "dist");
 
@@ -21,7 +21,7 @@ const sourceRoots = [
   resolve(packageRoot, "src"),
   resolve(packageRoot, "actions"),
 ];
-if (outputDir !== resolve(repositoryRoot, "dist")) {
+if (outputDir !== resolve(repositoryRoot, "actions/dist")) {
   throw new Error(
     "Refusing to build actions outside the expected generated directory",
   );
@@ -73,7 +73,7 @@ function entriesForActions(): Record<string, string> {
     if (!source) throw new Error(`Missing bundled action entry: ${name}`);
     entries[name] = source;
 
-    const metadata = join(actionsDir, name, "action.yml");
+    const metadata = join(packageRoot, "actions", name, "action.yml");
     if (existsSync(metadata)) {
       const yaml = readFileSync(metadata, "utf8");
       if (
