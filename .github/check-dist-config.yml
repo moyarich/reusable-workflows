@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/moyarich/reusable-workflows/main/reusable-configurations/check-dist-config.schema.json
+# Check-dist settings specific to reusable-workflows.
+# The shared caller remains identical to the callers used in other repositories.
+extraPackages:
+  - name: reusable-workflows-workspace
+    directory: .
+packages:
+  ".":
+    distPath: actions/dist
+    buildCommand: npm run build:cli

@@ -3,16 +3,18 @@ name: Reusable · Self-heal distribution
 on:
   workflow_call:
     inputs:
-      config-file:
-        description: Caller repository configuration path; defaults to .github/check-dist.config.yml
-        type: string
-        default: .github/check-dist.config.yml
       checkout-sha:
         type: string
         default: ""
       dist-path:
         type: string
         default: dist/
+      package-name:
+        type: string
+        default: ""
+      package-directory:
+        type: string
+        default: ""
       build-command:
         type: string
         default: npm run build
@@ -70,65 +72,6 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Document caller distribution configuration
-        id: distribution-config
-        shell: bash
-        env:
-          CONFIG_FILE: ${{ inputs.config-file }}
-        run: |
-          set -euo pipefail
-          if [[ -f "$CONFIG_FILE" ]]; then
-            {
-              echo "## Distribution configuration"
-              echo
-              echo "Caller configuration found: \`$CONFIG_FILE\`."
-            } >> "$GITHUB_STEP_SUMMARY"
-          elif [[ "$CONFIG_FILE" != ".github/check-dist.config.yml" ]]; then
-            echo "::error::Explicit check-dist config not found: $CONFIG_FILE"
-            exit 1
-          else
-            example="$RUNNER_TEMP/check-dist.config.yml"
-            cat > "$example" <<'YAML'
-          # Copy this file to .github/check-dist.config.yml in the caller repository.
-          defaults:
-            distribution:
-              path: "{package.directory}/dist"
-              commit: false
-            artifacts:
-              enabled: true
-
-          # Example for a package with separate extension and webview outputs.
-          # Replace my-package with the discovered package name.
-          packages:
-            my-package:
-              build-command: npm run build
-              distributions:
-                - name: extension
-                  path: out/extension/
-                - name: webview
-                  path: out/webview-ui/
-          YAML
-            echo "example-path=$example" >> "$GITHUB_OUTPUT"
-            {
-              echo "## Optional distribution configuration"
-              echo
-              echo "No \`.github/check-dist.config.yml\` found in \`$GITHUB_REPOSITORY\`."
-              echo "Download the \`check-dist-config-example\` workflow artifact and copy \`check-dist.config.yml\` into the caller repository's \`.github/\` directory."
-              echo
-              echo '~~~yaml'
-              cat "$example"
-              echo '~~~'
-            } >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-      - name: Upload missing check-dist configuration example
-        if: steps.distribution-config.outputs.example-path != ''
-        uses: actions/upload-artifact@v6
-        with:
-          name: check-dist-config-example
-          path: ${{ steps.distribution-config.outputs.example-path }}
-          if-no-files-found: error
-
       - name: Verify target commit
         if: inputs.repair
         env:
@@ -141,6 +84,42 @@ jobs:
             echo "::error::Branch moved since dispatch"
             exit 1
           fi
+
+      - name: Resolve distribution template
+        id: resolve
+        shell: bash
+        env:
+          DIST_TEMPLATE: ${{ inputs.dist-path }}
+          PACKAGE_NAME: ${{ inputs.package-name }}
+          PACKAGE_DIRECTORY: ${{ inputs.package-directory }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const template = process.env.DIST_TEMPLATE;
+          const name = process.env.PACKAGE_NAME;
+          const dir = process.env.PACKAGE_DIRECTORY.replace(/\\/g, '/').replace(/\/$/, '');
+          const parts = dir.split('/').filter(Boolean);
+          const vars = {
+            package: name ? name.split('/').pop() : (parts.at(-1) || ''),
+            packageName: name,
+            packageDir: dir || '.',
+            workspace: parts.length > 1 ? parts[0] : '.',
+          };
+          const expanded = template.replace(/\{([^{}]+)\}/g, (_, key) => {
+            if (!(key in vars) || !vars[key]) throw Error('Unsupported or missing distribution placeholder: ' + key);
+            return vars[key];
+          });
+          if (/[{}]/.test(expanded) || path.isAbsolute(expanded) || expanded.split(/[\\/]+/).includes('..')) {
+            throw Error('Distribution path must be a safe repository-relative directory: ' + expanded);
+          }
+          const normalized = path.posix.normalize(expanded.replace(/\\/g, '/'));
+          if (normalized === '.' || normalized.startsWith('../') || normalized.startsWith('/')) {
+            throw Error('Invalid distribution directory: ' + normalized);
+          }
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'dist-path=' + normalized + '\n');
+          console.log('Resolved distribution path: ' + normalized);
+          NODE
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -161,7 +140,7 @@ jobs:
       - name: Compare distribution
         id: compare
         env:
-          DIST_PATH: ${{ inputs.dist-path }}
+          DIST_PATH: ${{ steps.resolve.outputs.dist-path }}
           REPAIR: ${{ inputs.repair }}
         shell: bash
         run: |
@@ -226,11 +205,11 @@ jobs:
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
       - name: Upload rebuilt dist
-        if: always() && (!inputs.commit || (steps.compare.outputs.changed == 'true' && failure()))
+        if: always() && steps.resolve.outputs.dist-path != '' && (!inputs.commit || (steps.compare.outputs.changed == 'true' && failure()))
         uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs.artifact-name }}
-          path: ${{ inputs.dist-path }}
+          path: ${{ steps.resolve.outputs.dist-path }}
           if-no-files-found: error
 
       - name: Distribution summary
@@ -241,12 +220,14 @@ jobs:
           REPAIR: ${{ inputs.repair }}
           COMMIT: ${{ inputs.commit }}
           SHA: ${{ steps.head.outputs.sha }}
+          RESOLVED_PATH: ${{ steps.resolve.outputs.dist-path }}
         run: |
           {
             echo "## Distribution verification"
             echo
             echo "| Check | Result |"
             echo "| --- | --- |"
+            echo "| Distribution path | $RESOLVED_PATH |"
             echo "| Repair mode | $REPAIR |"
             echo "| Distribution changed | $CHANGED |"
             echo "| Commit requested | $COMMIT |"
