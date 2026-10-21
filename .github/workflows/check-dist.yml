@@ -1,4 +1,4 @@
-name: "Check · Action distribution"
+name: "Check · distribution"
 
 on:
   pull_request:
