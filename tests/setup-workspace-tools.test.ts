@@ -73,7 +73,7 @@ describe("Workspace Tools source selection", () => {
     const root = mkdtempSync(join(tmpdir(), "workspace-tools-setup-cli-"));
     try {
       const output = join(root, "outputs");
-      const cli = "actions/dist/setup-workspace-tools.mjs";
+      const cli = "actions/setup-workspace-tools/index.mjs";
       const result = spawnSync(
         process.execPath,
         [
