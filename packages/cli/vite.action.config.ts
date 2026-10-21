@@ -55,7 +55,11 @@ export default defineConfig(({ mode }) => {
       emptyOutDir: true,
       minify: false,
       rollupOptions: {
-        output: { entryFileNames: "index.mjs", inlineDynamicImports: true },
+        output: {
+          entryFileNames: "index.mjs",
+          chunkFileNames: "chunks/[name]-[hash].mjs",
+          assetFileNames: "assets/[name]-[hash][extname]",
+        },
       },
     },
   };
