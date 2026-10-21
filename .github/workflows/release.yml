@@ -239,6 +239,6 @@ jobs:
     if: ${{ !inputs.dry-run && inputs.update-major-tag }}
     permissions:
       contents: write
-    uses: ./.github/workflows/reusable_publish-action.yml
+    uses: ./.github/workflows/reusable_tag-update.yml
     with:
       source-tag: ${{ format('v{0}', needs.resolve.outputs.version) }}
