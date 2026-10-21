@@ -226,11 +226,12 @@ jobs:
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
       - name: Upload rebuilt dist
-        if: always() && steps.compare.outputs.changed == 'true' && (!inputs.commit || failure())
+        if: always() && (!inputs.commit || (steps.compare.outputs.changed == 'true' && failure()))
         uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs.artifact-name }}
           path: ${{ inputs.dist-path }}
+          if-no-files-found: error
 
       - name: Distribution summary
         if: always()
