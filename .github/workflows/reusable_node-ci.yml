@@ -4,8 +4,8 @@ on:
   workflow_dispatch:
     inputs:
       package-directory:
-        description: Workspace path, directory name, or package name
-        required: true
+        description: Root (.), one workspace name/path, or all testable packages
+        required: false
         default: "."
         type: string
       packages-directory:
@@ -20,7 +20,7 @@ on:
         type: boolean
       node-version:
         description: Node.js version used by CI
-        required: true
+        required: false
         default: "24"
         type: string
   workflow_call:
@@ -146,6 +146,7 @@ jobs:
       - uses: actions/checkout@v7 # v7
         with:
           ref: ${{ inputs.checkout-ref || github.sha }}
+          persist-credentials: false
       - uses: actions/setup-node@v7 # v7
         with:
           node-version: ${{ inputs.node-version }}
@@ -261,7 +262,7 @@ jobs:
           if [ "$WORKSPACE" = "." ]; then npm run typecheck --if-present; else npm run typecheck --workspace "$WORKSPACE" --if-present; fi
 
       - name: Validate package tarball
-        if: ${{ inputs.package-directory != '.' }}
+        if: ${{ matrix.directory != '.' }}
         env:
           WORKSPACE: ${{ matrix.directory }}
         run: npm pack --workspace "$WORKSPACE" --dry-run
