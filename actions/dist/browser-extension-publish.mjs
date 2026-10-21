@@ -160,6 +160,3 @@ program.command("publish-firefox").requiredOption("--build-directory <dir>").opt
   console.log("Firefox Add-ons submission completed");
 });
 await program.parseAsync();
-export {
-  chromePublish
-};
