@@ -42,7 +42,9 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
-      - run: node --test tests/release-identity-marker.test.mjs tests/release-draft-auto-version.test.mjs
+      - name: Install test dependencies
+        run: npm install --no-package-lock --no-audit --no-fund
+      - run: npx --no-install vitest run tests/release-identity-marker.test.mjs tests/release-draft-auto-version.test.mjs
         id: contracts
       - name: Write contract summary
         if: always()
@@ -50,7 +52,7 @@ jobs:
           RESULT: ${{ steps.contracts.outcome }}
         run: |
           echo '## Release identity and version contracts' >> "$GITHUB_STEP_SUMMARY"
-          echo "| Node test contracts | $RESULT |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Vitest contracts | $RESULT |" >> "$GITHUB_STEP_SUMMARY"
 
   aggregate-summary:
     name: Release draft self-test result
