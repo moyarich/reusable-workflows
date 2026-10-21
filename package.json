@@ -19,7 +19,7 @@
     "format:check": "prettier --check .",
     "checks": "npm run format:check && npm run lint && npm run typecheck",
     "build:package": "npm run build --workspace @moyarich/reusable-workflows-cli",
-    "build:actions": "vite build --config packages/cli/vite.action.config.ts",
+    "build:actions": "vite build --config packages/cli/vite.action.config.ts && node packages/cli/scripts/generate-actions.mjs",
     "build:all": "npm run build:actions && npm run build:package"
   },
   "engines": {
