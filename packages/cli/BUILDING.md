@@ -1,52 +1,39 @@
-# CLI and GitHub Action build standard
+# Distribution architecture
 
-The npm CLI and the GitHub Action distribution are independent products, built from
-shared source in `packages/cli/src/`. Never treat `actions/_assets/` as an npm
-publication directory or the npm `dist/` folder as a GitHub Action runtime.
+The monorepo contains two build workspaces and **one publishable npm package**.
 
-| Product                   | Sources                                                  | Build command (repository root)                 | Output                        | Consumer                     |
-| ------------------------- | -------------------------------------------------------- | ----------------------------------------------- | ----------------------------- | ---------------------------- |
-| npm executable            | `packages/cli/src/cli.ts`                                | `npm run build:package`                         | `packages/cli/dist/cli.mjs`   | npm `bin.reusable-workflows` |
-| npm importable modules    | side-effect-free modules in `packages/cli/src/`          | `npm run build:package`                         | `packages/cli/dist/lib/*.mjs` | npm package `exports`        |
-| JavaScript GitHub Actions | `packages/cli/src/*/index.ts`                            | `npm run build:actions`                         | `actions/_assets/*.mjs`       | `actions/*/action.yml`       |
-| Composite Actions         | `actions/*/action.yml` or source-side composite metadata | no JavaScript bundling required for shell steps | repository source             | GitHub `uses:`               |
+| Workspace | Responsibility | Publication | Output |
+| --- | --- | --- | --- |
+| `packages/cli` | CLI, reusable modules and public npm exports | Public npm | `packages/cli/dist/` |
+| `packages/actions` | GitHub Action metadata and bundling | Private | Root `actions/` |
 
-## Rules
+`packages/actions` imports reusable modules directly from `packages/cli/src/<feature>/` at **build time**. Vite includes their runtime dependencies in the generated Action bundles, so users do not need to install `@moyarich/reusable-workflows-cli` to run an Action. The npm package does not declare any dependency on the private Actions workspace.
 
-1. Each bundled JavaScript action has a real TypeScript CLI or `index.ts` entry and its
-   externally usable `actions/<name>/action.yml` points into
-   `../dist/<name>.mjs`. Composite actions live in `actions/<name>/action.yml` and may invoke
-   JavaScript sources under `packages/cli/src/` without generating a
-   redundant `actions/_assets/<name>.mjs` bundle.
-2. Shared logic belongs in importable, side-effect-free modules. A command
-   entry can import this logic, but shared libraries must **not** import command
-   entry points (which can parse arguments or write GitHub outputs).
-3. Vite uses absolute directories derived from `import.meta.url`; builds must
-   not depend on the runner's working directory.
-4. `packages/cli/package.json` controls the published `bin`, `exports`,
-   and `files` fields. Only `dist/` is in the npm tarball.
-5. Never clear `actions/_assets/` when compiling the npm CLI, or clear
-   `packages/cli/dist/` when rebuilding GitHub Actions.
-6. CI must run `npm run build:actions`, `npm run build:package`,
-   `npm run typecheck`, and `npm pack --workspace
-@moyarich/reusable-workflows-cli --dry-run` before release.
-7. Version the CLI and its public module exports together. Preserve existing
-   GitHub Action paths and user-facing command names when refactoring.
+## Authored sources
 
-## Commands
+- Reusable TypeScript and JavaScript live in `packages/cli/src/<feature>/`.
+- The CLI entry point is `packages/cli/src/cli.ts`; public imports use the `exports` in `packages/cli/package.json`.
+- Action manifests and other authored Action resources live in `packages/actions/actions/<action-name>/`.
+- The private Actions build uses `packages/actions/vite.config.ts` and `packages/actions/scripts/`.
+
+## Generated distributions
+
+- `packages/cli/dist/` is the npm package build output.
+- Repository-root `actions/` is the **complete generated GitHub Actions distribution**, checked in for GitHub `uses:` references.
+- `actions/<action-name>/action.yml` lives next to its compiled `index.mjs` or composite action runtime scripts.
+- Shared Vite chunks and assets are emitted to `actions/_assets/`; individual Action entry points reference them through relative imports.
+- Temporary staging under `actions/.bundles/` must be removed after generation.
+
+## Build commands
 
 ```sh
-npm run build:actions
-npm run build:package
-node packages/cli/dist/cli.mjs --help
-npm pack --workspace @moyarich/reusable-workflows-cli --dry-run
+npm run build:cli      # npm CLI package only
+npm run build:actions  # private Actions package builds root actions/
+npm run build:all      # both
+npm run check:cli-dist
+npm pack -w @moyarich/reusable-workflows-cli --dry-run
 ```
 
-## Canonical Action source vs distribution
+It must be safe to delete the entire root `actions/` folder and run `npm run build:actions` to reconstruct it deterministically. Neither Vite nor the generator may delete or overwrite authored files under `packages/cli/src/` or `packages/actions/actions/`. CI checks clean regeneration and verifies the authored source tree is unchanged.
 
-- Author GitHub Action metadata and documentation in `packages/cli/actions/<name>/`.
-- Author implementation and shared library code in `packages/cli/src/` (or other `packages/cli/src/` modules).
-- `npm run build:actions` bundles node24 Action runtime entry points into `actions/_assets/`, then runs `packages/cli/scripts/generate-actions.mjs` to regenerate the **entire** public `actions/<name>/` distribution, including composite script dependencies.
-- Root `actions/` is **generated and checked in** so users can call `moyarich/reusable-workflows/actions/<name>@<ref>` without an npm install or source-tree layout assumptions. Never hand-edit root `actions/` metadata.
-- The npm package only publishes `packages/cli/dist/`; `actions/` is intentionally not part of its npm tarball.
-- The proposed Git source `@moyarich/vite-package-bin` is currently unimplemented on `main`; do not add it until it contains a usable manifest, compiled exports and passing integration tests.
+`check-dist` uses separate distribution targets: `actions/` for GitHub Actions and `packages/cli/dist/` for the npm CLI. Only `packages/cli` is eligible for npm publication.
