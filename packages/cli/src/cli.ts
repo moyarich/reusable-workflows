@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { readFileSync } from "node:fs";
-import { parseWorkspaceToolsSource } from "./actions/setup-workspace-tools/setup-workspace-tools";
-import { validateReleaseMarker } from "./actions/release-draft-sync/identity";
+import { parseWorkspaceToolsSource } from "./setup-workspace-tools/setup-workspace-tools";
+import { validateReleaseMarker } from "./release-draft-sync/identity";
 
 const program = new Command()
   .name("reusable-workflows")
@@ -43,7 +43,7 @@ program
   .argument("[args...]")
   .action(async (args: string[]) => {
     process.argv = [process.argv[0], "browser-extension-publish", ...args];
-    await import("./actions/browser-extension-publish/browser-extension-publish-cli");
+    await import("./browser-extension-publish/browser-extension-publish-cli");
   });
 
 await program.parseAsync();

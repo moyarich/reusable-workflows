@@ -18,15 +18,15 @@ export default defineConfig({
         index: resolve(root, "src/index.ts"),
         "release-identity": resolve(
           root,
-          "src/actions/release-draft-sync/identity.ts",
+          "src/release-draft-sync/identity.ts",
         ),
         "workspace-source": resolve(
           root,
-          "src/actions/setup-workspace-tools/setup-workspace-tools.ts",
+          "src/setup-workspace-tools/setup-workspace-tools.ts",
         ),
         "browser-manifest": resolve(
           root,
-          "src/actions/browser-extension-publish/manifest.ts",
+          "src/browser-extension-publish/manifest.ts",
         ),
       },
       output: {

@@ -10,8 +10,8 @@
   },
   "include": [
     "src/cli.ts",
-    "src/actions/setup-workspace-tools/setup-workspace-tools.ts",
-    "src/actions/release-draft-sync/identity.ts",
-    "src/actions/browser-extension-publish/*.ts"
+    "src/setup-workspace-tools/setup-workspace-tools.ts",
+    "src/release-draft-sync/identity.ts",
+    "src/browser-extension-publish/*.ts"
   ]
 }

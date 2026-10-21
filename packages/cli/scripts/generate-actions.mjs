@@ -21,12 +21,12 @@ const bundledRoot = join(outputRoot, "dist");
 // Referencing packages/cli/src in a published action is not portable.
 const runtimeFiles = {
   "check-dist": {
-    "select.mjs": "packages/cli/src/actions/check-dist/select.mjs",
+    "select.mjs": "packages/cli/src/check-dist/select.mjs",
     "config.schema.json":
       "reusable-configurations/check-dist-config.schema.json",
   },
   "resolve-workspaces": {
-    "index.mjs": "packages/cli/src/actions/resolve-workspaces/index.mjs",
+    "index.mjs": "packages/cli/src/resolve-workspaces/index.mjs",
   },
   "workflow-dispatch": {
     "index.mjs": "packages/cli/src/workflow-dispatch/workflow-dispatch.mjs",

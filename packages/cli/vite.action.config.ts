@@ -21,7 +21,7 @@ const sourceRoots = [
   resolve(packageRoot, "src"),
   resolve(packageRoot, "actions"),
 ];
-if (outputDir !== resolve(repositoryRoot, "actions/dist")) {
+if (outputDir !== resolve(repositoryRoot, "dist")) {
   throw new Error(
     "Refusing to build actions outside the expected generated directory",
   );
