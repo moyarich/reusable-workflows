@@ -4,7 +4,7 @@ description: Copyable move release tag reusable workflow caller.
 ---
 
 import workflow from "./workflow.yml?raw";
-import reusableWorkflow from "../../.github/workflows/reusable_release-tag-move.yml?raw";
+import reusableWorkflow from "../../actions/release-tag/action.yml?raw";
 
 # Move release tag
 
@@ -12,7 +12,7 @@ import reusableWorkflow from "../../.github/workflows/reusable_release-tag-move.
   files={[
     { name: "workflow.yml", source: workflow, language: "yaml" },
     {
-      name: "reusable_release-tag-move.yml",
+      name: "release-tag/action.yml",
       source: reusableWorkflow,
       language: "yaml",
     },
