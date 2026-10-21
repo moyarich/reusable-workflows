@@ -6,8 +6,16 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 function run(command, args) {
   const result = spawnSync(command, args, { cwd: repoRoot, stdio: "inherit" });
   if (result.error) throw result.error;
-  if (result.status !== 0) throw new Error(command + " exited with " + result.status);
+  if (result.status !== 0)
+    throw new Error(command + " exited with " + result.status);
 }
 // One multi-entry build shares chunks in assets/ instead of duplicating per action.
-run("npm", ["exec", "--", "vite", "build", "--config", "packages/cli/vite.action.config.ts"]);
+run("npm", [
+  "exec",
+  "--",
+  "vite",
+  "build",
+  "--config",
+  "packages/cli/vite.action.config.ts",
+]);
 run(process.execPath, ["packages/cli/scripts/generate-actions.mjs"]);

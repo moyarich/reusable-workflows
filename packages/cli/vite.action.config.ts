@@ -26,8 +26,12 @@ const inputs = Object.fromEntries(
   }),
 );
 for (const protectedDir of [sourceRoot, metadataRoot]) {
-  if (!existsSync(protectedDir) || lstatSync(protectedDir).isSymbolicLink() ||
-      stagingRoot === protectedDir || stagingRoot.startsWith(protectedDir + "/")) {
+  if (
+    !existsSync(protectedDir) ||
+    lstatSync(protectedDir).isSymbolicLink() ||
+    stagingRoot === protectedDir ||
+    stagingRoot.startsWith(protectedDir + "/")
+  ) {
     throw new Error("Unsafe Vite output overlapping sources: " + protectedDir);
   }
 }
@@ -36,7 +40,10 @@ for (const dir of [generatedRoot, stagingRoot]) {
     throw new Error("Refusing symlinked action distribution: " + dir);
   }
 }
-if (existsSync(generatedRoot) && realpathSync(generatedRoot) !== generatedRoot) {
+if (
+  existsSync(generatedRoot) &&
+  realpathSync(generatedRoot) !== generatedRoot
+) {
   throw new Error("Generated Action root resolves outside repository");
 }
 
