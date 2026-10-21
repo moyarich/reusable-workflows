@@ -41,3 +41,12 @@ npm run build:package
 node packages/cli/dist/cli.mjs --help
 npm pack --workspace @moyarich/reusable-workflows-cli --dry-run
 ```
+
+## Canonical Action source vs distribution
+
+- Author GitHub Action metadata and documentation in `packages/cli/actions/<name>/`.
+- Author implementation and shared library code in `packages/cli/src/actions/` (or other `packages/cli/src/` modules).
+- `npm run build:actions` bundles node24 Action runtime entry points into `actions/dist/`, then runs `packages/cli/scripts/generate-actions.mjs` to regenerate the **entire** public `actions/<name>/` distribution, including composite script dependencies.
+- Root `actions/` is **generated and checked in** so users can call `moyarich/reusable-workflows/actions/<name>@<ref>` without an npm install or source-tree layout assumptions. Never hand-edit root `actions/` metadata.
+- The npm package only publishes `packages/cli/dist/`; `actions/` is intentionally not part of its npm tarball.
+- The proposed Git source `@moyarich/vite-package-bin` is currently unimplemented on `main`; do not add it until it contains a usable manifest, compiled exports and passing integration tests.
