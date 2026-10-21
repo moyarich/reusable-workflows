@@ -21,7 +21,7 @@ export default defineConfig({
       output: {
         entryFileNames: "[name].mjs",
         chunkFileNames: "chunks/[name]-[hash].mjs",
-        banner: (chunk) => chunk.isEntry ? "#!/usr/bin/env node" : "",
+        banner: (chunk) => (chunk.isEntry ? "#!/usr/bin/env node" : ""),
       },
     },
   },
