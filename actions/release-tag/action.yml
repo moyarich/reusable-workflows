@@ -1,0 +1,36 @@
+name: Manage Release Tag
+description: Promote the highest published stable major tag or restore an exact historical canonical tag.
+inputs:
+  mode:
+    description: "promote (major compatibility alias) or restore (canonical tag)"
+    required: true
+  source-tag:
+    description: Published stable version tag to promote, e.g. v1.2.3
+    required: false
+  tag:
+    description: Canonical tag to restore
+    required: false
+  commit:
+    description: Exact commit SHA for restore
+    required: false
+  target-branch:
+    description: Branch checked when require-branch-head is enabled
+    default: main
+  require-branch-head:
+    description: Reject restore when the branch has moved
+    default: "false"
+  dry-run:
+    description: Report proposed changes without writing refs
+    default: "true"
+outputs:
+  tag:
+    description: Created, moved, or inspected tag
+  major-tag:
+    description: Major compatibility tag in promote mode
+  commit:
+    description: Resolved target commit
+  outcome:
+    description: created, updated, unchanged, would-create, or would-update
+runs:
+  using: node24
+  main: ../../src/actions/release-tag/index.mjs
