@@ -3,6 +3,11 @@ name: Reusable · Check dist
 on:
   workflow_call:
     inputs:
+      checkout-sha:
+        description: Exact commit SHA to check out
+        required: false
+        type: string
+        default: ""
       dist-path:
         description: Distribution directory to rebuild and compare.
         required: false
@@ -46,6 +51,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ inputs.checkout-sha || github.sha }}
           persist-credentials: false
 
       - name: Setup Node.js
