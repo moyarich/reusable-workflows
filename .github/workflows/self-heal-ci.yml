@@ -3,12 +3,12 @@ name: "Self-heal · Action distribution"
 on:
   push:
     paths:
-      - "packages/cli/src/actions/**"
-      - "packages/cli/actions/**"
-      - "packages/cli/scripts/**"
+      - "packages/cli/src/**"
+      - "packages/actions/actions/**"
+      - "packages/actions/scripts/**"
       - "packages/cli/src/workflow-dispatch/**"
       - "packages/cli/src/verify-workflow-runs/**"
-      - "packages/cli/vite.action.config.ts"
+      - "packages/actions/vite.config.ts"
       - "vitest.config.ts"
       - "package.json"
       - "package-lock.json"
@@ -16,7 +16,7 @@ on:
       - ".prettierrc.json"
       - ".prettierignore"
       - "tests/**"
-      - "actions/dist/**"
+      - "actions/**"
       - ".github/workflows/self-heal-ci.yml"
   workflow_dispatch:
     inputs:
