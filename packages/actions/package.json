@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node scripts/build-actions.mjs",
-    "typecheck": "tsc --noEmit --project tsconfig.json"
+    "build": "node scripts/build-actions.mjs && node scripts/verify-action-sources.mjs",
+    "typecheck": "tsc --noEmit --project tsconfig.json",
+    "verify:generated": "node scripts/verify-action-sources.mjs"
   }
 }
