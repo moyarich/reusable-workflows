@@ -127,6 +127,7 @@ jobs:
           node packages/cli/dist/workspace-source.mjs --help
           node packages/cli/dist/release-validate.mjs --help
           node packages/cli/dist/browser.mjs --help
+          node packages/cli/dist/setup-workspace-tools.mjs --help
           npm exec --workspace @moyarich/reusable-workflows-cli -- reusable-workflows-cli --help
           node packages/cli/dist/cli.mjs workspace-source --source registry:npm:latest
           npm pack --workspace @moyarich/reusable-workflows-cli --dry-run
