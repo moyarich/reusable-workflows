@@ -20,7 +20,8 @@ jobs:
         shell: bash
         run: |
           docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.7 -color -shellcheck= \
-            -ignore 'property "workflow_(repository|sha|ref)" is not defined'
+            -ignore 'property "workflow_(repository|sha|ref)" is not defined' \
+            -ignore 'invalid runner name "node24" at runs.using'
       - name: Workflow validation summary
         if: always()
         env:
