@@ -3,7 +3,9 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const manifest = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
+const manifest = JSON.parse(
+  readFileSync(resolve(root, "package.json"), "utf8"),
+);
 for (const [name, file] of Object.entries(manifest.bin ?? {})) {
   const target = resolve(root, file);
   if (!target.startsWith(root + "/") || !existsSync(target)) {
