@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "npm run dev --workspace @moyarich/reusable-workflows-playground",
     "build:playground": "npm run build --workspace @moyarich/reusable-workflows-playground",
-    "build:cli": "vite build",
+    "build:cli": "npm run build:actions",
     "check:cli-dist": "npm run build:cli && git diff --exit-code -- actions/dist/",
     "typecheck": "npm run typecheck --workspaces --if-present && tsc -p tsconfig.tests.json --noEmit",
     "lint": "eslint . --max-warnings 0",
@@ -18,7 +18,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "checks": "npm run format:check && npm run lint && npm run typecheck",
-    "build:package": "npm run build --workspace @moyarich/reusable-workflows-cli"
+    "build:package": "npm run build --workspace @moyarich/reusable-workflows-cli",
+    "build:actions": "vite build --config packages/cli/vite.action.config.ts",
+    "build:all": "npm run build:actions && npm run build:package"
   },
   "engines": {
     "node": ">=24"
