@@ -1,3 +1,4 @@
+/** Commander-powered CLI command and feature implementation. @module */
 import {
   existsSync,
   readFileSync,

@@ -1,3 +1,4 @@
+/** Commander-powered CLI command and feature implementation. @module */
 import { Command, InvalidArgumentError } from "commander";
 import { appendFileSync } from "node:fs";
 import {

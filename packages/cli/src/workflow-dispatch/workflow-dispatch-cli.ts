@@ -1,3 +1,4 @@
+/** Commander-powered CLI command and feature implementation. @module */
 import { Option, program } from "commander";
 import { releaseWorkspacePackage } from "./release.ts";
 import { confirm, askText } from "../cli/prompts/index.ts";

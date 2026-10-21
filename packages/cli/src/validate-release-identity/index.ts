@@ -1,3 +1,4 @@
+/** Commander-powered CLI command and feature implementation. @module */
 import process from "node:process";
 import { execFileSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
