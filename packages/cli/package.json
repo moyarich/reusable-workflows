@@ -10,7 +10,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "vite build --config vite.config.ts",
+    "build": "vite build --config vite.config.ts && vite build --config vite.lib.config.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "build:actions": "vite build --config vite.action.config.ts",
     "check:pack": "npm pack --dry-run"
@@ -23,5 +23,14 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "exports": {
+    ".": {
+      "default": "./dist/cli.mjs"
+    },
+    "./release-identity": "./dist/lib/release-identity.mjs",
+    "./workspace-source": "./dist/lib/workspace-source.mjs",
+    "./browser-manifest": "./dist/lib/browser-manifest.mjs",
+    "./package.json": "./package.json"
   }
 }
