@@ -16,10 +16,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         index: resolve(root, "src/index.ts"),
-        "release-identity": resolve(
-          root,
-          "src/release-draft-sync/identity.ts",
-        ),
+        "release-identity": resolve(root, "src/release-draft-sync/identity.ts"),
         "workspace-source": resolve(
           root,
           "src/setup-workspace-tools/setup-workspace-tools.ts",
