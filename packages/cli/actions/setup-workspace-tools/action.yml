@@ -1,0 +1,143 @@
+name: Setup Workspace Tools
+description: Resolve @moyarich/workspace-tools from the npm registry, current checkout, or Git repository.
+
+inputs:
+  workspace-tools-source:
+    description: "auto (current in moyarich/workspace-tools, upstream main elsewhere), registry:npm:<version>, checkout:current, or checkout:upstream;branch:<ref>"
+    required: false
+    default: auto
+  build-command:
+    description: Build command used when source is checkout:current or checkout:upstream.
+    required: false
+    default: npm run build
+
+outputs:
+  bin-dir:
+    description: Directory containing workspace-tools executables.
+    value: ${{ steps.resolve.outputs.bin-dir }}
+  source:
+    description: Resolved tooling source.
+    value: ${{ steps.resolve.outputs.source }}
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node.js for source resolution
+      uses: actions/setup-node@v7
+      with:
+        node-version: "24"
+
+    - name: Choose Workspace Tools source
+      id: source
+      shell: bash
+      env:
+        REQUESTED_SOURCE: ${{ inputs.workspace-tools-source }}
+        CALLER_REPOSITORY: ${{ github.repository }}
+      run: |
+        set -euo pipefail
+        source="$REQUESTED_SOURCE"
+        if [[ -z "$source" || "$source" == auto ]]; then
+          if [[ "$CALLER_REPOSITORY" == moyarich/workspace-tools ]]; then
+            source=checkout:current
+          else
+            source='checkout:upstream;branch:main'
+          fi
+        fi
+        echo "source=$source" >> "$GITHUB_OUTPUT"
+        echo "Workspace Tools source: $source"
+
+    - name: Resolve typed source
+      id: typed
+      shell: bash
+      env:
+        SOURCE: ${{ steps.source.outputs.source }}
+        SETUP_CLI: ${{ github.action_path }}/../dist/setup-workspace-tools.mjs
+      run: node "$SETUP_CLI" --workspace-tools-source "$SOURCE" --mode resolve
+
+    - name: Setup Node.js for published package
+      if: ${{ steps.typed.outputs.mode == 'registry' }}
+      uses: actions/setup-node@v7
+      with:
+        node-version: "24"
+        registry-url: https://registry.npmjs.org
+        scope: "@moyarich"
+
+    - name: Install published Workspace Tools
+      if: ${{ steps.typed.outputs.mode == 'registry' }}
+      shell: bash
+      env:
+        VERSION: ${{ steps.typed.outputs.value }}
+      run: |
+        set -euo pipefail
+        npm install --global "@moyarich/workspace-tools@$VERSION" --registry=https://registry.npmjs.org
+
+    - name: Setup Node.js for repository source
+      if: ${{ steps.typed.outputs.mode == 'upstream' }}
+      uses: actions/setup-node@v7
+      with:
+        node-version: "24"
+        registry-url: https://registry.npmjs.org
+        scope: "@moyarich"
+
+    - name: Checkout upstream Workspace Tools
+      if: ${{ steps.typed.outputs.mode == 'upstream' }}
+      shell: bash
+      env:
+        UPSTREAM_REF: ${{ steps.typed.outputs.value }}
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        TOOL_DIR="$RUNNER_TEMP/workspace-tools-upstream"
+        rm -rf "$TOOL_DIR"
+        mkdir -p "$TOOL_DIR"
+        git -C "$TOOL_DIR" init -q
+        git -C "$TOOL_DIR" remote add origin https://github.com/moyarich/workspace-tools.git
+        git -C "$TOOL_DIR" -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)" fetch --depth=1 origin "$UPSTREAM_REF"
+        git -C "$TOOL_DIR" checkout -q --detach FETCH_HEAD
+
+    - name: Build upstream Workspace Tools
+      if: ${{ steps.typed.outputs.mode == 'upstream' }}
+      shell: bash
+      env:
+        BUILD_COMMAND: ${{ inputs.build-command }}
+        NODE_AUTH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        cd "$RUNNER_TEMP/workspace-tools-upstream"
+        npm ci --include=optional
+        bash -lc "$BUILD_COMMAND"
+        test -f packages/workspace-tools/dist/bin/discover-packages.mjs || { echo "::error::Upstream build missing discover-packages CLI"; exit 1; }
+
+    - name: Build Workspace Tools from current checkout
+      if: ${{ steps.typed.outputs.mode == 'current' }}
+      shell: bash
+      env:
+        BUILD_COMMAND: ${{ inputs.build-command }}
+      run: |
+        set -euo pipefail
+
+        if [ ! -f "packages/workspace-tools/package.json" ]; then
+          echo "::error::source=checkout:current is only supported when the checked-out local package is @moyarich/workspace-tools; expected packages/workspace-tools/package.json"
+          exit 1
+        fi
+
+        bash -lc "$BUILD_COMMAND"
+
+        if [ ! -d "$GITHUB_WORKSPACE/packages/workspace-tools/dist/bin" ]; then
+          echo "::error::Local build did not produce packages/workspace-tools/dist/bin."
+          exit 1
+        fi
+
+    - id: resolve
+      name: Resolve CLI directory
+      shell: bash
+      env:
+        SOURCE: ${{ steps.source.outputs.source }}
+        SETUP_CLI: ${{ github.action_path }}/../dist/setup-workspace-tools.mjs
+      run: |
+        set -euo pipefail
+        args=(--workspace-tools-source "$SOURCE" --mode bin-dir)
+        if [[ "$SOURCE" == registry:npm:* ]]; then
+          args+=(--release-bin "$(readlink -f "$(command -v workspace-release)")")
+        fi
+        node "$SETUP_CLI" "${args[@]}"
