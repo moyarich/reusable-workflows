@@ -73,6 +73,7 @@ jobs:
       use-workspaces: ${{ inputs.use-workspaces }}
       require-publish-config: false
       include-private: ${{ inputs.include-private-release }}
+      write-summary: false
 
   discover-publish:
     needs: preflight
@@ -85,6 +86,7 @@ jobs:
       use-workspaces: ${{ inputs.use-workspaces }}
       require-publish-config: ${{ inputs.require-publish-config }}
       include-private: false
+      write-summary: false
 
   sync:
     name: Update manual release package choices
@@ -158,12 +160,19 @@ jobs:
                       or ".." in path.parts or path.suffix not in (".yml", ".yaml")
                       or path.parts[:2] != (".github", "workflows")):
                   raise SystemExit(f"Invalid workflow path: {filename}")
+              if not path.is_file():
+                  print(f"::notice title=Workflow skipped::{filename} does not exist")
+                  continue
               original = path.read_text(encoding="utf-8")
               workflow = yaml.load(original)
               try:
-                  package_input = workflow["on"]["workflow_dispatch"]["inputs"]["package"]
-              except (KeyError, TypeError):
-                  raise SystemExit(f"Missing workflow_dispatch.inputs.package: {filename}")
+                  dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
+                  package_input = dispatch_inputs.get("package")
+              except (KeyError, TypeError, AttributeError):
+                  package_input = None
+              if package_input is None:
+                  print(f"::notice title=Selector preserved::{filename} has no workflow_dispatch.inputs.package; leaving its input interface unchanged")
+                  continue
               if not isinstance(package_input, dict):
                   raise SystemExit(f"Invalid package input: {filename}")
               if (package_input.get("description") == description
@@ -281,7 +290,7 @@ jobs:
               output.write("| Package | Directory | Version |\n| --- | --- | --- |\n")
               for package in release_packages:
                   output.write(f"| `{package.get('name', '')}` | `{package.get('directory', '')}` | `{package.get('version', '')}` |\n")
-              output.write("\n**Updated selectors:**\n\n")
+              output.write("\n**Configured workflow files (not necessarily modified):**\n\n")
               for filename in files:
                   output.write(f"- `{filename}`\n")
               if os.environ.get("COMMIT_SHA"):
