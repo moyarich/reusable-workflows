@@ -88,7 +88,7 @@ const actionNames = readdirSync(sourceRoot, { withFileTypes: true })
   .sort();
 if (!actionNames.length) throw new Error("No source actions found");
 
-// Root actions/ is fully generated. Vite stages bundles in packages/actions/dist/.
+// Root actions/ is fully generated. Vite stages bundles in packages/actions/dist/.\n// Recreate root actions/ when the entire distribution has been deleted.\nmkdirSync(outputRoot, { recursive: true });
 for (const entry of readdirSync(outputRoot, { withFileTypes: true })) {
   if (
     entry.isDirectory() &&
