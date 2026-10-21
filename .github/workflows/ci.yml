@@ -1,4 +1,4 @@
-name: CLI
+name: CI
 
 on:
   pull_request:
@@ -19,7 +19,7 @@ on:
       - ".prettierignore"
       - "tsconfig.json"
       - "tsconfig.tests.json"
-      - ".github/workflows/cli.yml"
+      - ".github/workflows/ci.yml"
       - ".github/workflows/reusable_actionlint.yml"
 
   workflow_dispatch:
@@ -165,7 +165,7 @@ jobs:
               - '**/playwright.config.*'
               - 'package.json'
               - 'package-lock.json'
-              - '.github/workflows/cli.yml'
+              - '.github/workflows/ci.yml'
 
       # Only install browsers when Playwright is configured
       # and the relevant files have changed (or manually dispatched).

@@ -3,6 +3,10 @@ name: Reusable · Self-heal distribution
 on:
   workflow_call:
     inputs:
+      config-file:
+        description: Caller repository configuration path; defaults to .github/check-dist.config.yml
+        type: string
+        default: .github/check-dist.config.yml
       checkout-sha:
         type: string
         default: ""
@@ -65,6 +69,65 @@ jobs:
           ref: ${{ inputs.checkout-sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Document caller distribution configuration
+        id: distribution-config
+        shell: bash
+        env:
+          CONFIG_FILE: ${{ inputs.config-file }}
+        run: |
+          set -euo pipefail
+          if [[ -f "$CONFIG_FILE" ]]; then
+            {
+              echo "## Distribution configuration"
+              echo
+              echo "Caller configuration found: \`$CONFIG_FILE\`."
+            } >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "$CONFIG_FILE" != ".github/check-dist.config.yml" ]]; then
+            echo "::error::Explicit check-dist config not found: $CONFIG_FILE"
+            exit 1
+          else
+            example="$RUNNER_TEMP/check-dist.config.yml"
+            cat > "$example" <<'YAML'
+          # Copy this file to .github/check-dist.config.yml in the caller repository.
+          defaults:
+            distribution:
+              path: "{package.directory}/dist"
+              commit: false
+            artifacts:
+              enabled: true
+
+          # Example for a package with separate extension and webview outputs.
+          # Replace my-package with the discovered package name.
+          packages:
+            my-package:
+              build-command: npm run build
+              distributions:
+                - name: extension
+                  path: out/extension/
+                - name: webview
+                  path: out/webview-ui/
+          YAML
+            echo "example-path=$example" >> "$GITHUB_OUTPUT"
+            {
+              echo "## Optional distribution configuration"
+              echo
+              echo "No \`.github/check-dist.config.yml\` found in \`$GITHUB_REPOSITORY\`."
+              echo "Download the \`check-dist-config-example\` workflow artifact and copy \`check-dist.config.yml\` into the caller repository's \`.github/\` directory."
+              echo
+              echo '~~~yaml'
+              cat "$example"
+              echo '~~~'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload missing check-dist configuration example
+        if: steps.distribution-config.outputs.example-path != ''
+        uses: actions/upload-artifact@v6
+        with:
+          name: check-dist-config-example
+          path: ${{ steps.distribution-config.outputs.example-path }}
+          if-no-files-found: error
 
       - name: Verify target commit
         if: inputs.repair
@@ -163,11 +226,12 @@ jobs:
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
       - name: Upload rebuilt dist
-        if: always() && steps.compare.outputs.changed == 'true' && (!inputs.commit || failure())
+        if: always() && (!inputs.commit || (steps.compare.outputs.changed == 'true' && failure()))
         uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs.artifact-name }}
           path: ${{ inputs.dist-path }}
+          if-no-files-found: error
 
       - name: Distribution summary
         if: always()
