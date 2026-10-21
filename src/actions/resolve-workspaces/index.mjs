@@ -17,7 +17,23 @@ function globRegex(glob) {
         } else pattern += ".*";
       } else pattern += "[^/]*";
     } else if (c === "?") pattern += "[^/]";
-    else pattern += new Set([".", "+", "^", "$", "(", ")", "{", "}", "|", "[", "]", "\\"]).has(c) ? "\\" + c : c;
+    else
+      pattern += new Set([
+        ".",
+        "+",
+        "^",
+        "$",
+        "(",
+        ")",
+        "{",
+        "}",
+        "|",
+        "[",
+        "]",
+        "\\",
+      ]).has(c)
+        ? "\\" + c
+        : c;
   }
   return new RegExp(pattern + "$");
 }
