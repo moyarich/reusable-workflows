@@ -13,7 +13,7 @@ import {
   parseWorkspaceToolsSource,
   resolveBinDir,
   validateBinDir,
-} from "../src/actions/setup-workspace-tools/setup-workspace-tools";
+} from "../packages/cli/src/actions/setup-workspace-tools/setup-workspace-tools";
 
 describe("Workspace Tools source selection", () => {
   test("accepts latest, pinned versions, local and upstream refs", () => {
