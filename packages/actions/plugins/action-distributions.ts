@@ -13,7 +13,9 @@ import type { Plugin } from "vite";
  * Distribution correctness remains the responsibility of check-dist.
  */
 export function actionDistributions(): Plugin {
-  const script = fileURLToPath(new URL("../scripts/generate-actions.mjs", import.meta.url));
+  const script = fileURLToPath(
+    new URL("../scripts/generate-actions.mjs", import.meta.url),
+  );
   const root = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
   return {
     name: "reusable-workflows:action-distributions",
@@ -26,7 +28,9 @@ export function actionDistributions(): Plugin {
       });
       if (result.error) throw result.error;
       if (result.status !== 0) {
-        throw new Error(`Action distribution generation failed (exit ${result.status ?? "unknown"})`);
+        throw new Error(
+          `Action distribution generation failed (exit ${result.status ?? "unknown"})`,
+        );
       }
     },
   };
