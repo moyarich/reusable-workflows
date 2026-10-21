@@ -127,7 +127,8 @@ for (const name of actionNames) {
     const bundledFile = join(bundledRoot, bundle);
     if (!existsSync(bundledFile))
       throw new Error(`Missing Vite bundle: ${bundledFile}`);
-    cpSync(dirname(bundledFile), outputDir, {
+    cpSync(bundledFile, join(outputDir, "index.mjs"));
+    /* compiled shared assets are copied to actions/assets/ below */\n    /*
       recursive: true,
       force: true,
       filter: (source) => {
@@ -135,7 +136,7 @@ for (const name of actionNames) {
           throw new Error("Refusing symlinked compiled bundle: " + source);
         return true;
       },
-    });
+    }); */
   }
   for (const [target, source] of Object.entries(runtimeFiles[name] ?? {})) {
     const sourceFile = resolve(repositoryRoot, source);
@@ -166,6 +167,23 @@ for (const name of actionNames) {
       throw new Error(`Unresolvable composite runtime in ${name}: ${match[0]}`);
     }
   }
+}
+// Shared Vite chunks and assets live at actions/assets/. Each action entry
+// references them via ../assets/ so generated Actions need only this tree.
+const sharedAssets = join(bundledRoot, "assets");
+if (existsSync(sharedAssets)) {
+  const publicAssets = join(outputRoot, "assets");
+  if (existsSync(publicAssets) && lstatSync(publicAssets).isSymbolicLink()) {
+    throw new Error("Refusing symlinked shared assets directory");
+  }
+  rmSync(publicAssets, { recursive: true, force: true });
+  cpSync(sharedAssets, publicAssets, {
+    recursive: true,
+    filter: (source) => {
+      if (lstatSync(source).isSymbolicLink()) throw new Error("Symlink in shared Vite assets: " + source);
+      return true;
+    },
+  });
 }
 // Staging is disposable. Public bundles must be next to each action.yml.
 rmSync(bundledRoot, { recursive: true, force: true });
