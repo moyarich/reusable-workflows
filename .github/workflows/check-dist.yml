@@ -9,13 +9,14 @@ on:
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/check-dist.yml"
+      - ".github/workflows/reusable_check-dist.yml"
   workflow_dispatch:
     inputs:
       dry-run:
-        description: Preview distribution changes without committing
+        description: Preview regenerated distribution without committing
         type: boolean
-        default: true
         required: true
+        default: true
 
 permissions:
   contents: read
@@ -26,121 +27,20 @@ concurrency:
 
 jobs:
   distribution:
-    name: Build, compare, validate and optionally heal
-    runs-on: ubuntu-latest
+    name: Build, compare, validate and heal distribution
     permissions:
       contents: write
-    steps:
-      - name: Checkout target branch
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: "24"
-
-      - name: Install dependencies
-        run: npm install --no-package-lock --no-audit --no-fund
-
-      - name: Rebuild distribution
-        run: npm run build:cli
-
-      - name: Compare distribution
-        id: compare
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -d actions/dist || { echo "::error::Missing actions/dist"; exit 1; }
-          git add -f -- actions/dist/
-          if git diff --cached --quiet -- actions/dist/; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "Distribution matches committed files."
-          else
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-            git diff --cached --stat -- actions/dist/
-          fi
-
-      - name: Validate regenerated distribution
-        run: npx --no-install vitest run
-
-      - name: Determine repair mode
-        id: mode
-        shell: bash
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          IS_DRY_RUN: ${{ inputs.dry-run }}
-          PR_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
-          REPOSITORY: ${{ github.repository }}
-          TARGET_BRANCH: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
-        run: |
-          set -euo pipefail
-          commit=true
-          if [[ "$EVENT_NAME" == "workflow_dispatch" && "$IS_DRY_RUN" == "true" ]]; then
-            commit=false
-          fi
-          if [[ "$EVENT_NAME" == "pull_request" && "$PR_HEAD_REPOSITORY" != "$REPOSITORY" ]]; then
-            commit=false
-            echo "::warning::Fork pull requests cannot be auto-repaired with this repository token."
-          fi
-          echo "commit=$commit" >> "$GITHUB_OUTPUT"
-          echo "target-branch=$TARGET_BRANCH" >> "$GITHUB_OUTPUT"
-
-      - name: Commit healed distribution
-        if: steps.compare.outputs.changed == 'true' && steps.mode.outputs.commit == 'true'
-        shell: bash
-        env:
-          TARGET_BRANCH: ${{ steps.mode.outputs.target-branch }}
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "build: update action distribution"
-          git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)" push origin "HEAD:refs/heads/$TARGET_BRANCH"
-
-      - name: Verify target branch and record SHA
-        id: result
-        shell: bash
-        env:
-          TARGET_BRANCH: ${{ steps.mode.outputs.target-branch }}
-          GH_TOKEN: ${{ github.token }}
-          CHANGED: ${{ steps.compare.outputs.changed }}
-          COMMIT_CHANGES: ${{ steps.mode.outputs.commit }}
-        run: |
-          set -euo pipefail
-          sha="$(git rev-parse HEAD)"
-          if [[ "$COMMIT_CHANGES" == "true" || "$CHANGED" != "true" ]]; then
-            remote="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TARGET_BRANCH" --jq .sha)"
-            test "$remote" = "$sha" || { echo "::error::Target branch advanced during distribution validation"; exit 1; }
-          fi
-          echo "sha=$sha" >> "$GITHUB_OUTPUT"
-
-      - name: Upload preview or failed distribution
-        if: always() && steps.compare.outputs.changed == 'true' && steps.mode.outputs.commit != 'true'
-        uses: actions/upload-artifact@v6
-        with:
-          name: action-dist-preview
-          path: actions/dist/
-
-      - name: Distribution summary
-        if: always()
-        env:
-          CHANGED: ${{ steps.compare.outputs.changed || 'unknown' }}
-          COMMIT_CHANGES: ${{ steps.mode.outputs.commit || 'false' }}
-          HEAD_SHA: ${{ steps.result.outputs.sha }}
-          RESULT: ${{ job.status }}
-        run: |
-          {
-            echo "## Action distribution"
-            echo
-            echo "| Check | Result |"
-            echo "| --- | --- |"
-            echo "| Distribution differs | $CHANGED |"
-            echo "| Commit enabled | $COMMIT_CHANGES |"
-            echo "| Result | $RESULT |"
-            if [[ -n "$HEAD_SHA" ]]; then printf '| SHA | `%s` |\n' "$HEAD_SHA"; fi
-          } >> "$GITHUB_STEP_SUMMARY"
+    uses: ./.github/workflows/reusable_check-dist.yml
+    with:
+      dist-path: actions/dist/
+      build-command: npm run build:cli
+      install-command: npm install --no-package-lock --no-audit --no-fund
+      validation-command: npx --no-install vitest run
+      node-version: "24"
+      node-caching: ""
+      artifact-name: action-dist-preview
+      repair: true
+      commit: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || (github.event_name == 'workflow_dispatch' && !inputs.dry-run) }}
+      checkout-sha: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      expected-sha: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      target-branch: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
