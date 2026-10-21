@@ -36,7 +36,7 @@ runs:
           python3 -m venv "$RUNNER_TEMP/check-dist-schema-venv"
           "$RUNNER_TEMP/check-dist-schema-venv/bin/pip" install --quiet check-jsonschema
           "$RUNNER_TEMP/check-dist-schema-venv/bin/check-jsonschema" \
-            --schemafile "$GITHUB_ACTION_PATH/../../reusable-configurations/check-dist-config.schema.json" \
+            --schemafile "$GITHUB_ACTION_PATH/config.schema.json" \
             "$CONFIG_FILE"
         fi
     - name: Select packages
@@ -48,4 +48,4 @@ runs:
         DIST_PATH_OVERRIDE: ${{ inputs.dist-path }}
         BUILD_COMMAND_OVERRIDE: ${{ inputs.build-command }}
         CONFIG_FILE: ${{ inputs.config-path }}
-      run: node "$GITHUB_ACTION_PATH/../../packages/cli/src/actions/check-dist/select.mjs"
+      run: node "$GITHUB_ACTION_PATH/select.mjs"

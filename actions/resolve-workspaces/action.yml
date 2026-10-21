@@ -30,5 +30,5 @@ runs:
       run: |
         args=(--package="$PACKAGE_SELECTOR" --range="$RANGE" --output="$OUTPUT")
         if [ "$WRITE" = "true" ]; then args+=(--write); fi
-        node "$GITHUB_ACTION_PATH/../../packages/cli/src/actions/resolve-workspaces/index.mjs" "${args[@]}"
+        node "$GITHUB_ACTION_PATH/index.mjs" "${args[@]}"
         echo "report=$OUTPUT" >> "$GITHUB_OUTPUT"
