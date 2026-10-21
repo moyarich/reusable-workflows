@@ -3,7 +3,7 @@ import {
   parseReleaseMarker,
   validateReleaseMarker,
   writeReleaseMarker,
-} from "../src/actions/release-draft-sync/identity.ts";
+} from "../packages/cli/src/actions/release-draft-sync/identity.ts";
 const identity = {
   package: "@moyarich/workspace-tools",
   version: "0.2.0",
