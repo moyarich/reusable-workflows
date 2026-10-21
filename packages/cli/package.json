@@ -10,7 +10,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "vite build --config vite.config.ts && vite build --config vite.lib.config.ts",
+    "build": "vite build --config vite.config.ts && vite build --config vite.lib.config.ts && tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "build:actions": "vite build --config vite.action.config.ts",
     "check:pack": "npm pack --dry-run"
@@ -26,11 +26,22 @@
   },
   "exports": {
     ".": {
-      "default": "./dist/cli.mjs"
+      "types": "./dist/types/index.d.ts",
+      "default": "./dist/lib/index.mjs"
     },
-    "./release-identity": "./dist/lib/release-identity.mjs",
-    "./workspace-source": "./dist/lib/workspace-source.mjs",
-    "./browser-manifest": "./dist/lib/browser-manifest.mjs",
+    "./release-identity": {
+      "types": "./dist/types/actions/release-draft-sync/identity.d.ts",
+      "default": "./dist/lib/release-identity.mjs"
+    },
+    "./workspace-source": {
+      "types": "./dist/types/actions/setup-workspace-tools/setup-workspace-tools.d.ts",
+      "default": "./dist/lib/workspace-source.mjs"
+    },
+    "./browser-manifest": {
+      "types": "./dist/types/actions/browser-extension-publish/manifest.d.ts",
+      "default": "./dist/lib/browser-manifest.mjs"
+    },
     "./package.json": "./package.json"
-  }
+  },
+  "types": "./dist/types/index.d.ts"
 }
