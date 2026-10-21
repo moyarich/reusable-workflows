@@ -4,12 +4,12 @@ The npm CLI and the GitHub Action distribution are independent products, built f
 shared source in `packages/cli/src/`. Never treat `actions/dist/` as an npm
 publication directory or the npm `dist/` folder as a GitHub Action runtime.
 
-| Product | Sources | Build command (repository root) | Output | Consumer |
-| --- | --- | --- | --- | --- |
-| npm executable | `packages/cli/src/cli.ts` | `npm run build:package` | `packages/cli/dist/cli.mjs` | npm `bin.reusable-workflows` |
-| npm importable modules | side-effect-free modules in `packages/cli/src/actions/` | `npm run build:package` | `packages/cli/dist/lib/*.mjs` | npm package `exports` |
-| JavaScript GitHub Actions | `packages/cli/src/actions/*/index.ts` | `npm run build:actions` | `actions/dist/*.mjs` | `actions/*/action.yml` |
-| Composite Actions | `actions/*/action.yml` or source-side composite metadata | no JavaScript bundling required for shell steps | repository source | GitHub `uses:` |
+| Product                   | Sources                                                  | Build command (repository root)                 | Output                        | Consumer                     |
+| ------------------------- | -------------------------------------------------------- | ----------------------------------------------- | ----------------------------- | ---------------------------- |
+| npm executable            | `packages/cli/src/cli.ts`                                | `npm run build:package`                         | `packages/cli/dist/cli.mjs`   | npm `bin.reusable-workflows` |
+| npm importable modules    | side-effect-free modules in `packages/cli/src/actions/`  | `npm run build:package`                         | `packages/cli/dist/lib/*.mjs` | npm package `exports`        |
+| JavaScript GitHub Actions | `packages/cli/src/actions/*/index.ts`                    | `npm run build:actions`                         | `actions/dist/*.mjs`          | `actions/*/action.yml`       |
+| Composite Actions         | `actions/*/action.yml` or source-side composite metadata | no JavaScript bundling required for shell steps | repository source             | GitHub `uses:`               |
 
 ## Rules
 
@@ -28,7 +28,7 @@ publication directory or the npm `dist/` folder as a GitHub Action runtime.
    `packages/cli/dist/` when rebuilding GitHub Actions.
 6. CI must run `npm run build:actions`, `npm run build:package`,
    `npm run typecheck`, and `npm pack --workspace
-   @moyarich/reusable-workflows-cli --dry-run` before release.
+@moyarich/reusable-workflows-cli --dry-run` before release.
 7. Version the CLI and its public module exports together. Preserve existing
    GitHub Action paths and user-facing command names when refactoring.
 
