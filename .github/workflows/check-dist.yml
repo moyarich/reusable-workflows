@@ -9,7 +9,7 @@ on:
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/check-dist.yml"
-      - ".github/workflows/reusable_check-dist.yml"
+      - ".github/workflows/reusable_self-heal-dist.yml"
   workflow_dispatch:
     inputs:
       dry-run:
@@ -30,7 +30,7 @@ jobs:
     name: Build, compare, validate and heal distribution
     permissions:
       contents: write
-    uses: ./.github/workflows/reusable_check-dist.yml
+    uses: ./.github/workflows/reusable_self-heal-dist.yml
     with:
       dist-path: actions/dist/
       build-command: npm run build:cli
