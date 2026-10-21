@@ -88,6 +88,20 @@ jobs:
         id: build-package
         run: npm run build:package
 
+      - name: Bundle GitHub Actions
+        id: build-actions
+        run: npm run build:actions
+
+      - name: Verify npm exports and action bundles
+        run: |
+          node --input-type=module -e "import { parseWorkspaceToolsSource } from '@moyarich/reusable-workflows-cli'; if (parseWorkspaceToolsSource('registry:npm:latest').mode !== 'registry') process.exit(1)"
+          test -f actions/dist/setup-workspace-tools.mjs
+          test -f actions/dist/release-draft-sync.mjs
+          test -f actions/dist/validate-release-identity.mjs
+          test -f actions/dist/check-dist.mjs
+          test -f packages/cli/dist/lib/index.mjs
+          test -f packages/cli/dist/types/index.d.ts
+
       - name: Run Vitest
         id: vitest
         run: npx --no-install vitest run
