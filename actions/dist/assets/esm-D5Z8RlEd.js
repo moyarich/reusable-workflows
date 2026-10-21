@@ -1,7 +1,7 @@
 import require$$0 from "node:events";
 import require$$1 from "node:child_process";
 import path from "node:path";
-import require$$3 from "node:fs";
+import fs from "node:fs";
 import process from "node:process";
 function getDefaultExportFromCjs(x) {
   return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, "default") ? x["default"] : x;
@@ -1178,7 +1178,7 @@ function requireCommand() {
   const EventEmitter = require$$0.EventEmitter;
   const childProcess = require$$1;
   const path$1 = path;
-  const fs = require$$3;
+  const fs$1 = fs;
   const process$1 = process;
   const { Argument: Argument2, humanReadableArgName } = requireArgument();
   const { CommanderError: CommanderError2 } = requireError();
@@ -2171,7 +2171,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
      * @param {string} subcommandName
      */
     _checkForMissingExecutable(executableFile, executableDir, subcommandName) {
-      if (fs.existsSync(executableFile)) return;
+      if (fs$1.existsSync(executableFile)) return;
       const executableDirMessage = executableDir ? `searched for local subcommand relative to directory '${executableDir}'` : "no directory for search for local subcommand, use .executableDir() to supply a custom directory";
       const executableMissing = `'${executableFile}' does not exist
  - if '${subcommandName}' is not meant to be an executable command, remove description parameter from '.command()' and use '.description()' instead
@@ -2190,10 +2190,10 @@ Expecting one of '${allowedValues.join("', '")}'`);
       const sourceExt = [".js", ".ts", ".tsx", ".mjs", ".cjs"];
       function findFile(baseDir, baseName) {
         const localBin = path$1.resolve(baseDir, baseName);
-        if (fs.existsSync(localBin)) return localBin;
+        if (fs$1.existsSync(localBin)) return localBin;
         if (sourceExt.includes(path$1.extname(baseName))) return void 0;
         const foundExt = sourceExt.find(
-          (ext) => fs.existsSync(`${localBin}${ext}`)
+          (ext) => fs$1.existsSync(`${localBin}${ext}`)
         );
         if (foundExt) return `${localBin}${foundExt}`;
         return void 0;
@@ -2205,7 +2205,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
       if (this._scriptPath) {
         let resolvedScriptPath;
         try {
-          resolvedScriptPath = fs.realpathSync(this._scriptPath);
+          resolvedScriptPath = fs$1.realpathSync(this._scriptPath);
         } catch {
           resolvedScriptPath = this._scriptPath;
         }
