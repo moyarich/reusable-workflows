@@ -9,7 +9,7 @@ inputs:
     default: caret
   write:
     description: Update selected package.json manifests in this checkout
-    default: 'false'
+    default: "false"
   output:
     description: JSON report path relative to workspace root
     default: resolve-workspaces.json
