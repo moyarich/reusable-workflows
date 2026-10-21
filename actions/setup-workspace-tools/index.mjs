@@ -1,4 +1,4 @@
-import { I as InvalidArgumentError, C as Command } from "./assets/esm-C5EVGJJV.js";
+import { I as InvalidArgumentError, C as Command } from "../_assets/esm-C5EVGJJV.mjs";
 import { existsSync, appendFileSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import "node:events";

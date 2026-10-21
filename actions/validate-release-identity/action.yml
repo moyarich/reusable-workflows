@@ -21,4 +21,4 @@ outputs:
     description: v2, legacy, or none.
 runs:
   using: node24
-  main: ../dist/validate-release-identity.mjs
+  main: index.mjs

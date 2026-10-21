@@ -51,7 +51,7 @@ runs:
       shell: bash
       env:
         SOURCE: ${{ steps.source.outputs.source }}
-        SETUP_CLI: ${{ github.action_path }}/../dist/setup-workspace-tools.mjs
+        SETUP_CLI: ${{ github.action_path }}/index.mjs
       run: node "$SETUP_CLI" --workspace-tools-source "$SOURCE" --mode resolve
 
     - name: Setup Node.js for published package

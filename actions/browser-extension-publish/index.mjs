@@ -1,4 +1,4 @@
-import { C as Command, I as InvalidArgumentError } from "./assets/esm-C5EVGJJV.js";
+import { C as Command, I as InvalidArgumentError } from "../_assets/esm-C5EVGJJV.mjs";
 import { readFileSync, appendFileSync, existsSync, mkdirSync } from "node:fs";
 import { join, resolve, relative } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -160,3 +160,6 @@ program.command("publish-firefox").requiredOption("--build-directory <dir>").opt
   console.log("Firefox Add-ons submission completed");
 });
 await program.parseAsync();
+export {
+  chromePublish
+};
