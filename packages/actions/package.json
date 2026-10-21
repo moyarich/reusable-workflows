@@ -1,0 +1,10 @@
+{
+  "name": "@moyarich/reusable-workflows-actions",
+  "version": "0.2.2",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-actions.mjs",
+    "typecheck": "tsc --noEmit --project tsconfig.json"
+  }
+}
