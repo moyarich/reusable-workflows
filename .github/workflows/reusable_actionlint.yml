@@ -19,7 +19,8 @@ jobs:
         id: actionlint
         shell: bash
         run: |
-          docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.7 -color -shellcheck=
+          docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.7 -color -shellcheck= \
+            -ignore 'property "workflow_(repository|sha|ref)" is not defined'
       - name: Workflow validation summary
         if: always()
         env:
