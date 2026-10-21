@@ -30,6 +30,9 @@ on:
         description: Optional generated action distribution path
         type: string
         default: ""
+      dist-install-command:
+        type: string
+        default: npm install --no-package-lock --no-audit --no-fund
       dist-build-command:
         type: string
         default: npm run build:cli
@@ -81,6 +84,7 @@ jobs:
     with:
       dist-path: ${{ inputs.dist-path }}
       commit: ${{ inputs.commit }}
+      install-command: ${{ inputs.dist-install-command }}
       build-command: ${{ inputs.dist-build-command }}
       validation-command: ${{ inputs.dist-test-command }}
       target-branch: ${{ inputs.target-branch }}
@@ -89,7 +93,7 @@ jobs:
 
   required-workflow:
     needs: [package-lock, prettier, action-dist]
-    if: ${{ always() && (needs.package-lock.result == 'success' || needs.package-lock.result == 'skipped') && (needs.prettier.result == 'success' || needs.prettier.result == 'skipped') && (needs.action-dist.result == 'success' || needs.action-dist.result == 'skipped') }}
+    if: ${{ always() && (needs.package-lock.result == 'success' || needs.package-lock.result == 'skipped') && (needs.prettier.result == 'success' || needs.prettier.result == 'skipped') && (needs.action-dist.result == 'success' || needs.action-dist.result == 'skipped') && inputs.commit }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
