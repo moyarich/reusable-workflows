@@ -41,7 +41,6 @@
     "typescript-eslint": "^8.70.0",
     "@types/node": "^24.3.1",
     "@eslint/js": "^10.0.1",
-    "eslint": "^10.0.0",
-    "@moyarich/vite-github-actions": "git+https://github.com/moyarich/vite-github-actions.git#main"
+    "eslint": "^10.0.0"
   }
 }
