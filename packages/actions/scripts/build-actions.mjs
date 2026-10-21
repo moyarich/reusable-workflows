@@ -16,6 +16,6 @@ run("npm", [
   "vite",
   "build",
   "--config",
-  "packages/cli/vite.action.config.ts",
+  "packages/actions/vite.config.ts",
 ]);
-run(process.execPath, ["packages/cli/scripts/generate-actions.mjs"]);
+run(process.execPath, ["packages/actions/scripts/generate-actions.mjs"]);
