@@ -106,7 +106,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -x node_modules/.bin/prettier || { echo "::error::Prettier must be installed by npm ci"; exit 1; }
+          if [[ ! -x node_modules/.bin/prettier ]]; then
+            echo "Prettier is not a direct dependency; install an isolated runner-only copy."
+            npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund prettier@3.9.10
+          fi
+          test -x node_modules/.bin/prettier || { echo "::error::Unable to resolve Prettier"; exit 1; }
           echo "version=$(node_modules/.bin/prettier --version)" >> "$GITHUB_OUTPUT"
 
       - name: Resolve Prettier configuration and ignores
