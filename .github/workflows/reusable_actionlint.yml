@@ -34,7 +34,12 @@ jobs:
           printf '{}\n' > "$RUNNER_TEMP/actionlint-empty.yaml"
           "$ACTIONLINT" -config-file "$RUNNER_TEMP/actionlint-empty.yaml" -format '{{json .}}' -shellcheck= > "$RAW" 2>&1 || true
           status=0
-          "$ACTIONLINT" -config-file .github/actionlint.yaml -format '{{json .}}' -shellcheck= > "$FILTERED" 2>&1 || status=$?
+          if [[ -f .github/actionlint.yaml ]]; then
+            "$ACTIONLINT" -config-file .github/actionlint.yaml -format '{{json .}}' -shellcheck= > "$FILTERED" 2>&1 || status=$?
+          else
+            echo "No .github/actionlint.yaml found; validating without suppressions."
+            "$ACTIONLINT" -config-file "$RUNNER_TEMP/actionlint-empty.yaml" -format '{{json .}}' -shellcheck= > "$FILTERED" 2>&1 || status=$?
+          fi
           cat "$FILTERED"
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
           exit "$status"
@@ -52,12 +57,12 @@ jobs:
           raw = Path(os.environ["RUNNER_TEMP"], "actionlint-raw.txt")
           filtered = Path(os.environ["RUNNER_TEMP"], "actionlint-filtered.txt")
           # Read suppression patterns from the repository configuration.
-          config = Path(".github/actionlint.yaml").read_text()
+          config_path = Path(".github/actionlint.yaml")
+          config = config_path.read_text() if config_path.is_file() else ""
           rules = [(match.group(1), match.group(1).replace("''", "'"))
                    for line in config.splitlines()
                    if (match := re.match(r"^\s+-\s+'(.*)'\s*$", line))]
-          if not rules:
-              raise RuntimeError("No actionlint suppression patterns found in .github/actionlint.yaml")
+          # Missing or empty configuration means no suppression rules.
 
           def diagnostics(path):
               if not path.exists():
