@@ -32,10 +32,7 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": [
-          "name",
-          "directory"
-        ],
+        "required": ["name", "directory"],
         "properties": {
           "name": {
             "type": "string",
