@@ -18,7 +18,7 @@ on:
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/ci_prettier.yml"
-      - ".github/workflows/reusable_ci_prettier.yml"
+      - ".github/workflows/reusable_self-heal-prettier.yml"
   pull_request:
     paths:
       - "**/*.js"
@@ -35,7 +35,7 @@ on:
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/ci_prettier.yml"
-      - ".github/workflows/reusable_ci_prettier.yml"
+      - ".github/workflows/reusable_self-heal-prettier.yml"
   workflow_dispatch:
     inputs:
       checkout-sha:
@@ -53,6 +53,8 @@ permissions:
 
 jobs:
   prettier:
-    uses: $/.github/workflows/reusable_ci_prettier.yml
+    uses: $/.github/workflows/reusable_self-heal-prettier.yml
     with:
-      checkout-sha: ${{ inputs.checkout-sha }}
+      mode: check
+      commit: false
+      prettier-config: this-repository
