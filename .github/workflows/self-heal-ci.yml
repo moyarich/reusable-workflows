@@ -21,10 +21,14 @@ on:
       - "actions/**"
       - ".github/workflows/self-heal-ci.yml"
   workflow_dispatch:
+    inputs:
+      commit:
+        description: Commit regenerated action bundles
+        type: boolean
+        default: true
 
 permissions:
   contents: write
-  actions: write
   packages: read
 
 concurrency:
@@ -33,86 +37,20 @@ concurrency:
 
 jobs:
   action-dist:
-    name: Rebuild and commit action distribution
+    name: Rebuild and repair action distribution
     if: ${{ !contains(github.event.head_commit.message, '[skip action-dist self-heal]') }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout triggering branch
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.ref_name }}
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.0.0
-        with:
-          node-version: "24"
-
-      - name: Install build dependencies
-        run: npm install --no-package-lock --no-audit --no-fund
-
-      # The dedicated ci_* workflows own validation and repairs; this job only regenerates action bundles.
-      - name: Build action distribution
-        run: npm run build:actions
-
-      - name: Verify rebuilt action entrypoints
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -f actions/setup-workspace-tools/action.yml
-          test -f actions/setup-workspace-tools/index.mjs
-          test -f actions/release-draft-sync/action.yml
-          test -f actions/parse-typed-inputs/action.yml
-          test -f actions/validate-package-changelogs/action.yml
-
-      - name: Commit rebuilt action distribution
-        id: commit
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          git add -f -- actions/
-          if git diff --cached --quiet; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "Action distribution is already current."
-            exit 0
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "build: update action distribution [skip action-dist self-heal]"
-          # GITHUB_TOKEN commits do not create another push workflow run.
-          auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
-          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" push origin "HEAD:refs/heads/${GITHUB_REF_NAME}"
-          echo "changed=true" >> "$GITHUB_OUTPUT"
-
-      - name: Dispatch read-only distribution validation for healed head
-        if: steps.commit.outputs.changed == 'true'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          gh workflow run check-dist.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME" --field package=packages/actions --field dry-run=true --field commit=false
-
-      - name: Self-heal summary
-        if: always()
-        shell: bash
-        env:
-          BUILD: ${{ steps.commit.outcome }}
-          CHANGED: ${{ steps.commit.outputs.changed }}
-          RESULT: ${{ job.status }}
-        run: |
-          {
-            echo "## Action distribution self-heal"
-            echo
-            echo "| Check | Result |"
-            echo "| --- | --- |"
-            echo '| Source | `packages/cli/src/actions/` |'
-            echo '| Distribution | `actions/` (generated metadata and bundles) |'
-            echo "| Commit step | $BUILD |"
-            echo "| Distribution updated | ${CHANGED:-not completed} |"
-            echo "| Result | $RESULT |"
-          } >> "$GITHUB_STEP_SUMMARY"
+    permissions:
+      contents: write
+    uses: $/.github/workflows/reusable_self-heal-dist.yml
+    with:
+      checkout-sha: ${{ github.sha }}
+      expected-sha: ${{ github.sha }}
+      target-branch: ${{ github.ref_name }}
+      dist-path: actions/
+      build-command: npm run build:actions
+      install-command: npm install --no-package-lock --no-audit --no-fund
+      validation-command: "test -f actions/setup-workspace-tools/action.yml && test -f actions/setup-workspace-tools/index.mjs && test -f actions/release-draft-sync/action.yml && test -f actions/parse-typed-inputs/action.yml && test -f actions/validate-package-changelogs/action.yml"
+      artifact-name: github-actions-distribution
+      node-version: "24"
+      repair: true
+      commit: ${{ github.event_name != 'workflow_dispatch' || inputs.commit }}
