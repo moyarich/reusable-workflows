@@ -66,9 +66,9 @@ fs.appendFileSync(
   required("GITHUB_OUTPUT"),
   "matrix=" + JSON.stringify(matrix) + "\n",
 );
-fs.appendFileSync(process.env.GITHUB_OUTPUT, "has-packages=true\n");
+fs.appendFileSync(required("GITHUB_OUTPUT"), "has-packages=true\n");
 fs.appendFileSync(
-  process.env.GITHUB_OUTPUT,
+  required("GITHUB_OUTPUT"),
   "single-package=" + (selected.length === 1) + "\n",
 );
 console.log(
