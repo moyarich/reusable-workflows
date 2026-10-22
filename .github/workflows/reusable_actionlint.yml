@@ -61,7 +61,7 @@ jobs:
                   parsed = json.loads(path.read_text(errors="replace"))
               except json.JSONDecodeError as exc:
                   raise RuntimeError(f"Could not parse actionlint JSON at {path}: {exc}")
-              if not isinstance(parsed, list):
+              if parsed is None:\n                  return []\n              if not isinstance(parsed, list):
                   raise RuntimeError(f"Unexpected actionlint output at {path}: expected array")
               return parsed
 
