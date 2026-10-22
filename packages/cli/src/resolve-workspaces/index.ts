@@ -1,4 +1,3 @@
-import type { ErrnoException } from "node:util";
 type Manifest = {
   name: string;
   version: string;
@@ -182,7 +181,8 @@ export async function resolveWorkspaces({
   const selected = new Set(chosen.map((item) => item.pkg.name));
   function include(name: string) {
     const item = byName.get(name);
-    for (const field of ["dependencies", "optionalDependencies"]) {
+    if (!item) throw new Error("Unknown workspace: " + name);
+    for (const field of ["dependencies", "optionalDependencies"] as Field[]) {
       for (const dep of Object.keys(item.pkg[field] ?? {})) {
         if (!byName.has(dep) || selected.has(dep)) continue;
         selected.add(dep);
