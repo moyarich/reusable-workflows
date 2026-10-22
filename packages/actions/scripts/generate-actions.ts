@@ -5,11 +5,13 @@ import {
   lstatSync,
   realpathSync,
   readFileSync,
+  writeFileSync,
   readdirSync,
   rmSync,
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { transpileModule, ModuleKind, ScriptTarget } from "typescript";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repositoryRoot = resolve(packageRoot, "../..");
@@ -25,20 +27,20 @@ const bundles = new Map([
 
 // Composite actions ship their runtime dependencies beside action.yml.
 // Referencing packages/cli/src in a published action is not portable.
-const runtimeFiles = {
+const runtimeFiles: Record<string, Record<string, string>> = {
   "check-dist": {
-    "select.mjs": "packages/cli/src/check-dist/select.mjs",
+    "select.mjs": "packages/cli/src/check-dist/select.ts",
     "config.schema.json":
       ".github/reusable-configurations/check-dist-config.schema.json",
   },
   "resolve-workspaces": {
-    "index.mjs": "packages/cli/src/resolve-workspaces/index.mjs",
+    "index.mjs": "packages/cli/src/resolve-workspaces/index.ts",
   },
   "workflow-dispatch": {
-    "index.mjs": "packages/cli/src/workflow-dispatch/workflow-dispatch.mjs",
+    "index.mjs": "packages/cli/src/workflow-dispatch/workflow-dispatch.ts",
   },
   "verify-workflow-runs": {
-    "index.mjs": "packages/cli/src/verify-workflow-runs/index.mjs",
+    "index.mjs": "packages/cli/src/verify-workflow-runs/index.ts",
   },
 };
 
@@ -129,7 +131,21 @@ for (const name of actionNames) {
     const sourceFile = resolve(repositoryRoot, source);
     if (!existsSync(sourceFile))
       throw new Error(`Missing action runtime: ${source}`);
-    cpSync(sourceFile, join(outputDir, target));
+    if (sourceFile.endsWith(".ts")) {
+      const js = transpileModule(readFileSync(sourceFile, "utf8"), {
+        fileName: sourceFile,
+        compilerOptions: {
+          module: ModuleKind.ESNext,
+          target: ScriptTarget.ES2022,
+        },
+        reportDiagnostics: true,
+      });
+      if (js.diagnostics?.length)
+        throw new Error("TypeScript transpilation errors in " + source);
+      writeFileSync(join(outputDir, target), js.outputText);
+    } else {
+      cpSync(sourceFile, join(outputDir, target));
+    }
   }
   const actionFile = join(outputDir, "action.yml");
   const metadata = readFileSync(actionFile, "utf8");

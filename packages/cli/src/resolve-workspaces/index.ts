@@ -1,10 +1,46 @@
+type Manifest = {
+  name: string;
+  version: string;
+  private?: boolean;
+  workspaces?: string[] | { packages: string[] };
+  dependencies?: Record<string, string>;
+  optionalDependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
+};
+type Field = "dependencies" | "optionalDependencies" | "peerDependencies";
+type Workspace = { directory: string; absolute: string; pkg: Manifest };
+type Dependency = {
+  name: string;
+  field: Field;
+  original: string;
+  resolved: string;
+  version: string;
+  publishDependency: boolean;
+};
+type Change = { field: Field; name: string; from: string; to: string };
+type ResultPackage = {
+  name: string;
+  version: string;
+  directory: string;
+  private: boolean;
+  publishable: boolean;
+  dependencies: Dependency[];
+  changes: Change[];
+  manifest: Manifest;
+  absolute: string;
+};
 import { readFile, writeFile, mkdir, readdir } from "node:fs/promises";
 import path from "node:path";
 
-const fields = ["dependencies", "optionalDependencies", "peerDependencies"];
-const read = async (file) => JSON.parse(await readFile(file, "utf8"));
-const slash = (value) => value.split(path.sep).join("/");
-function globRegex(glob) {
+const fields: Field[] = [
+  "dependencies",
+  "optionalDependencies",
+  "peerDependencies",
+];
+const read = async (file: string): Promise<Manifest> =>
+  JSON.parse(await readFile(file, "utf8")) as Manifest;
+const slash = (value: string) => value.split(path.sep).join("/");
+function globRegex(glob: string) {
   let pattern = "^";
   for (let i = 0; i < glob.length; i++) {
     const c = glob[i];
@@ -37,9 +73,9 @@ function globRegex(glob) {
   }
   return new RegExp(pattern + "$");
 }
-async function manifests(root, patterns) {
-  const found = [];
-  async function walk(dir) {
+async function manifests(root: string, patterns: string[]) {
+  const found: Array<{ directory: string; absolute: string }> = [];
+  async function walk(dir: string) {
     for (const entry of await readdir(dir, { withFileTypes: true })) {
       if (
         !entry.isDirectory() ||
@@ -57,7 +93,7 @@ async function manifests(root, patterns) {
           await read(path.join(full, "package.json"));
           found.push({ directory: relative, absolute: full });
         } catch (error) {
-          if (error.code !== "ENOENT") throw error;
+          if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
         }
       }
       await walk(full);
@@ -66,7 +102,7 @@ async function manifests(root, patterns) {
   await walk(root);
   return found;
 }
-function batchesFor(packages) {
+function batchesFor(packages: ResultPackage[]) {
   const remaining = new Map(
     packages.map((p) => [
       p.name,
@@ -75,7 +111,7 @@ function batchesFor(packages) {
       ),
     ]),
   );
-  const waves = [];
+  const waves: string[][] = [];
   while (remaining.size) {
     const ready = [...remaining]
       .filter(([, deps]) => deps.size === 0)
@@ -99,6 +135,12 @@ export async function resolveWorkspaces({
   range = "caret",
   write = false,
   output = "resolve-workspaces.json",
+}: {
+  cwd?: string;
+  packageSelector?: string;
+  range?: string;
+  write?: boolean;
+  output?: string;
 } = {}) {
   if (!["caret", "exact", "tilde"].includes(range))
     throw new Error("Invalid range: " + range);
@@ -118,7 +160,7 @@ export async function resolveWorkspaces({
       pkg: await read(path.join(item.absolute, "package.json")),
     })),
   );
-  const byName = new Map();
+  const byName = new Map<string, Workspace>();
   for (const item of all) {
     if (!item.pkg.name || !item.pkg.version)
       throw new Error("Missing name or version: " + item.directory);
@@ -137,9 +179,10 @@ export async function resolveWorkspaces({
   if (!chosen.length)
     throw new Error("Unknown workspace selector: " + packageSelector);
   const selected = new Set(chosen.map((item) => item.pkg.name));
-  function include(name) {
+  function include(name: string) {
     const item = byName.get(name);
-    for (const field of ["dependencies", "optionalDependencies"]) {
+    if (!item) throw new Error("Unknown workspace: " + name);
+    for (const field of ["dependencies", "optionalDependencies"] as Field[]) {
       for (const dep of Object.keys(item.pkg[field] ?? {})) {
         if (!byName.has(dep) || selected.has(dep)) continue;
         selected.add(dep);
@@ -148,11 +191,11 @@ export async function resolveWorkspaces({
     }
   }
   for (const item of chosen) include(item.pkg.name);
-  const result = [];
+  const result: ResultPackage[] = [];
   for (const item of all.filter((x) => selected.has(x.pkg.name))) {
     const next = structuredClone(item.pkg);
-    const dependencies = [],
-      changes = [];
+    const dependencies: Dependency[] = [],
+      changes: Change[] = [];
     for (const field of fields)
       for (const [name, spec] of Object.entries(next[field] ?? {})) {
         const local = byName.get(name);
@@ -164,14 +207,14 @@ export async function resolveWorkspaces({
             : (range === "caret" ? "^" : "~") + version;
         // Preserve intentional constraints. Only rewrite broad local wildcards.
         if (spec === "*" || spec === "x" || spec === "X") {
-          next[field][name] = resolved;
+          (next[field] ??= {})[name] = resolved;
           changes.push({ field, name, from: spec, to: resolved });
         }
         dependencies.push({
           name,
           field,
           original: spec,
-          resolved: next[field][name],
+          resolved: next[field]?.[name] ?? spec,
           version,
           publishDependency: field !== "peerDependencies" && selected.has(name),
         });
@@ -219,9 +262,7 @@ export async function resolveWorkspaces({
       batches: batches.length,
     },
     packages: result.map((item) => {
-      const publicItem = { ...item };
-      delete publicItem.absolute;
-      delete publicItem.manifest;
+      const { absolute: _absolute, manifest: _manifest, ...publicItem } = item;
       return publicItem;
     }),
     publish: {

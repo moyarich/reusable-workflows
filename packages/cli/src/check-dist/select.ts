@@ -1,9 +1,19 @@
+type Package = { name: string; directory: string; [key: string]: unknown };
+type Config = {
+  packages?: Record<string, { distPath?: string; buildCommand?: string }>;
+  extraPackages?: Package[];
+};
+const required = (name: string): string => {
+  const value = process.env[name];
+  if (!value) throw new Error("Missing " + name);
+  return value;
+};
 import fs from "node:fs";
 import { execFileSync } from "node:child_process";
 
-const report = JSON.parse(process.env.DISCOVERED);
-const configPath = process.env.CONFIG_FILE;
-const config = fs.existsSync(configPath)
+const report = JSON.parse(required("DISCOVERED")) as { included: Package[] };
+const configPath = required("CONFIG_FILE");
+const config: Config = fs.existsSync(configPath)
   ? JSON.parse(
       execFileSync(
         "ruby",
@@ -22,7 +32,7 @@ const config = fs.existsSync(configPath)
   : {};
 const overrides = config.packages || {};
 const available = [...report.included, ...(config.extraPackages || [])];
-const requested = process.env.PACKAGES.trim();
+const requested = required("PACKAGES").trim();
 const selected =
   requested === "all"
     ? available
@@ -53,12 +63,12 @@ const matrix = {
   }),
 };
 fs.appendFileSync(
-  process.env.GITHUB_OUTPUT,
+  required("GITHUB_OUTPUT"),
   "matrix=" + JSON.stringify(matrix) + "\n",
 );
-fs.appendFileSync(process.env.GITHUB_OUTPUT, "has-packages=true\n");
+fs.appendFileSync(required("GITHUB_OUTPUT"), "has-packages=true\n");
 fs.appendFileSync(
-  process.env.GITHUB_OUTPUT,
+  required("GITHUB_OUTPUT"),
   "single-package=" + (selected.length === 1) + "\n",
 );
 console.log(

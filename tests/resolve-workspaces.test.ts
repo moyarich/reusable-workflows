@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { mkdtemp, mkdir, writeFile, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { resolveWorkspaces } from "../src/actions/resolve-workspaces/index.mjs";
+import { resolveWorkspaces } from "../packages/cli/src/resolve-workspaces/index";
 
 async function fixture() {
   const cwd = await mkdtemp(path.join(os.tmpdir(), "resolve-workspaces-"));

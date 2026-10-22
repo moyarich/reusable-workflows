@@ -1,6 +1,29 @@
+type WorkflowRun = {
+  id: number;
+  path: string;
+  head_sha: string;
+  head_branch: string;
+  event: string;
+  created_at: string;
+  run_attempt: number;
+  status: string;
+  conclusion: string | null;
+  html_url: string;
+};
+type Selection = { path: string; sha: string; branch: string; event: string };
+type VerifyOptions = {
+  workflows: string[];
+  repository: string;
+  token: string;
+  sha: string;
+  branch: string;
+  event: string;
+  apiRoot: string;
+  request?: typeof fetch;
+};
 import { appendFileSync } from "node:fs";
 
-const input = (key) => (process.env[key] ?? "").trim();
+const input = (key: string) => (process.env[key] ?? "").trim();
 const workflows = input("VERIFY_WORKFLOWS")
   .split(",")
   .map((s) => s.trim());
@@ -11,7 +34,10 @@ const branch = input("VERIFY_BRANCH");
 const event = input("VERIFY_EVENT") || "pull_request";
 const apiRoot = process.env.GITHUB_API_URL || "https://api.github.com";
 
-export function selectRun(runs, { path, sha, branch, event }) {
+export function selectRun(
+  runs: WorkflowRun[],
+  { path, sha, branch, event }: Selection,
+) {
   return runs
     .filter(
       (run) =>
@@ -29,7 +55,7 @@ export function selectRun(runs, { path, sha, branch, event }) {
     .at(-1);
 }
 
-export function validateRun(run, path) {
+export function validateRun(run: WorkflowRun | undefined, path: string) {
   if (!run) throw new Error(`No matching run for ${path}`);
   if (run.status !== "completed" || run.conclusion !== "success")
     throw new Error(
@@ -47,7 +73,7 @@ export async function verify({
   event,
   apiRoot,
   request = fetch,
-}) {
+}: VerifyOptions) {
   if (!repository.match(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/))
     throw new Error("Invalid repository");
   if (!/^[0-9a-f]{40}$/i.test(sha)) throw new Error("Invalid exact commit SHA");
@@ -61,10 +87,17 @@ export async function verify({
     throw new Error(
       "Required workflow paths must be .github/workflows/*.yml or *.yaml",
     );
-  const output = [];
+  const output: Array<{
+    path: string;
+    id: number;
+    url: string;
+    conclusion: string | null;
+    head_sha: string;
+    attempt: number;
+  }> = [];
   for (const path of workflows) {
     const name = path.split("/").at(-1);
-    const runs = [];
+    const runs: WorkflowRun[] = [];
     for (let page = 1; ; page++) {
       const url = new URL(
         `${apiRoot}/repos/${repository}/actions/workflows/${name}/runs`,
@@ -82,7 +115,9 @@ export async function verify({
       });
       if (!response.ok)
         throw new Error(`GitHub API returned ${response.status} for ${path}`);
-      const batch = (await response.json()).workflow_runs ?? [];
+      const batch =
+        ((await response.json()) as { workflow_runs?: WorkflowRun[] })
+          .workflow_runs ?? [];
       runs.push(...batch);
       if (batch.length < 100) break;
     }
@@ -132,7 +167,9 @@ if (
       );
     }
   } catch (error) {
-    console.error(`::error::${error.message}`);
+    console.error(
+      `::error::${error instanceof Error ? error.message : String(error)}`,
+    );
     process.exitCode = 1;
   }
 }
