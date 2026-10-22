@@ -6,7 +6,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   check-dist:
@@ -14,4 +14,5 @@ jobs:
     with:
       dist-path: dist/
       build-command: npm run build
-      node-version: "24"
+      dry-run: true
+      commit: false
