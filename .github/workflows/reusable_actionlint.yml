@@ -15,26 +15,88 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - name: Run actionlint
+      - name: Run actionlint and audit suppressions
         id: actionlint
         shell: bash
         run: |
-          docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color -shellcheck= \
+          set -euo pipefail
+          IMAGE='rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667'
+          RAW="$RUNNER_TEMP/actionlint-raw.txt"
+          FILTERED="$RUNNER_TEMP/actionlint-filtered.txt"
+          # Capture raw diagnostics without failing CI; actionlint's configured
+          # execution below determines the job result.
+          docker run --rm -v "$PWD:/repo" -w /repo "$IMAGE" -oneline -shellcheck= > "$RAW" 2>&1 || true
+          status=0
+          docker run --rm -v "$PWD:/repo" -w /repo "$IMAGE" -oneline -shellcheck= \
             -ignore 'property "workflow_(repository|sha|ref)" is not defined' \
             -ignore '^reusable workflow call "\$/' \
-            -ignore '^specifying action "\$/'
-      - name: Workflow validation summary
+            -ignore '^specifying action "\$/' > "$FILTERED" 2>&1 || status=$?
+          cat "$FILTERED"
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit "$status"
+      - name: Workflow validation and suppression summary
         if: always()
         env:
           RESULT: ${{ steps.actionlint.outcome }}
         shell: bash
         run: |
-          {
-            echo "## GitHub Actions validation"
-            echo
-            echo "| Check | Result |"
-            echo "| --- | --- |"
-            echo "| Actionlint (workflow syntax and expressions) | $RESULT |"
-            echo
-            echo 'Actionlint version: `1.7.12`'
-          } >> "$GITHUB_STEP_SUMMARY"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          import re
+
+          raw = Path(os.environ["RUNNER_TEMP"], "actionlint-raw.txt")
+          filtered = Path(os.environ["RUNNER_TEMP"], "actionlint-filtered.txt")
+          rules = [
+              ("Unsupported workflow_* context", r'property "workflow_(repository|sha|ref)" is not defined'),
+              ("Self-repository reusable workflow call", r'^reusable workflow call "\$/'),
+              ("Self-repository action", r'^specifying action "\$/'),
+          ]
+
+          def diagnostics(path):
+              if not path.exists():
+                  return []
+              return [
+                  line.strip()
+                  for line in path.read_text(errors="replace").splitlines()
+                  if re.match(r"^.+?\.ya?ml:\d+:\d+: ", line)
+              ]
+
+          raw_lines = diagnostics(raw)
+          filtered_lines = diagnostics(filtered)
+          counts = {name: 0 for name, _ in rules}
+          for line in raw_lines:
+              # -oneline includes the path and location before the message.
+              message = re.sub(r"^.+?\.ya?ml:\d+:\d+: ", "", line)
+              for name, pattern in rules:
+                  if re.search(pattern, message):
+                      counts[name] += 1
+                      break
+
+          total = sum(counts.values())
+          summary = [
+              "## GitHub Actions validation",
+              "",
+              "| Check | Result |",
+              "| --- | --- |",
+              f"| Actionlint (workflow syntax and expressions) | {os.environ.get('RESULT', 'unknown')} |",
+              f"| Unsuppressed diagnostics | {len(filtered_lines)} |",
+              f"| Diagnostics matching suppression rules | {total} |",
+              "",
+              "### Suppression audit",
+              "",
+              "| Suppression | Matching diagnostics |",
+              "| --- | ---: |",
+          ]
+          for name, _ in rules:
+              summary.append(f"| {name} | {counts[name]} |")
+          summary.extend([
+              "",
+              "Counts are from an unfiltered actionlint pass; the filtered pass determines CI success.",
+              "Suppression rules remain active even when their matching count is zero.",
+              "",
+              "Actionlint version: `1.7.12` (image pinned by digest)",
+          ])
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as handle:
+              handle.write("\n".join(summary) + "\n")
+          PY
