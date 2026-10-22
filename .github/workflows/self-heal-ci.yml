@@ -46,7 +46,7 @@ concurrency:
 jobs:
   package-lock:
     name: Repair npm lockfile
-    if: ${{ !contains(github.event.head_commit.message, '[skip self-heal]') && (github.event_name != 'workflow_dispatch' || inputs.repair != 'prettier') }}
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.repair != 'prettier' }}
     uses: $/.github/workflows/reusable_npm-package-lock.yml
     with:
       commit: ${{ github.event_name != 'workflow_dispatch' || inputs.commit }}
@@ -55,7 +55,7 @@ jobs:
   prettier:
     name: Format source with Prettier
     needs: package-lock
-    if: ${{ always() && !contains(github.event.head_commit.message, '[skip self-heal]') && (needs.package-lock.result == 'success' || needs.package-lock.result == 'skipped') && (github.event_name != 'workflow_dispatch' || inputs.repair != 'package-lock') }}
+    if: ${{ always() && (needs.package-lock.result == 'success' || needs.package-lock.result == 'skipped') && (github.event_name != 'workflow_dispatch' || inputs.repair != 'package-lock') }}
     uses: $/.github/workflows/reusable_prettier.yml
     with:
       mode: fix
@@ -66,7 +66,7 @@ jobs:
   action-dist:
     name: Rebuild and commit action distribution
     needs: [package-lock, prettier]
-    if: ${{ always() && !contains(github.event.head_commit.message, '[skip self-heal]') && (needs.package-lock.result == 'success' || needs.package-lock.result == 'skipped') && (needs.prettier.result == 'success' || needs.prettier.result == 'skipped') }}
+    if: ${{ always() && !contains(github.event.head_commit.message, '[skip action-dist self-heal]') && (needs.package-lock.result == 'success' || needs.package-lock.result == 'skipped') && (needs.prettier.result == 'success' || needs.prettier.result == 'skipped') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout triggering branch
@@ -106,7 +106,7 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "build: update action distribution [skip self-heal]"
+          git commit -m "build: update action distribution [skip action-dist self-heal]"
           # Explicit GITHUB_TOKEN authentication: bot-generated commits do not\n          # trigger another push workflow run, preventing a repair cycle.\n          git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' \"$GH_TOKEN\" | base64 -w0)" push origin "HEAD:refs/heads/${GITHUB_REF_NAME}"
           echo "changed=true" >> "$GITHUB_OUTPUT"
 
