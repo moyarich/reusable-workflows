@@ -6,7 +6,7 @@ on:
       mode:
         description: Check formatting without changes, or fix it in the runner
         required: false
-        default: check
+        default: fix
         type: string
       prettier-config:
         description: Use this repository's Prettier rules or the reusable-workflows reference rules
@@ -19,7 +19,7 @@ on:
       commit:
         description: Commit Prettier changes
         required: true
-        default: false
+        default: true
         type: boolean
       node-version:
         description: Node.js version
@@ -45,7 +45,7 @@ on:
       mode:
         description: Check formatting without changes, or fix it in the runner
         required: false
-        default: check
+        default: fix
         type: string
       prettier-config:
         description: Use this repository's Prettier rules or the reusable-workflows reference rules
@@ -55,7 +55,7 @@ on:
       commit:
         description: Commit Prettier changes
         required: false
-        default: false
+        default: true
         type: boolean
       node-version:
         description: Node.js version
