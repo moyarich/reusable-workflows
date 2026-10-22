@@ -99,15 +99,30 @@ jobs:
       - name: Install locked dependencies
         env:
           NODE_AUTH_TOKEN: ${{ github.token }}
-        run: npm ci --ignore-scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f package-lock.json ]]; then
+            npm ci --ignore-scripts
+          elif [[ -f pnpm-lock.yaml ]]; then
+            corepack enable
+            pnpm install --frozen-lockfile --ignore-scripts
+          else
+            echo "::error::Expected package-lock.json or pnpm-lock.yaml"
+            exit 1
+          fi
 
-      - name: Resolve installed Prettier
+      - name: Install Prettier
         id: prettier
         shell: bash
         run: |
           set -euo pipefail
-          test -x node_modules/.bin/prettier || { echo "::error::Prettier must be installed by npm ci"; exit 1; }
-          echo "version=$(node_modules/.bin/prettier --version)" >> "$GITHUB_OUTPUT"
+          # Install the formatter independently of consumer package dependencies.
+          npm install --prefix "$RUNNER_TEMP/prettier" --no-save --ignore-scripts --no-audit --no-fund prettier@3.9.10
+          PRETTIER_BIN="$RUNNER_TEMP/prettier/node_modules/.bin/prettier"
+          test -x "$PRETTIER_BIN" || { echo "::error::Unable to install Prettier"; exit 1; }
+          echo "PRETTIER_BIN=$PRETTIER_BIN" >> "$GITHUB_ENV"
+          echo "version=$("$PRETTIER_BIN" --version)" >> "$GITHUB_OUTPUT"
 
       - name: Resolve Prettier configuration and ignores
         id: config
@@ -157,7 +172,7 @@ jobs:
             check|fix) ;;
             *) echo "::error::mode must be check or fix"; exit 1 ;;
           esac
-          if node_modules/.bin/prettier . --check \
+          if "$PRETTIER_BIN" . --check \
             --ignore-path "${{ steps.config.outputs.ignore-file }}" \
             "${CONFIG_ARGS[@]}"; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
@@ -169,7 +184,7 @@ jobs:
             exit 1
           fi
           echo "Prettier drift detected; applying formatting fixes."
-          node_modules/.bin/prettier . --write \
+          "$PRETTIER_BIN" . --write \
             --ignore-path "${{ steps.config.outputs.ignore-file }}" \
             "${CONFIG_ARGS[@]}"
           git status --short -- . ':!.github/workflows/**' ':!dist/**' ':!.prettier-self-heal.ignore' > /tmp/format-status.txt
