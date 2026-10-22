@@ -6,7 +6,7 @@ Reusable GitHub Actions workflows for building, testing, releasing, publishing, 
 
 ## Features
 
-- **Continuous Integration** — Run builds, tests, linting, and type checks with reusable Node.js CI workflows.
+- **Continuous Integration** — Run focused, independent CI checks using repository-specific `ci_*` workflows.
 - **GitHub Pages** — Build and deploy documentation, playgrounds, and static sites.
 - **Release Management** — Prepare release drafts, manage versioned releases, and coordinate release workflows.
 - **Package Publishing** — Publish packages to supported npm registries, including multi-package workspaces.
@@ -26,10 +26,10 @@ on:
 
 jobs:
   ci:
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_node-ci.yml@v0
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_actionlint.yml@v0
 ```
 
-This example runs the shared Node.js CI workflow on pushes and pull requests.
+This example calls the reusable Actionlint workflow on pushes and pull requests.
 
 ### Versioning
 
