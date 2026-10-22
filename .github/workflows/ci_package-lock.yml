@@ -39,6 +39,6 @@ jobs:
   lockfile:
     uses: $/.github/workflows/reusable_self-heal_package-lock.yml
     with:
-      mode: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && !inputs.repair) && 'check' || 'fix' }}
+      mode: ${{ (github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && !inputs.repair)) && 'check' || 'fix' }}
       commit: ${{ github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.repair) }}
 
