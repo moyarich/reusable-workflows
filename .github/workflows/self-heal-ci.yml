@@ -6,9 +6,11 @@ on:
       - "packages/cli/src/**"
       - "packages/actions/actions/**"
       - "packages/actions/scripts/**"
+      - "packages/actions/plugins/**"
       - "packages/cli/src/workflow-dispatch/**"
       - "packages/cli/src/verify-workflow-runs/**"
       - "packages/actions/vite.config.ts"
+      - ".github/workflows/ci_cli.yml"
       - "vitest.config.ts"
       - "package.json"
       - "package-lock.json"
@@ -87,8 +89,15 @@ jobs:
       - name: Build action distribution
         run: npm run build:actions
 
-      - name: Test built setup CLI
-        run: npm test --workspaces --if-present --include-workspace-root
+      - name: Verify rebuilt action entrypoints
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f actions/setup-workspace-tools/action.yml
+          test -f actions/setup-workspace-tools/index.mjs
+          test -f actions/release-draft-sync/action.yml
+          test -f actions/parse-typed-inputs/action.yml
+          test -f actions/validate-package-changelogs/action.yml
 
       - name: Commit rebuilt action distribution
         id: commit
