@@ -5,10 +5,12 @@
 # Placeholders: {packageDir}, {package}, {packageName}, {workspace}.
 packages:
   # all:
+  #   commitDist: false
   #   distPath: "{packageDir}/dist"
   #   buildCommand: "npm run build --workspace {packageName}"
   # Per-package entries override shared 'all' properties.
   # packages/my-package:
+  #   commitDist: true
   #   distPath: "{packageDir}/build"
   #   buildCommand: "npm run build --workspace @scope/my-package"
   # "@scope/other-package":
