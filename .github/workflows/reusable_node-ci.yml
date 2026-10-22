@@ -18,6 +18,26 @@ on:
         required: false
         default: false
         type: boolean
+      run-tests:
+        description: Run workspace tests (disable when a dedicated CI workflow owns tests)
+        required: false
+        default: true
+        type: boolean
+      run-lint:
+        description: Run ESLint (disable when a dedicated CI workflow owns lint)
+        required: false
+        default: true
+        type: boolean
+      run-typecheck:
+        description: Run TypeScript checks (disable when a dedicated CI workflow owns typechecking)
+        required: false
+        default: true
+        type: boolean
+      run-pack:
+        description: Run npm pack dry-run (disable when package validation runs separately)
+        required: false
+        default: true
+        type: boolean
       node-version:
         description: Node.js version used by CI
         required: false
@@ -45,6 +65,26 @@ on:
         required: false
         type: string
         default: packages
+      run-tests:
+        description: Run workspace tests
+        required: false
+        type: boolean
+        default: true
+      run-lint:
+        description: Run ESLint
+        required: false
+        type: boolean
+        default: true
+      run-typecheck:
+        description: Run TypeScript checks
+        required: false
+        type: boolean
+        default: true
+      run-pack:
+        description: Run npm pack dry-run
+        required: false
+        type: boolean
+        default: true
       node-version:
         description: Node.js version used by CI
         required: false
@@ -242,6 +282,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Test
+        if: ${{ inputs.run-tests }}
         env:
           WORKSPACE: ${{ matrix.directory }}
         run: |
@@ -251,6 +292,7 @@ jobs:
             npm test --workspace "$WORKSPACE"
           fi
       - name: Lint
+        if: ${{ inputs.run-lint }}
         env:
           WORKSPACE: ${{ matrix.directory }}
         run: |
@@ -264,13 +306,14 @@ jobs:
             echo "No ESLint configuration found; skipping ESLint."
           fi
       - name: Typecheck
+        if: ${{ inputs.run-typecheck }}
         env:
           WORKSPACE: ${{ matrix.directory }}
         run: |
           if [ "$WORKSPACE" = "." ]; then npm run typecheck --if-present; else npm run typecheck --workspace "$WORKSPACE" --if-present; fi
 
       - name: Validate package tarball
-        if: ${{ matrix.directory != '.' }}
+        if: ${{ inputs.run-pack && matrix.directory != '.' }}
         env:
           WORKSPACE: ${{ matrix.directory }}
         run: npm pack --workspace "$WORKSPACE" --dry-run
