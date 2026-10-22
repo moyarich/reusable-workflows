@@ -41,7 +41,7 @@ on:
       repair:
         description: Repair and commit formatting or lockfile drift
         type: boolean
-        default: true
+        default: false
 
 concurrency:
   group: ci-${{ github.repository }}-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
