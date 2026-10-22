@@ -1,6 +1,9 @@
 type Package = { name: string; directory: string; [key: string]: unknown };
 type Config = {
-  packages?: Record<string, { distPath?: string; buildCommand?: string; commitDist?: boolean }>;
+  packages?: Record<
+    string,
+    { distPath?: string; buildCommand?: string; commitDist?: boolean }
+  >;
   extraPackages?: Package[];
 };
 const required = (name: string): string => {
