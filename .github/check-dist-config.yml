@@ -3,8 +3,10 @@
 # The private Actions package builds root actions/; CLI publishes packages/cli/dist/.
 packages:
   "packages/actions":
+    commitDist: true
     distPath: actions
     buildCommand: npm run build:actions
   "packages/cli":
+    commitDist: false
     distPath: packages/cli/dist
     buildCommand: npm run build:cli
