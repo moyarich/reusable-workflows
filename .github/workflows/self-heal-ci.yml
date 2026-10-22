@@ -21,20 +21,6 @@ on:
       - "actions/**"
       - ".github/workflows/self-heal-ci.yml"
   workflow_dispatch:
-    inputs:
-      repair:
-        description: Repairs to run
-        type: choice
-        required: true
-        default: all
-        options:
-          - all
-          - package-lock
-          - prettier
-      commit:
-        description: Commit repaired files
-        type: boolean
-        default: true
 
 permissions:
   contents: write
@@ -42,34 +28,13 @@ permissions:
   packages: read
 
 concurrency:
-  group: self-heal-${{ github.repository }}-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: self-heal-validation-${{ github.repository }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
-  package-lock:
-    name: Repair npm lockfile
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.repair != 'prettier' }}
-    uses: $/.github/workflows/reusable_self-heal_package-lock.yml
-    with:
-      mode: fix
-      commit: ${{ github.event_name != 'workflow_dispatch' || inputs.commit }}
-      node-version: "24"
-
-  prettier:
-    name: Format source with Prettier
-    needs: package-lock
-    if: ${{ always() && (needs.package-lock.result == 'success' || needs.package-lock.result == 'skipped') && (github.event_name != 'workflow_dispatch' || inputs.repair != 'package-lock') }}
-    uses: $/.github/workflows/reusable_self-heal-prettier.yml
-    with:
-      mode: fix
-      prettier-config: this-repository
-      commit: ${{ github.event_name != 'workflow_dispatch' || inputs.commit }}
-      node-version: "24"
-
   action-dist:
     name: Rebuild and commit action distribution
-    needs: [package-lock, prettier]
-    if: ${{ always() && !contains(github.event.head_commit.message, '[skip action-dist self-heal]') && (needs.package-lock.result == 'success' || needs.package-lock.result == 'skipped') && (needs.prettier.result == 'success' || needs.prettier.result == 'skipped') }}
+    if: ${{ !contains(github.event.head_commit.message, '[skip action-dist self-heal]') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout triggering branch
@@ -87,7 +52,7 @@ jobs:
       - name: Install build dependencies
         run: npm install --no-package-lock --no-audit --no-fund
 
-      # ci_cli.yml owns lint, typecheck, and Vitest. Self-heal only regenerates dist.
+      # The dedicated ci_* workflows own validation and repairs; this job only regenerates action bundles.
       - name: Build action distribution
         run: npm run build:actions
 
