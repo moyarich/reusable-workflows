@@ -15,26 +15,107 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - name: Run actionlint
+      - name: Run actionlint and audit suppressions
         id: actionlint
         shell: bash
         run: |
-          docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color -shellcheck= \
+          set -euo pipefail
+          ACTIONLINT_VERSION='1.7.12'
+          ARCHIVE="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          URL="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${ARCHIVE}"
+          curl --fail --location --retry 3 --silent --show-error "$URL" -o "$RUNNER_TEMP/$ARCHIVE"
+          mkdir -p "$RUNNER_TEMP/actionlint-bin"
+          tar -xzf "$RUNNER_TEMP/$ARCHIVE" -C "$RUNNER_TEMP/actionlint-bin" actionlint
+          ACTIONLINT="$RUNNER_TEMP/actionlint-bin/actionlint"
+          "$ACTIONLINT" -version
+          RAW="$RUNNER_TEMP/actionlint-raw.txt"
+          FILTERED="$RUNNER_TEMP/actionlint-filtered.txt"
+          # Capture raw diagnostics without failing CI; actionlint's configured
+          # execution below determines the job result.
+          "$ACTIONLINT" -format '{{json .}}' -shellcheck= > "$RAW" 2>&1 || true
+          status=0
+          "$ACTIONLINT" -format '{{json .}}' -shellcheck= \
             -ignore 'property "workflow_(repository|sha|ref)" is not defined' \
             -ignore '^reusable workflow call "\$/' \
-            -ignore '^specifying action "\$/'
-      - name: Workflow validation summary
+            -ignore '^specifying action "\$/' > "$FILTERED" 2>&1 || status=$?
+          cat "$FILTERED"
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit "$status"
+      - name: Workflow validation and suppression summary
         if: always()
         env:
           RESULT: ${{ steps.actionlint.outcome }}
         shell: bash
         run: |
-          {
-            echo "## GitHub Actions validation"
-            echo
-            echo "| Check | Result |"
-            echo "| --- | --- |"
-            echo "| Actionlint (workflow syntax and expressions) | $RESULT |"
-            echo
-            echo 'Actionlint version: `1.7.12`'
-          } >> "$GITHUB_STEP_SUMMARY"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          import re
+
+          raw = Path(os.environ["RUNNER_TEMP"], "actionlint-raw.txt")
+          filtered = Path(os.environ["RUNNER_TEMP"], "actionlint-filtered.txt")
+          rules = [
+              ("Unsupported workflow_* context", r'property "workflow_(repository|sha|ref)" is not defined'),
+              ("Self-repository reusable workflow call", r'^reusable workflow call "\$/'),
+              ("Self-repository action", r'^specifying action "\$/'),
+          ]
+
+          def diagnostics(path):
+              if not path.exists():
+                  return []
+              import json
+              entries = []
+              for line_number, line in enumerate(path.read_text(errors="replace").splitlines(), 1):
+                  if not line.strip():
+                      continue
+                  try:
+                      parsed = json.loads(line)
+                  except json.JSONDecodeError as exc:
+                      raise RuntimeError(
+                          f"Non-JSON actionlint output at {path}:{line_number}: {line[:250]!r}"
+                      ) from exc
+                  if isinstance(parsed, dict):
+                      entries.append(parsed)
+                  elif isinstance(parsed, list):
+                      entries.extend(parsed)
+                  else:
+                      raise RuntimeError(f"Unexpected actionlint diagnostic at {path}:{line_number}")
+              return entries
+
+          raw_lines = diagnostics(raw)
+          filtered_lines = diagnostics(filtered)
+          counts = {name: 0 for name, _ in rules}
+          for diagnostic in raw_lines:
+              message = diagnostic.get("message", "")
+              for name, pattern in rules:
+                  if re.search(pattern, message):
+                      counts[name] += 1
+                      break
+
+          total = sum(counts.values())
+          summary = [
+              "## GitHub Actions validation",
+              "",
+              "| Check | Result |",
+              "| --- | --- |",
+              f"| Actionlint (workflow syntax and expressions) | {os.environ.get('RESULT', 'unknown')} |",
+              f"| Unsuppressed diagnostics | {len(filtered_lines)} |",
+              f"| Diagnostics matching suppression rules | {total} |",
+              "",
+              "### Suppression audit",
+              "",
+              "| Suppression | Matching diagnostics |",
+              "| --- | ---: |",
+          ]
+          for name, _ in rules:
+              summary.append(f"| {name} | {counts[name]} |")
+          summary.extend([
+              "",
+              "Counts are from structured JSON diagnostics from an unfiltered pass; the filtered pass determines CI success.",
+              "Suppression rules remain active even when their matching count is zero.",
+              "",
+              "Actionlint version: `1.7.12` (runner-installed release)",
+          ])
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as handle:
+              handle.write("\n".join(summary) + "\n")
+          PY
