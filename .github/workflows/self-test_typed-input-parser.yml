@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v7
       - name: Parse explicitly blank optional inputs
         id: defaults
-        uses: ./actions/parse-typed-inputs
+        uses: $/actions/parse-typed-inputs
         with:
           version: ""
           target: ""
@@ -33,7 +33,7 @@ jobs:
           test "$SOURCE" = registry:npm:0.2.0
       - name: Parse explicit overrides
         id: overrides
-        uses: ./actions/parse-typed-inputs
+        uses: $/actions/parse-typed-inputs
         with:
           version: bump:minor
           target: package:example

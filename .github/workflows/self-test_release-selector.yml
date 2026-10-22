@@ -13,7 +13,7 @@ jobs:
   selection:
     permissions:
       contents: read
-    uses: ./.github/workflows/reusable_select-release-packages.yml
+    uses: $/.github/workflows/reusable_select-release-packages.yml
     with:
       packages-json: '{"included":[{"name":"example","directory":"packages/example"}],"filtered":[],"total":1}'
       package: example
