@@ -1,0 +1,51 @@
+name: CI / Prettier
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**/*.js"
+      - "**/*.jsx"
+      - "**/*.ts"
+      - "**/*.tsx"
+      - "**/*.mjs"
+      - "**/*.json"
+      - "**/*.yml"
+      - "**/*.yaml"
+      - "**/*.md"
+      - "**/*.mdx"
+      - ".prettier*"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/ci_prettier.yml"
+  pull_request:
+    paths:
+      - "**/*.js"
+      - "**/*.jsx"
+      - "**/*.ts"
+      - "**/*.tsx"
+      - "**/*.mjs"
+      - "**/*.json"
+      - "**/*.yml"
+      - "**/*.yaml"
+      - "**/*.md"
+      - "**/*.mdx"
+      - ".prettier*"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/ci_prettier.yml"
+  workflow_dispatch:
+    inputs:
+      checkout-sha:
+        type: string
+        required: false
+        default: ""
+concurrency:
+  group: ci-${{ github.repository }}-${{ github.workflow }}-${{ github.event.pull_request.number || inputs.checkout-sha || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+permissions:
+  contents: read
+jobs:
+  prettier:
+    uses: $/.github/workflows/reusable_ci_prettier.yml
+    with:
+      checkout-sha: ${{ inputs.checkout-sha }}
