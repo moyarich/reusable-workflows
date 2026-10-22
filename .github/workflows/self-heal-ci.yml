@@ -16,6 +16,7 @@ on:
       - ".prettierrc.json"
       - ".prettierignore"
       - "tests/**"
+      - "actions/**"
       - ".github/workflows/self-heal-ci.yml"
   workflow_dispatch:
     inputs:
@@ -64,7 +65,8 @@ jobs:
 
   action-dist:
     name: Rebuild and commit action distribution
-    needs: prettier
+    needs: [package-lock, prettier]
+    if: ${{ always() && (needs.package-lock.result == 'success' || needs.package-lock.result == 'skipped') && (needs.prettier.result == 'success' || needs.prettier.result == 'skipped') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout triggering branch
@@ -72,7 +74,7 @@ jobs:
         with:
           ref: ${{ github.ref_name }}
           fetch-depth: 0
-          persist-credentials: true
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.0.0
@@ -86,10 +88,12 @@ jobs:
         run: npm run build:actions
 
       - name: Test built setup CLI
-        run: npx vitest run
+        run: npm test --workspaces --if-present --include-workspace-root
 
       - name: Commit rebuilt action distribution
         id: commit
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
@@ -103,7 +107,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "build: update action distribution"
-          git push origin "HEAD:refs/heads/${GITHUB_REF_NAME}"
+          # Explicit GITHUB_TOKEN authentication: bot-generated commits do not\n          # trigger another push workflow run, preventing a repair cycle.\n          git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' \"$GH_TOKEN\" | base64 -w0)" push origin "HEAD:refs/heads/${GITHUB_REF_NAME}"
           echo "changed=true" >> "$GITHUB_OUTPUT"
 
       - name: Dispatch read-only distribution validation for healed head
