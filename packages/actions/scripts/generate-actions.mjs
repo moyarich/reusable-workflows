@@ -29,7 +29,7 @@ const runtimeFiles = {
   "check-dist": {
     "select.mjs": "packages/cli/src/check-dist/select.mjs",
     "config.schema.json":
-      "reusable-configurations/check-dist-config.schema.json",
+      ".github/reusable-configurations/check-dist-config.schema.json",
   },
   "resolve-workspaces": {
     "index.mjs": "packages/cli/src/resolve-workspaces/index.mjs",

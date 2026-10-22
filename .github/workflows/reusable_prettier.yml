@@ -126,7 +126,7 @@ jobs:
               CONFIG_FILE="$RUNNER_TEMP/shared-prettier.json"
               SHARED_REF="${WORKFLOW_REF##*@}"
               [ -n "$SHARED_REF" ] || { echo "::error::Reusable workflow ref is missing"; exit 1; }
-              gh api "repos/moyarich/reusable-workflows/contents/reusable-configurations/.prettierrc.json?ref=$SHARED_REF" --jq '.content' | base64 --decode > "$CONFIG_FILE"
+              gh api "repos/moyarich/reusable-workflows/contents/.github/reusable-configurations/.prettierrc.json?ref=$SHARED_REF" --jq '.content' | base64 --decode > "$CONFIG_FILE"
               echo "config-file=$CONFIG_FILE" >> "$GITHUB_OUTPUT"
               ;;
             *)
