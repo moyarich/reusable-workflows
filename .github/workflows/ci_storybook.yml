@@ -36,6 +36,9 @@ on:
         type: string
         required: false
         default: ""
+concurrency:
+  group: ci-${{ github.repository }}-${{ github.workflow }}-${{ github.event.pull_request.number || inputs.checkout-sha || github.ref }}
+  cancel-in-progress: false
 permissions:
   contents: read
 jobs:
