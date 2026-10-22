@@ -134,10 +134,14 @@ for (const name of actionNames) {
     if (sourceFile.endsWith(".ts")) {
       const js = transpileModule(readFileSync(sourceFile, "utf8"), {
         fileName: sourceFile,
-        compilerOptions: { module: ModuleKind.ESNext, target: ScriptTarget.ES2022 },
+        compilerOptions: {
+          module: ModuleKind.ESNext,
+          target: ScriptTarget.ES2022,
+        },
         reportDiagnostics: true,
       });
-      if (js.diagnostics?.length) throw new Error("TypeScript transpilation errors in " + source);
+      if (js.diagnostics?.length)
+        throw new Error("TypeScript transpilation errors in " + source);
       writeFileSync(join(outputDir, target), js.outputText);
     } else {
       cpSync(sourceFile, join(outputDir, target));
