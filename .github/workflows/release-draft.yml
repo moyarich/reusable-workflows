@@ -77,7 +77,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: read
-    uses: ./.github/workflows/reusable_release-drafter.yml
+    uses: $/.github/workflows/reusable_release-drafter.yml
     with:
       target-branch: ${{ github.ref_name }}
       initial-version: "0.1.0"

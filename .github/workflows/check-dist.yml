@@ -59,7 +59,7 @@ jobs:
     permissions:
       contents: read
     uses: 
-      moyarich/reusable-workflows/.github/workflows/reusable_discover-packages.yml@main
+      $/.github/workflows/reusable_discover-packages.yml
     with:
       packages-directory: packages
       use-workspaces: true
@@ -84,7 +84,7 @@ jobs:
           persist-credentials: false
       - name: Select and validate distribution packages
         id: select
-        uses: ./actions/check-dist
+        uses: $/actions/check-dist
         with:
           discovered: ${{ needs.discover-packages.outputs.packages }}
           package: ${{ inputs.package }}
@@ -101,7 +101,7 @@ jobs:
     permissions:
       contents: write
     uses: 
-      moyarich/reusable-workflows/.github/workflows/reusable_self-heal-dist.yml@main
+      $/.github/workflows/reusable_self-heal-dist.yml
     with:
       dist-path: ${{ matrix.distTemplate }}
       build-command: ${{ matrix.buildCommand }}

@@ -21,7 +21,7 @@ permissions:
 
 jobs:
   pages:
-    uses: ./.github/workflows/reusable_github-pages.yml
+    uses: $/.github/workflows/reusable_github-pages.yml
     with:
       node-version: "24"
       install-command: npm install

@@ -218,7 +218,7 @@ jobs:
     needs: resolve
     permissions:
       contents: write
-    uses: ./.github/workflows/reusable_release.yml
+    uses: $/.github/workflows/reusable_release.yml
     with:
       version: ${{ needs.resolve.outputs.version }}
       release-tag: ${{ format('v{0}', needs.resolve.outputs.version) }}
@@ -239,6 +239,6 @@ jobs:
     if: ${{ !inputs.dry-run && inputs.update-major-tag }}
     permissions:
       contents: write
-    uses: ./.github/workflows/reusable_tag-update.yml
+    uses: $/.github/workflows/reusable_tag-update.yml
     with:
       source-tag: ${{ format('v{0}', needs.resolve.outputs.version) }}

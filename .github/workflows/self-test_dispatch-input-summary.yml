@@ -13,7 +13,7 @@ jobs:
   summary:
     permissions:
       contents: read
-    uses: ./.github/workflows/reusable_dispatch-input-summary.yml
+    uses: $/.github/workflows/reusable_dispatch-input-summary.yml
     with:
       parameters-json: '{"package":"example","dry-run":true,"token":"should-be-hidden"}'
       exclude-inputs: '["excluded"]'
