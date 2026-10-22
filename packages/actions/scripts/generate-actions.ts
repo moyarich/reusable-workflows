@@ -25,7 +25,7 @@ const bundles = new Map([
 
 // Composite actions ship their runtime dependencies beside action.yml.
 // Referencing packages/cli/src in a published action is not portable.
-const runtimeFiles = {
+const runtimeFiles: Record<string, Record<string, string>> = {
   "check-dist": {
     "select.mjs": "packages/cli/src/check-dist/select.mjs",
     "config.schema.json":

@@ -34,4 +34,4 @@ npm run check:cli-dist
 
 Do not delete root `actions/` in an active checkout without first ensuring no local edits are needed. GitHub workflows that use `./actions/<name>` need the generated files present in the checked-out revision or rebuilt before invocation; regeneration does not make a missing action automatically usable before checkout/setup.
 
-When adding an action, add metadata under `packages/actions/actions/<name>/`, the runtime implementation under `packages/cli/src/` when needed, and register its bundling or copied runtime mapping in `packages/actions/vite.config.ts` / `packages/actions/scripts/generate-actions.mjs`. Generated output should never contain code that exists only in root `actions/`.
+When adding an action, add metadata under `packages/actions/actions/<name>/`, the runtime implementation under `packages/cli/src/` when needed, and register its bundling or copied runtime mapping in `packages/actions/vite.config.ts` / `packages/actions/scripts/generate-actions.ts`. Generated output should never contain code that exists only in root `actions/`.

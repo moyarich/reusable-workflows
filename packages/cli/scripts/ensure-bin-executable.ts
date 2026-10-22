@@ -6,7 +6,10 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const manifest = JSON.parse(
   readFileSync(resolve(root, "package.json"), "utf8"),
 );
-for (const [name, file] of Object.entries(manifest.bin ?? {})) {
+for (const [name, file] of Object.entries(manifest.bin ?? {}) as [
+  string,
+  string,
+][]) {
   const target = resolve(root, file);
   if (!target.startsWith(root + "/") || !existsSync(target)) {
     throw new Error(`Missing or unsafe CLI binary ${name}: ${file}`);

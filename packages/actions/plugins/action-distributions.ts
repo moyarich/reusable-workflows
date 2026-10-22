@@ -14,7 +14,7 @@ import type { Plugin } from "vite";
  */
 export function actionDistributions(): Plugin {
   const script = fileURLToPath(
-    new URL("../scripts/generate-actions.mjs", import.meta.url),
+    new URL("../scripts/generate-actions.ts", import.meta.url),
   );
   const root = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
   return {

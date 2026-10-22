@@ -12,6 +12,7 @@
     "src/cli.ts",
     "src/setup-workspace-tools/setup-workspace-tools.ts",
     "src/release-draft-sync/identity.ts",
-    "src/browser-extension-publish/*.ts"
+    "src/browser-extension-publish/*.ts",
+    "scripts/**/*.ts"
   ]
 }
