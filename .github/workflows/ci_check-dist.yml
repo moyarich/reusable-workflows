@@ -1,4 +1,4 @@
-name: Check distribution
+name: CI / Check distribution
 
 run-name: >-
   Check dist · ${{ github.event_name == 'push' && 'actions' || inputs.package }}
