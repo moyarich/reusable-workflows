@@ -58,7 +58,7 @@ jobs:
     name: Format source with Prettier
     needs: package-lock
     if: ${{ always() && (needs.package-lock.result == 'success' || needs.package-lock.result == 'skipped') && (github.event_name != 'workflow_dispatch' || inputs.repair != 'package-lock') }}
-    uses: $/.github/workflows/reusable_prettier.yml
+    uses: $/.github/workflows/reusable_self-heal-prettier.yml
     with:
       mode: fix
       prettier-config: this-repository
