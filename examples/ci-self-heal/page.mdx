@@ -7,7 +7,7 @@ description: Propose reviewed fixes after trusted default-branch CI failures.
 
 Copy [workflow.yml](./workflow.yml) to the consuming repository's `.github/workflows/ci-self-heal.yml` **after v0.2.1 is released**. It triggers on a completed, failed `CI` push run on the repository default branch. Match the name in `workflows: ["CI"]` to your CI workflow name.
 
-The reusable workflow checks the failed run, applies supported repair recipes, and pushes `automation/ci-self-heal`. It validates the candidate with `reusable_node-ci.yml@v0.2.1` and opens or updates a reviewable pull request only after successful verification. The repair is never merged automatically.
+The reusable workflow checks the failed run, applies supported repair recipes, and pushes `automation/ci-self-heal`. Its validation behavior depends on the configured recovery workflow; review the candidate and verify repository-specific CI checks before merging. The repair is never merged automatically.
 
 The recipe currently covers supported npm audit fixes; unsupported failures do not produce a PR. Files under `.github/workflows/` are not auto-committed. Publishing the `v0.2.1` tag is necessary before consumers can invoke the version-pinned workflow pair.
 
