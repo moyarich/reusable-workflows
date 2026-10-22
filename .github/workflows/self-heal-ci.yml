@@ -86,6 +86,12 @@ jobs:
       - name: Install build dependencies
         run: npm install --no-package-lock --no-audit --no-fund
 
+      - name: Build CLI for Vitest
+        run: npm run build:package
+
+      - name: Run Vitest independently of generated actions
+        run: npm test --workspaces --if-present --include-workspace-root
+
       - name: Build action distribution
         run: npm run build:actions
 
