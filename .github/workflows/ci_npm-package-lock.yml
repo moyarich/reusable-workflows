@@ -1,0 +1,44 @@
+name: CI / npm package lock
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "package.json"
+      - "package-lock.json"
+      - "packages/**/package.json"
+      - "apps/**/package.json"
+      - ".npmrc"
+      - ".github/workflows/ci_npm-package-lock.yml"
+      - ".github/workflows/reusable_self-heal-npm-package-lock.yml"
+  pull_request:
+    paths:
+      - "package.json"
+      - "package-lock.json"
+      - "packages/**/package.json"
+      - "apps/**/package.json"
+      - ".npmrc"
+      - ".github/workflows/ci_npm-package-lock.yml"
+      - ".github/workflows/reusable_self-heal-npm-package-lock.yml"
+  workflow_dispatch:
+    inputs:
+      checkout-sha:
+        description: Exact commit SHA to validate
+        type: string
+        default: ""
+
+concurrency:
+  group: ci-${{ github.repository }}-${{ github.workflow }}-${{ github.event.pull_request.number || inputs.checkout-sha || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  lockfile:
+    uses: $/.github/workflows/reusable_self-heal-npm-package-lock.yml
+    with:
+      mode: check
+      commit: false
+      checkout-sha: ${{ inputs.checkout-sha }}
