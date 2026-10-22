@@ -22,6 +22,11 @@
           "buildCommand": {
             "type": "string",
             "minLength": 1
+          },
+          "commitDist": {
+            "type": "boolean",
+            "default": false,
+            "description": "Whether rebuilt distribution files are expected to be checked into Git. False validates build output without staging or committing it."
           }
         }
       },
