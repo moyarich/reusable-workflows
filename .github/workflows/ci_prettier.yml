@@ -38,24 +38,23 @@ on:
       - ".github/workflows/reusable_self-heal-prettier.yml"
   workflow_dispatch:
     inputs:
-      checkout-sha:
-        description: Exact commit SHA to validate
-        type: string
-        required: false
-        default: ""
+      repair:
+        description: Repair and commit formatting or lockfile drift
+        type: boolean
+        default: true
 
 concurrency:
-  group: ci-${{ github.repository }}-${{ github.workflow }}-${{ github.event.pull_request.number || inputs.checkout-sha || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: self-heal-validation-${{ github.repository }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   prettier:
     uses: $/.github/workflows/reusable_self-heal-prettier.yml
     with:
-      mode: check
-      commit: false
+      mode: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && !inputs.repair) && 'check' || 'fix' }}
+      commit: ${{ github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.repair) }}
       prettier-config: this-repository
-      checkout-sha: ${{ inputs.checkout-sha }}
+
