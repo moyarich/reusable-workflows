@@ -32,9 +32,9 @@ jobs:
           FILTERED="$RUNNER_TEMP/actionlint-filtered.txt"
           # Audit the unfiltered diagnostics separately; CI uses .github/actionlint.yaml.
           printf '{}\n' > "$RUNNER_TEMP/actionlint-empty.yaml"
-          "$ACTIONLINT" -config "$RUNNER_TEMP/actionlint-empty.yaml" -format '{{json .}}' -shellcheck= > "$RAW" 2>&1 || true
+          "$ACTIONLINT" -config-file "$RUNNER_TEMP/actionlint-empty.yaml" -format '{{json .}}' -shellcheck= > "$RAW" 2>&1 || true
           status=0
-          "$ACTIONLINT" -config .github/actionlint.yaml -format '{{json .}}' -shellcheck= > "$FILTERED" 2>&1 || status=$?
+          "$ACTIONLINT" -config-file .github/actionlint.yaml -format '{{json .}}' -shellcheck= > "$FILTERED" 2>&1 || status=$?
           cat "$FILTERED"
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
           exit "$status"
