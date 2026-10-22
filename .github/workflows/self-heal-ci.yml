@@ -86,9 +86,7 @@ jobs:
       - name: Install build dependencies
         run: npm install --no-package-lock --no-audit --no-fund
 
-      - name: Run source Vitest independently of distribution
-        run: npm test --workspaces --if-present --include-workspace-root
-
+      # ci_cli.yml owns lint, typecheck, and Vitest. Self-heal only regenerates dist.
       - name: Build action distribution
         run: npm run build:actions
 
