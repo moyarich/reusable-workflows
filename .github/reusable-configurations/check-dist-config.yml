@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/moyarich/reusable-workflows/main/reusable-configurations/check-dist-config.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/moyarich/reusable-workflows/main/.github/reusable-configurations/check-dist-config.schema.json
 # Copy to .github/check-dist-config.yml in each caller repository.
 # Omit this file entirely when {packageDir}/dist and npm workspace builds are correct.
 # All paths are relative to the repository root.

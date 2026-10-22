@@ -15,6 +15,17 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      - name: Fetch shared Actionlint configuration when caller has no override
+        if: ${{ hashFiles('.github/actionlint.yaml') == '' }}
+        uses: actions/checkout@v7
+        with:
+          repository: moyarich/reusable-workflows
+          ref: main
+          path: .actionlint-shared
+          sparse-checkout: |
+            .github/reusable-configurations/actionlint.yaml
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
       - name: Run actionlint and audit suppressions
         id: actionlint
         shell: bash
@@ -30,16 +41,23 @@ jobs:
           "$ACTIONLINT" -version
           RAW="$RUNNER_TEMP/actionlint-raw.txt"
           FILTERED="$RUNNER_TEMP/actionlint-filtered.txt"
-          # Audit the unfiltered diagnostics separately; CI uses .github/actionlint.yaml.
+          # Use the caller override, shared default, or an empty configuration.
+          CONFIG=".github/actionlint.yaml"
+          SHARED=".actionlint-shared/.github/reusable-configurations/actionlint.yaml"
           printf '{}\n' > "$RUNNER_TEMP/actionlint-empty.yaml"
+          if [[ -f "$CONFIG" ]]; then
+            echo "Using calling repository Actionlint configuration."
+          elif [[ -f "$SHARED" ]]; then
+            CONFIG="$SHARED"
+            echo "Using shared Actionlint configuration."
+          else
+            CONFIG="$RUNNER_TEMP/actionlint-empty.yaml"
+            echo "No Actionlint configuration exists; validating without suppressions."
+          fi
+          echo "ACTIONLINT_CONFIG=$CONFIG" >> "$GITHUB_ENV"
           "$ACTIONLINT" -config-file "$RUNNER_TEMP/actionlint-empty.yaml" -format '{{json .}}' -shellcheck= > "$RAW" 2>&1 || true
           status=0
-          if [[ -f .github/actionlint.yaml ]]; then
-            "$ACTIONLINT" -config-file .github/actionlint.yaml -format '{{json .}}' -shellcheck= > "$FILTERED" 2>&1 || status=$?
-          else
-            echo "No .github/actionlint.yaml found; validating without suppressions."
-            "$ACTIONLINT" -config-file "$RUNNER_TEMP/actionlint-empty.yaml" -format '{{json .}}' -shellcheck= > "$FILTERED" 2>&1 || status=$?
-          fi
+          "$ACTIONLINT" -config-file "$CONFIG" -format '{{json .}}' -shellcheck= > "$FILTERED" 2>&1 || status=$?
           cat "$FILTERED"
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
           exit "$status"
@@ -56,8 +74,8 @@ jobs:
 
           raw = Path(os.environ["RUNNER_TEMP"], "actionlint-raw.txt")
           filtered = Path(os.environ["RUNNER_TEMP"], "actionlint-filtered.txt")
-          # Read suppression patterns from the repository configuration.
-          config_path = Path(".github/actionlint.yaml")
+          # Read suppression patterns from the effective caller or shared configuration.
+          config_path = Path(os.environ.get("ACTIONLINT_CONFIG", ".github/actionlint.yaml"))
           config = config_path.read_text() if config_path.is_file() else ""
           rules = [(match.group(1), match.group(1).replace("''", "'"))
                    for line in config.splitlines()
@@ -107,6 +125,7 @@ jobs:
               f"| Diagnostics matching suppression rules | {total} |",
               "",
               "### Suppression audit",
+              f"Configuration: `{config_path}`",
               "",
               "| Suppression | Matching diagnostics |",
               "| --- | ---: |",
