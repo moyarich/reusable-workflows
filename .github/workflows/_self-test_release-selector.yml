@@ -1,0 +1,62 @@
+name: "Self-test · Release selector"
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/reusable_select-release-packages.yml
+      - .github/workflows/_self-test_release-selector.yml
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  selection:
+    permissions:
+      contents: read
+    uses: $/.github/workflows/reusable_select-release-packages.yml
+    with:
+      packages-json: '{"included":[{"name":"example","directory":"packages/example"}],"filtered":[],"total":1}'
+      package: example
+      event-name: workflow_dispatch
+      before-sha: ""
+      after-sha: ${{ github.sha }}
+      target-branch: ${{ github.sha }}
+      version-mode: bump
+      version-bump: patch
+
+  verify:
+    needs: selection
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check reusable workflow matrix and version inputs
+        env:
+          MATRIX_JSON: ${{ needs.selection.outputs.matrix }}
+          COUNT: ${{ needs.selection.outputs.count }}
+          VERSION_MODE: ${{ needs.selection.outputs.version-mode }}
+          VERSION_BUMP: ${{ needs.selection.outputs.version-bump }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ "$COUNT" = "1" ]
+          [ "$VERSION_MODE" = "bump" ]
+          [ "$VERSION_BUMP" = "patch" ]
+          jq -e '.include | length == 1 and .[0].name == "example" and .[0].directory == "packages/example"' <<< "$MATRIX_JSON"
+
+      - name: Write release selector summary
+        if: always()
+        env:
+          RESULT: ${{ job.status }}
+          SELECT: ${{ needs.selection.result }}
+          COUNT: ${{ needs.selection.outputs.count }}
+        run: |
+          {
+            echo "## Release selector self-test"
+            echo
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+            echo "| Package selection | $SELECT |"
+            echo "| Matrix contract | $RESULT |"
+            echo "| Packages selected | ${COUNT:-unknown} |"
+          } >> "$GITHUB_STEP_SUMMARY"
