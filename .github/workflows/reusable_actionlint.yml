@@ -20,14 +20,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          IMAGE='rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667'
+          ACTIONLINT_VERSION='1.7.12'
+          ARCHIVE="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          URL="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${ARCHIVE}"
+          curl --fail --location --retry 3 --silent --show-error "$URL" -o "$RUNNER_TEMP/$ARCHIVE"
+          mkdir -p "$RUNNER_TEMP/actionlint-bin"
+          tar -xzf "$RUNNER_TEMP/$ARCHIVE" -C "$RUNNER_TEMP/actionlint-bin" actionlint
+          ACTIONLINT="$RUNNER_TEMP/actionlint-bin/actionlint"
+          "$ACTIONLINT" -version
           RAW="$RUNNER_TEMP/actionlint-raw.txt"
           FILTERED="$RUNNER_TEMP/actionlint-filtered.txt"
           # Capture raw diagnostics without failing CI; actionlint's configured
           # execution below determines the job result.
-          docker run --rm -v "$PWD:/repo" -w /repo "$IMAGE" -format '{{json .}}' -shellcheck= > "$RAW" 2>&1 || true
+          "$ACTIONLINT" -format '{{json .}}' -shellcheck= > "$RAW" 2>&1 || true
           status=0
-          docker run --rm -v "$PWD:/repo" -w /repo "$IMAGE" -format '{{json .}}' -shellcheck= \
+          "$ACTIONLINT" -format '{{json .}}' -shellcheck= \
             -ignore 'property "workflow_(repository|sha|ref)" is not defined' \
             -ignore '^reusable workflow call "\$/' \
             -ignore '^specifying action "\$/' > "$FILTERED" 2>&1 || status=$?
@@ -107,7 +114,7 @@ jobs:
               "Counts are from structured JSON diagnostics from an unfiltered pass; the filtered pass determines CI success.",
               "Suppression rules remain active even when their matching count is zero.",
               "",
-              "Actionlint version: `1.7.12` (image pinned by digest)",
+              "Actionlint version: `1.7.12` (runner-installed release)",
           ])
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as handle:
               handle.write("\n".join(summary) + "\n")
