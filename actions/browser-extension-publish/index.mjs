@@ -1,9 +1,9 @@
-import { n as InvalidArgumentError, t as Command } from "../_assets/esm-DgHHDa6o.mjs";
+import { n as InvalidArgumentError, t as Command } from "../_assets/esm-BGzD_pfc.mjs";
 import { execFileSync } from "node:child_process";
 import { join, relative, resolve } from "node:path";
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import process from "node:process";
-// packages/cli/src/browser-extension-publish/manifest.ts
+// ../cli/src/browser-extension-publish/manifest.ts
 /** Public safe dir API. */
 function safeDir(value) {
 	const root = process.cwd();
@@ -26,7 +26,7 @@ function validate(directory, registry, firefoxId = "") {
 		name: manifest.name
 	};
 }
-// packages/cli/src/browser-extension-publish/browser-extension-publish-cli.ts
+// ../cli/src/browser-extension-publish/browser-extension-publish-cli.ts
 /** Commander-powered CLI command and feature implementation. @module */
 var store = (value) => {
 	if (![

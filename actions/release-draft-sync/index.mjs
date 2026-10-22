@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import process from "node:process";
-// packages/cli/src/release-draft-sync/index.ts
+// ../cli/src/release-draft-sync/index.ts
 /** Commander-powered CLI command and feature implementation. @module */
 var GENERATED_START = "<!-- release-draft-sync:generated:start -->";
 var GENERATED_END = "<!-- release-draft-sync:generated:end -->";

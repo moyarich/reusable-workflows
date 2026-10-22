@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
 import process from "node:process";
-// packages/cli/src/release-draft-sync/identity.ts
+// ../cli/src/release-draft-sync/identity.ts
 var versionedMarker = /<!--\s*release-draft-sync:(v\d+)\b([\s\S]*?)-->/g;
 var legacyTarget = /<!--\s*release-draft-sync:target=([^\s>]+)\s*-->/;
 var legacySeed = /<!--\s*release-draft-sync:seed-sha=([^\s>]+)(?:\s+source=([^\s>]+))?\s*-->/;
@@ -67,7 +67,7 @@ function validateReleaseMarker(body, expected) {
 	else if (expected.target && marker.target && marker.target !== expected.target && marker.target !== expected.package) throw new Error("Legacy release target mismatch: " + marker.target);
 	return marker;
 }
-// packages/cli/src/validate-release-identity/index.ts
+// ../cli/src/validate-release-identity/index.ts
 /** Commander-powered CLI command and feature implementation. @module */
 var input = (name) => {
 	const key = "INPUT_" + name.toUpperCase();

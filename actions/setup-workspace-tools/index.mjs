@@ -1,7 +1,7 @@
-import { n as InvalidArgumentError, t as Command } from "../_assets/esm-DgHHDa6o.mjs";
+import { n as InvalidArgumentError, t as Command } from "../_assets/esm-BGzD_pfc.mjs";
 import { dirname, join, resolve } from "node:path";
 import { appendFileSync, existsSync } from "node:fs";
-// packages/cli/src/setup-workspace-tools/setup-workspace-tools.ts
+// ../cli/src/setup-workspace-tools/setup-workspace-tools.ts
 /** Parse and validate workspace-tools installation source syntax. */
 function parseWorkspaceToolsSource(source) {
 	if (source === "checkout:current") return {
@@ -43,7 +43,7 @@ function resolveBinDir(mode, paths) {
 function validateBinDir(dir) {
 	for (const cli of ["workspace-release.mjs", "workspace-publish.mjs"]) if (!existsSync(join(dir, cli))) throw new Error(`Workspace Tools CLI is missing: ${join(dir, cli)}`);
 }
-// packages/cli/src/setup-workspace-tools/setup-workspace-tools-cli.ts
+// ../cli/src/setup-workspace-tools/setup-workspace-tools-cli.ts
 /** Commander-powered CLI command and feature implementation. @module */
 await new Command().name("setup-workspace-tools").requiredOption("--workspace-tools-source <source>", "npm source or checkout reference").option("--mode <mode>", "resolve | bin-dir", "resolve").option("--workspace <path>", "GitHub workspace", process.env.GITHUB_WORKSPACE).option("--runner-temp <path>", "GitHub runner temporary directory", process.env.RUNNER_TEMP).option("--release-bin <path>", "Resolved workspace-release executable").option("--github-output <path>", "GitHub Actions output file", process.env.GITHUB_OUTPUT).action((opts) => {
 	const source = parseWorkspaceToolsSource(opts.workspaceToolsSource);

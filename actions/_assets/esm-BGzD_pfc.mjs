@@ -22,7 +22,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 	enumerable: true
 }) : target, mod));
 var __require = /* #__PURE__ */ (() => createRequire(import.meta.url))();
-// node_modules/commander/lib/error.js
+// ../../node_modules/commander/lib/error.js
 var require_error = /* @__PURE__ */ __commonJSMin(((exports) => {
 	/**
 	* CommanderError class
@@ -60,7 +60,7 @@ var require_error = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.CommanderError = CommanderError;
 	exports.InvalidArgumentError = InvalidArgumentError;
 }));
-// node_modules/commander/lib/argument.js
+// ../../node_modules/commander/lib/argument.js
 var require_argument = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var { InvalidArgumentError } = require_error();
 	var Argument = class {
@@ -183,7 +183,7 @@ var require_argument = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.Argument = Argument;
 	exports.humanReadableArgName = humanReadableArgName;
 }));
-// node_modules/commander/lib/help.js
+// ../../node_modules/commander/lib/help.js
 var require_help = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var { humanReadableArgName } = require_argument();
 	/**
@@ -672,7 +672,7 @@ var require_help = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.Help = Help;
 	exports.stripColor = stripColor;
 }));
-// node_modules/commander/lib/option.js
+// ../../node_modules/commander/lib/option.js
 var require_option = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var { InvalidArgumentError } = require_error();
 	var Option = class {
@@ -974,7 +974,7 @@ var require_option = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.Option = Option;
 	exports.DualOptions = DualOptions;
 }));
-// node_modules/commander/lib/suggestSimilar.js
+// ../../node_modules/commander/lib/suggestSimilar.js
 var require_suggestSimilar = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var maxDistance = 3;
 	function editDistance(a, b) {
@@ -1028,7 +1028,7 @@ var require_suggestSimilar = /* @__PURE__ */ __commonJSMin(((exports) => {
 	}
 	exports.suggestSimilar = suggestSimilar;
 }));
-// node_modules/commander/lib/command.js
+// ../../node_modules/commander/lib/command.js
 var require_command = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var EventEmitter = __require("node:events").EventEmitter;
 	var childProcess = __require("node:child_process");
