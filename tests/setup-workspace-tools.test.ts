@@ -83,7 +83,7 @@ describe("Workspace Tools source selection", () => {
         { from: "user" },
       );
       expect(readFileSync(output, "utf8")).toContain(
-        "mode=registry\\nvalue=latest",
+        "mode=registry\nvalue=latest",
       );
       const invalid = createSetupWorkspaceToolsCommand().exitOverride();
       await expect(
