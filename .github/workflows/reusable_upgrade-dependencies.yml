@@ -6,7 +6,12 @@ on:
         description: Comma-separated package names to exclude from upgrades (optional)
         type: string
         default: ""
-
+  workflow_call:
+    inputs:
+      reject:
+        description: Comma-separated package names to exclude from upgrades (optional)
+        type: string
+        default: ""
 permissions:
   contents: write
   packages: read
