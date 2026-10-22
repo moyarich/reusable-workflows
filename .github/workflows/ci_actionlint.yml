@@ -1,0 +1,9 @@
+name: CI / Actionlint
+on:
+  workflow_call:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  actionlint:
+    uses: $/.github/workflows/reusable_actionlint.yml

@@ -1,266 +1,55 @@
 name: CI
-
 on:
   pull_request:
     paths:
       - "src/**"
-      - "packages/cli/**"
-      - "packages/actions/**"
+      - "packages/**"
+      - "actions/**"
       - "tests/**"
       - ".storybook/**"
       - "**/.storybook/**"
       - "**/*.stories.*"
       - "**/*.story.*"
-      - "vitest.config.*"
-      - "playwright.config.*"
+      - "**/*.spec.*"
+      - "**/*.specs.*"
       - "**/playwright.config.*"
+      - "playwright.config.*"
+      - "vitest.config.*"
       - "package.json"
       - "package-lock.json"
-      - "eslint.config.mjs"
+      - "eslint.config.*"
       - ".prettierignore"
-      - "tsconfig.json"
-      - "tsconfig.tests.json"
-      - ".github/workflows/ci.yml"
-      - ".github/workflows/reusable_actionlint.yml"
-
+      - "tsconfig*.json"
+      - ".github/workflows/**"
   workflow_dispatch:
     inputs:
       checkout-sha:
         description: Exact healed commit SHA to validate
-        required: true
         type: string
-
+        required: false
+        default: ""
 permissions:
   contents: read
   pull-requests: read
-
 concurrency:
   group: ci-${{ github.repository }}-${{ github.workflow }}-${{ github.event.pull_request.number || inputs.checkout-sha || github.run_id }}
   cancel-in-progress: false
-
 jobs:
-  lint-workflows:
-    name: Validate workflow syntax
-    permissions:
-      contents: read
-    uses: ./.github/workflows/reusable_actionlint.yml
-
+  actionlint:
+    uses: $/.github/workflows/ci_actionlint.yml
   cli:
-    name: CLI build, typecheck and tests
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ inputs.checkout-sha || github.sha }}
-          persist-credentials: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: "24"
-          cache: npm
-
-      - name: Install dependencies
-        run: npm install --no-package-lock --no-audit --no-fund
-        
-      - name: Validate package changelogs
-        uses: ./actions/validate-package-changelogs
-
-      - name: Run lint
-        run: npm run lint
-
-      - name: Run Typecheck
-        id: typecheck
-        shell: bash
-        run: |
-          npm run typecheck --workspaces --if-present
-
-          if [[ -f tsconfig.tests.json ]]; then
-            npx --no-install tsc -p tsconfig.tests.json --noEmit
-          elif [[ -f tsconfig.json ]]; then
-            npx --no-install tsc -p tsconfig.json --noEmit
-          else
-            echo "No TypeScript configuration found; skipping tsc."
-          fi
-
-      - name: Build npm Commander CLI
-        id: build-package
-        run: npm run build:package
-
-      - name: Recreate actions from empty distribution
-        id: build-actions
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf actions/
-          npm run build:actions
-          # Authored source files must survive Vite cleanup and regeneration.
-          git diff --exit-code -- packages/cli/src/ packages/actions/actions/ packages/actions/scripts/
-          git diff --exit-code -- actions/
-          if [[ -n "$(git ls-files --others --exclude-standard -- actions/)" ]]; then
-            echo "::error::Action build created untracked generated files. Commit regenerated actions/."
-            git ls-files --others --exclude-standard -- actions/
-            exit 1
-          fi
-
-      - name: Verify npm exports and action bundles
-        run: |
-          node --input-type=module -e "import { parseWorkspaceToolsSource } from '@moyarich/reusable-workflows-cli'; if (parseWorkspaceToolsSource('registry:npm:latest').mode !== 'registry') process.exit(1)"
-          test -f actions/setup-workspace-tools/index.mjs
-          test -f actions/release-draft-sync/index.mjs
-          test -f actions/validate-release-identity/index.mjs
-          test -f actions/check-dist/action.yml
-          test -f actions/resolve-workspaces/action.yml
-          test -f packages/cli/dist/lib/index.mjs
-          test -f packages/cli/dist/types/index.d.ts
-
-      - name: Run Vitest
-        id: vitest
-        run: npx --no-install vitest run
-
-      - name: Verify npm CLI help and package contents
-        id: verify-package
-        run: |
-          node packages/cli/dist/cli.mjs --help
-          node packages/cli/dist/workspace-source.mjs --help
-          node packages/cli/dist/release-validate.mjs --help
-          node packages/cli/dist/browser.mjs --help
-          node packages/cli/dist/setup-workspace-tools.mjs --help
-          npm exec --workspace @moyarich/reusable-workflows-cli -- reusable-workflows-cli --help
-          node packages/cli/dist/cli.mjs workspace-source --source registry:npm:latest
-          npm pack --workspace @moyarich/reusable-workflows-cli --dry-run
-          node --input-type=module <<'NODE'
-          import { readFileSync, existsSync } from 'node:fs';
-          const manifest = JSON.parse(readFileSync('packages/cli/package.json', 'utf8'));
-          for (const [name, file] of Object.entries(manifest.bin)) {
-            if (!existsSync('packages/cli/' + file)) throw new Error(`Missing npm bin ${name}: ${file}`);
-          }
-          NODE
-
-      - name: Discover Storybook test scripts
-        id: storybook
-        shell: bash
-        run: |
-          node --input-type=module <<'NODE'
-          import { readFileSync, readdirSync, existsSync, appendFileSync, writeFileSync } from "node:fs";
-          import { join } from "node:path";
-
-          const root = JSON.parse(readFileSync("package.json", "utf8"));
-          const patterns = Array.isArray(root.workspaces) ? root.workspaces : root.workspaces?.packages ?? [];
-          const directories = ["."];
-          for (const pattern of patterns) {
-            if (!pattern.endsWith("/*")) continue;
-            const parent = pattern.slice(0, -2);
-            if (!existsSync(parent)) continue;
-            for (const entry of readdirSync(parent, { withFileTypes: true })) {
-              if (entry.isDirectory()) directories.push(join(parent, entry.name));
-            }
-          }
-          const commands = [];
-          for (const dir of directories) {
-            const manifestPath = join(dir, "package.json");
-            if (!existsSync(manifestPath)) continue;
-            const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-            const script = ["test:storybook", "test-storybook"].find((key) => manifest.scripts?.[key]);
-            if (script) commands.push({ dir, script });
-          }
-          writeFileSync(join(process.env.RUNNER_TEMP, "storybook-tests.json"), JSON.stringify(commands));
-          appendFileSync(process.env.GITHUB_OUTPUT, `enabled=${commands.length > 0}\n`);
-          console.log(commands.length ? `Found Storybook tests in ${commands.map((c) => c.dir).join(", ")}` : "No Storybook test scripts configured; skipping.");
-          NODE
-
-      - name: Install Chromium for Storybook tests
-        if: steps.storybook.outputs.enabled == 'true'
-        run: npx --no-install playwright install --with-deps chromium
-
-      - name: Run Storybook tests
-        id: storybook-tests
-        if: steps.storybook.outputs.enabled == 'true'
-        shell: bash
-        run: |
-          node --input-type=module <<'NODE'
-          import { readFileSync } from "node:fs";
-          import { join } from "node:path";
-          import { spawnSync } from "node:child_process";
-
-          const commands = JSON.parse(readFileSync(join(process.env.RUNNER_TEMP, "storybook-tests.json"), "utf8"));
-          for (const { dir, script } of commands) {
-            const args = ["run", script, ...(dir === "." ? [] : ["--workspace", dir])];
-            console.log(`Running npm ${args.join(" ")}`);
-            const result = spawnSync("npm", args, { stdio: "inherit", shell: false });
-            if (result.status !== 0) process.exit(result.status || 1);
-          }
-          NODE
-
-      # Detect browser-test changes only on pull requests.
-      # Manual dispatch runs Playwright when configured.
-      - name: Detect Playwright changes
-        if: github.event_name == 'pull_request'
-        id: changes
-        uses: dorny/paths-filter@v4
-        with:
-          filters: |
-            playwright:
-              - '**/*.spec.*'
-              - '**/*.specs.*'
-              - '**/playwright.config.*'
-              - 'package.json'
-              - 'package-lock.json'
-              - '.github/workflows/ci.yml'
-
-      # Only install browsers when Playwright is configured
-      # and the relevant files have changed (or manually dispatched).
-      - name: Install Playwright browsers
-        id: playwright-install
-        if: |
-          hashFiles('playwright.config.*', '**/playwright.config.*') != '' &&
-          (github.event_name != 'pull_request' ||
-           steps.changes.outputs.playwright == 'true')
-        run: npx --no-install playwright install --with-deps chromium
-
-      - name: Run Playwright
-        id: playwright
-        if: |
-          hashFiles('playwright.config.*', '**/playwright.config.*') != '' &&
-          (github.event_name != 'pull_request' ||
-           steps.changes.outputs.playwright == 'true')
-        run: npx --no-install playwright test
-
-      - name: Upload Playwright traces on failure
-        if: failure() && steps.playwright.outcome == 'failure'
-        uses: actions/upload-artifact@v6
-        with:
-          name: playwright-traces
-          path: test-results/
-          if-no-files-found: ignore
-
-      - name: Write verification summary
-        if: always()
-        env:
-          STATUS: ${{ job.status }}
-          TYPECHECK: ${{ steps.typecheck.outcome }}
-          BUILD_PACKAGE: ${{ steps.build-package.outcome }}
-          VITEST: ${{ steps.vitest.outcome }}
-          VERIFY_PACKAGE: ${{ steps.verify-package.outcome }}
-          PLAYWRIGHT: ${{ steps.playwright.outcome }}
-          STORYBOOK: ${{ steps.storybook-tests.outcome }}
-        run: |
-          {
-            echo "## CLI build and Vitest"
-            echo
-            echo "| Check | Result |"
-            echo "|---|---|"
-            echo "| Typecheck | $TYPECHECK |"
-            echo "| npm Commander CLI build | $BUILD_PACKAGE |"
-            echo "| Vitest | $VITEST |"
-            echo "| npm package verification | $VERIFY_PACKAGE |"
-            echo "| Playwright | $PLAYWRIGHT |"
-            echo "| Storybook | $STORYBOOK |"
-            echo
-            echo "**Overall:** $STATUS"
-            echo
-            echo
-            echo "Node.js 24"
-          } >> "$GITHUB_STEP_SUMMARY"
+    uses: $/.github/workflows/ci_cli.yml
+    with:
+      checkout-sha: ${{ inputs.checkout-sha || '' }}
+  actions:
+    uses: $/.github/workflows/ci_actions.yml
+    with:
+      checkout-sha: ${{ inputs.checkout-sha || '' }}
+  storybook:
+    uses: $/.github/workflows/ci_storybook.yml
+    with:
+      checkout-sha: ${{ inputs.checkout-sha || '' }}
+  playwright:
+    uses: $/.github/workflows/ci_playwright.yml
+    with:
+      checkout-sha: ${{ inputs.checkout-sha || '' }}
