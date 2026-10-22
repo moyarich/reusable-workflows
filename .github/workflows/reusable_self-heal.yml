@@ -52,7 +52,7 @@ jobs:
     permissions:
       contents: write
       packages: read
-    uses: $/.github/workflows/reusable_prettier.yml
+    uses: $/.github/workflows/reusable_self-heal-prettier.yml
     with:
       expected-sha: ${{ needs.package-lock.outputs.healed-sha || github.sha }}
       mode: fix
