@@ -16,7 +16,6 @@ on:
       - ".prettierrc.json"
       - ".prettierignore"
       - "tests/**"
-      - "actions/**"
       - ".github/workflows/self-heal-ci.yml"
   workflow_dispatch:
     inputs:
@@ -107,14 +106,14 @@ jobs:
           git push origin "HEAD:refs/heads/${GITHUB_REF_NAME}"
           echo "changed=true" >> "$GITHUB_OUTPUT"
 
-      - name: Dispatch distribution validation for healed head
+      - name: Dispatch read-only distribution validation for healed head
         if: steps.commit.outputs.changed == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh workflow run check-dist.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME"
+          gh workflow run check-dist.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME" --field package=packages/actions --field dry-run=true --field commit=false
 
       - name: Self-heal summary
         if: always()
