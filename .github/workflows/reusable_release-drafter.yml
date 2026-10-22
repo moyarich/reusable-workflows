@@ -405,7 +405,7 @@ jobs:
                 )
               ]
               | sort_by(.created_at)
-              | last // empty
+              | first // empty
             ' <<< "$RELEASES"
           )"
 
@@ -424,9 +424,17 @@ jobs:
                   )
                 ]
                 | sort_by(.created_at)
-                | last // empty
+                | first // empty
               ' <<< "$RELEASES"
             )"
+          fi
+
+          # A stable canonical draft prevents future runs from hopping between
+          # multiple drafts that share a tag. Leave duplicates untouched for
+          # manual reconciliation: they may contain distinct reviewer edits.
+          DUPLICATE_COUNT="$(jq -r --arg tag "$EXPECTED_TAG" '[.[][] | select(.draft == true and .tag_name == $tag)] | length' <<< "$RELEASES")"
+          if (( DUPLICATE_COUNT > 1 )); then
+            echo "::warning::$DUPLICATE_COUNT draft releases share $EXPECTED_TAG. Reusing the oldest matching draft; reconcile duplicates manually."
           fi
 
           EXISTING_BODY_FILE="$RUNNER_TEMP/existing-release-body.md"
@@ -693,6 +701,22 @@ jobs:
           # Never repurpose an existing release for a different tag.
           if [ -n "$EXISTING_ID" ] && [ "$EXISTING_TAG" != "$RELEASE_TAG" ]; then
             echo "::error::Existing draft tag $EXISTING_TAG differs from requested $RELEASE_TAG."
+            exit 1
+          fi
+
+          # Do not rely solely on the earlier discovery snapshot: another
+          # workflow or human may have created a draft in the meantime.
+          # Never create a second draft with the same tag.
+          CURRENT_DRAFTS="$(gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100")"
+          MATCHING_DRAFT_IDS="$(jq -r --arg tag "$RELEASE_TAG" '[.[][] | select(.draft == true and .tag_name == $tag)] | sort_by(.created_at) | .[].id' <<< "$CURRENT_DRAFTS")"
+          CANONICAL_ID="$(head -n 1 <<< "$MATCHING_DRAFT_IDS")"
+          if [ -n "$CANONICAL_ID" ]; then
+            if [ -z "$EXISTING_ID" ] || [ "$EXISTING_ID" != "$CANONICAL_ID" ]; then
+              echo "::error::Draft $RELEASE_TAG was created or its canonical identity changed during this run. Rerun to reconcile without creating duplicates."
+              exit 1
+            fi
+          elif [ -n "$EXISTING_ID" ]; then
+            echo "::error::Existing release draft $EXISTING_ID was deleted during this run. Rerun to re-resolve release state."
             exit 1
           fi
 
