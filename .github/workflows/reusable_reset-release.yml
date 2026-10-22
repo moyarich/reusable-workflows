@@ -52,7 +52,7 @@ jobs:
     name: "job: Workflow parameters"
     permissions:
       contents: read
-    uses: ./.github/workflows/reusable_dispatch-input-summary.yml
+    uses: $/.github/workflows/reusable_dispatch-input-summary.yml
     with:
       parameters-json: ${{ toJSON(inputs) }}
       heading: "Reset release · Workflow inputs"

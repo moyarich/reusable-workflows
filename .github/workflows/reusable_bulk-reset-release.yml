@@ -36,7 +36,7 @@ jobs:
   select:
     permissions:
       contents: read
-    uses: ./.github/workflows/reusable_select-recovery-packages.yml
+    uses: $/.github/workflows/reusable_select-recovery-packages.yml
     with:
       package: ${{ inputs.package }}
       workspace-tools-source: ${{ inputs.workspace-tools-source }}
@@ -58,7 +58,7 @@ jobs:
       contents: write
       packages: read
       pull-requests: read
-    uses: ./.github/workflows/reusable_reset-release.yml
+    uses: $/.github/workflows/reusable_reset-release.yml
     with:
       draft-template-path: .github/release-drafter-template.yml
       package: ${{ matrix.directory }}

@@ -132,7 +132,7 @@ jobs:
     if: ${{ inputs.show-input-summary }}
     permissions:
       contents: read
-    uses: ./.github/workflows/reusable_dispatch-input-summary.yml
+    uses: $/.github/workflows/reusable_dispatch-input-summary.yml
     with:
       parameters-json: ${{ toJSON(inputs) }}
       exclude-inputs: '["show-input-summary"]'
@@ -310,7 +310,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: ./.github/workflows/reusable_registry-publication-check.yml
+    uses: $/.github/workflows/reusable_registry-publication-check.yml
     with:
       package-name: ${{ inputs.package }}
       package-version: ${{ needs.prepare.outputs.package-version }}

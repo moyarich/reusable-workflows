@@ -66,7 +66,7 @@ jobs:
     name: "job: Workflow parameters"
     permissions:
       contents: read
-    uses: ./.github/workflows/reusable_dispatch-input-summary.yml
+    uses: $/.github/workflows/reusable_dispatch-input-summary.yml
     with:
       parameters-json: ${{ toJSON(inputs) }}
       heading: "Restore release · Workflow inputs"
@@ -608,7 +608,7 @@ jobs:
     if: ${{ needs.resolve.result == 'success' && needs.resolve.outputs.audit-finalized != 'true' }}
     permissions:
       contents: write
-    uses: ./.github/workflows/reusable_delete-release-tag.yml
+    uses: $/.github/workflows/reusable_delete-release-tag.yml
     with:
       tag: ${{ needs.resolve.outputs.matched-release-tag || needs.resolve.outputs.release-tag }}
       dry-run: ${{ inputs.dry-run }}
@@ -621,7 +621,7 @@ jobs:
     if: ${{ needs.resolve.result == 'success' && needs.delete-release.result == 'success' }}
     permissions:
       contents: write
-    uses: ./.github/workflows/reusable_release-tag-move.yml
+    uses: $/.github/workflows/reusable_release-tag-move.yml
     with:
       target-branch: ${{ inputs.target-branch }}
       tag: ${{ needs.resolve.outputs.release-tag }}
@@ -637,7 +637,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: read
-    uses: ./.github/workflows/reusable_release-drafter.yml
+    uses: $/.github/workflows/reusable_release-drafter.yml
     with:
       show-input-summary: false
       target-branch: ${{ inputs.target-branch }}

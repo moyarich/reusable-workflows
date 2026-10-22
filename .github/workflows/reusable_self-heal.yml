@@ -41,7 +41,7 @@ jobs:
     permissions:
       contents: write
       packages: read
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_npm-package-lock.yml@main
+    uses: $/.github/workflows/reusable_npm-package-lock.yml
     with:
       commit: ${{ inputs.commit }}
       node-version: ${{ inputs.node-version }}
@@ -52,7 +52,7 @@ jobs:
     permissions:
       contents: write
       packages: read
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_prettier.yml@main
+    uses: $/.github/workflows/reusable_prettier.yml
     with:
       expected-sha: ${{ needs.package-lock.outputs.healed-sha || github.sha }}
       mode: fix
@@ -87,7 +87,7 @@ jobs:
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
       - name: Dispatch and verify required workflow
         id: validate
-        uses: moyarich/reusable-workflows/actions/workflow-dispatch@main
+        uses: $/actions/workflow-dispatch
         with:
           workflow: ${{ inputs.required-workflow }}
           branch: ${{ inputs.target-branch }}
