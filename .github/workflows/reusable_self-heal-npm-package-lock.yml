@@ -3,6 +3,11 @@ name: "Reusable · npm lockfile self-heal"
 on:
   workflow_dispatch:
     inputs:
+      mode:
+        description: Check lockfile consistency or repair it
+        type: choice
+        options: [check, fix]
+        default: fix
       commit:
         description: Commit recreated package-lock.json
         required: true
@@ -16,6 +21,10 @@ on:
 
   workflow_call:
     inputs:
+      mode:
+        description: Check lockfile consistency or repair it
+        type: string
+        default: fix
       commit:
         description: Commit recreated package-lock.json
         required: false
@@ -75,6 +84,7 @@ jobs:
             : > /tmp/package-lock.before.json
           fi
 
+          test "${{ inputs.mode }}" = check -o "${{ inputs.mode }}" = fix
           npm install \
             --package-lock-only \
             --ignore-scripts \
@@ -98,8 +108,14 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.package-token || github.token }}
         run: npm ci --ignore-scripts --no-audit --no-fund
 
+      - name: Fail on lockfile drift in check mode
+        if: ${{ inputs.mode == 'check' && steps.recreate.outputs.changed == 'true' }}
+        run: |
+          echo "::error::package-lock.json is out of sync with package manifests."
+          exit 1
+
       - name: Commit recreated package-lock.json
-        if: ${{ inputs.commit && steps.recreate.outputs.changed == 'true' }}
+        if: ${{ inputs.mode == 'fix' && inputs.commit && steps.recreate.outputs.changed == 'true' }}
         shell: bash
         env:
           TARGET_REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}
