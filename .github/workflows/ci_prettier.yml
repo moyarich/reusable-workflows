@@ -58,3 +58,4 @@ jobs:
       mode: check
       commit: false
       prettier-config: this-repository
+      checkout-sha: ${{ inputs.checkout-sha }}
