@@ -4,6 +4,25 @@ run-name: >-
   Check dist · ${{ inputs.package }}
 
 on:
+  push:
+    paths:
+      - "packages/cli/src/**"
+      - "packages/actions/actions/**"
+      - "packages/actions/scripts/**"
+      - "packages/actions/plugins/**"
+      - "packages/cli/src/workflow-dispatch/**"
+      - "packages/cli/src/verify-workflow-runs/**"
+      - "packages/actions/vite.config.ts"
+      - ".github/workflows/ci_cli.yml"
+      - "vitest.config.ts"
+      - "package.json"
+      - "package-lock.json"
+      - "eslint.config.mjs"
+      - ".prettierrc.json"
+      - ".prettierignore"
+      - "tests/**"
+      - "actions/**"
+      - ".github/workflows/self-heal-ci.yml"
   workflow_dispatch:
     inputs:
       package:
@@ -53,18 +72,23 @@ on:
 
 permissions: {}
 
+concurrency:
+  group: dist-${{ github.repository }}-${{ github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   check-dist:
     permissions:
       contents: write
     uses: $/.github/workflows/reusable_check-dist.yml
     with:
-      package: ${{ inputs.package }}
-      dist-path: ${{ inputs.dist-path }}
-      build-command: ${{ inputs.build-command }}
-      install-command: ${{ inputs.install-command }}
-      dry-run: ${{ inputs.dry-run }}
-      commit: ${{ inputs.commit }}
-      node-caching: ${{ inputs.node-caching }}
+      package: ${{ github.event_name == 'push' && 'packages/actions' || inputs.package }}
+      dist-path: ${{ github.event_name == 'push' && 'actions/' || inputs.dist-path }}
+      build-command: ${{ github.event_name == 'push' && 'npm run build:actions' || inputs.build-command }}
+      install-command: ${{ github.event_name == 'push' && 'npm install --no-package-lock --no-audit --no-fund' || inputs.install-command }}
+      dry-run: ${{ github.event_name != 'push' && inputs.dry-run }}
+      commit: ${{ github.event_name == 'push' || inputs.commit }}
+      node-caching: ${{ github.event_name == 'push' && '' || inputs.node-caching }}
       include-root-package: ${{ inputs.include-root-package }}
-      workspace-tools-source: ${{ inputs.workspace-tools-source }}
+      workspace-tools-source: ${{ github.event_name == 'push' && 'auto' || inputs.workspace-tools-source }}
+      validation-command: ${{ github.event_name == 'push' && 'test -f actions/setup-workspace-tools/action.yml && test -f actions/setup-workspace-tools/index.mjs && test -f actions/release-draft-sync/action.yml && test -f actions/parse-typed-inputs/action.yml && test -f actions/validate-package-changelogs/action.yml' || '' }}
