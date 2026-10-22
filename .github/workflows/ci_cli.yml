@@ -89,9 +89,9 @@ jobs:
         id: build-package
         run: npm run build:package
 
-      - name: Run Vitest
+      - name: Run Vitest (workspaces and root)
         id: vitest
-        run: npx --no-install vitest run
+        run: npm test --workspaces --if-present --include-workspace-root
 
       - name: Verify npm CLI help and package contents
         id: verify-package
