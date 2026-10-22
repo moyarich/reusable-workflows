@@ -1,5 +1,4 @@
 import { describe, expect, test } from "vitest";
-import { spawnSync } from "node:child_process";
 import {
   mkdtempSync,
   mkdirSync,
@@ -14,6 +13,7 @@ import {
   resolveBinDir,
   validateBinDir,
 } from "../packages/cli/src/setup-workspace-tools/setup-workspace-tools";
+import { createSetupWorkspaceToolsCommand } from "../packages/cli/src/setup-workspace-tools/setup-workspace-tools-command";
 
 describe("Workspace Tools source selection", () => {
   test("accepts latest, pinned versions, local and upstream refs", () => {
@@ -69,33 +69,25 @@ describe("Workspace Tools source selection", () => {
       rmSync(root, { recursive: true, force: true });
     }
   });
-  test("built Commander CLI writes GitHub outputs and rejects unknown options", () => {
+  test("source Commander command writes GitHub outputs and rejects unknown options", async () => {
     const root = mkdtempSync(join(tmpdir(), "workspace-tools-setup-cli-"));
     try {
       const output = join(root, "outputs");
-      const cli = "packages/cli/dist/setup-workspace-tools.mjs";
-      const result = spawnSync(
-        process.execPath,
-        [
-          cli,
-          "--workspace-tools-source",
-          "registry:npm:latest",
-          "--github-output",
-          output,
-        ],
-        { encoding: "utf8" },
-      );
-      expect(result.status).toBe(0);
+      await createSetupWorkspaceToolsCommand().parseAsync([
+        "--workspace-tools-source",
+        "registry:npm:latest",
+        "--github-output",
+        output,
+      ], { from: "user" });
       expect(readFileSync(output, "utf8")).toContain(
-        "mode=registry\nvalue=latest",
+        "mode=registry\\nvalue=latest",
       );
-      const bad = spawnSync(
-        process.execPath,
-        [cli, "--workspace-tools-source", "registry:npm:latest", "--invalid"],
-        { encoding: "utf8" },
-      );
-      expect(bad.status).not.toBe(0);
-      expect(bad.stderr).toMatch(/unknown option/i);
+      const invalid = createSetupWorkspaceToolsCommand().exitOverride();
+      await expect(invalid.parseAsync([
+        "--workspace-tools-source", "registry:npm:latest", "--invalid",
+      ], { from: "user" })).rejects.toMatchObject({
+        code: "commander.unknownOption",
+      });
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
