@@ -43,6 +43,7 @@ jobs:
       packages: read
     uses: $/.github/workflows/reusable_self-heal-npm-package-lock.yml
     with:
+      mode: fix
       commit: ${{ inputs.commit }}
       node-version: ${{ inputs.node-version }}
 
