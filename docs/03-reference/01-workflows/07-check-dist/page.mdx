@@ -1,40 +1,71 @@
 ---
 title: Check dist
-description: Verify that committed distribution output matches a clean rebuild.
+description: Build and validate committed or CI-generated distributions.
 ---
 
 # Check dist
 
-Use `reusable_check-dist.yml` when generated distribution files are committed to the repository and must stay synchronized with their source.
+The `reusable_self-heal-check-dist.yml` workflow rebuilds selected npm workspace distributions using the caller repository's `.github/check-dist-config.yml`.
 
-The workflow:
+## Distribution modes
 
-- checks out the caller repository;
-- installs dependencies with `npm ci --ignore-scripts`;
-- runs the configured build command;
-- compares the configured distribution path using `git status --porcelain`, which catches modified, deleted, and untracked generated files;
-- uploads the rebuilt distribution directory when the comparison fails.
+There are two different cases:
 
-## Inputs
+| Mode                          | `commitDist`      | Behavior                                                                                                                                                                                                            |
+| ----------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Committed distribution**    | `true`            | Generated files (for example `dist/`, `actions/`, or extension bundles) are checked into Git. Rebuild and compare them with committed files, and optionally commit regenerated output when self-healing is enabled. |
+| **CI-generated distribution** | `false` (default) | Generate output during CI, packaging, or publishing without requiring that output to be checked into Git. Build and validate the output; do not stage, compare against Git, or commit it.                           |
 
-| Input           | Default         | Description                                                                        |
-| --------------- | --------------- | ---------------------------------------------------------------------------------- |
-| `dist-path`     | `dist/`         | Distribution directory to compare.                                                 |
-| `build-command` | `npm run build` | Command that rebuilds the distribution output.                                     |
-| `node-version`  | `24`            | Node.js version used for the rebuild.                                              |
-| `node-caching`  | `npm`           | Cache mode passed to `actions/setup-node`; use an empty string to disable caching. |
-| `artifact-name` | `dist`          | Name of the uploaded rebuilt artifact when the comparison fails.                   |
+Only committed distributions need to match checked-in build output. For CI-generated distributions, the output directory may be absent **before** the build. It still must exist **after** the build for artifact validation.
 
-## Example
+A repository can mix both modes across different packages. Publishing an npm package does not, by itself, require committing its `dist/` directory.
+
+## Configure the caller
+
+Create `.github/check-dist-config.yml` in the consuming repository, or select a different file using the workflow's `config-path` input. The schema is maintained centrally in [check-dist-config.schema.json](https://github.com/moyarich/reusable-workflows/blob/main/.github/reusable-configurations/check-dist-config.schema.json).
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/moyarich/reusable-workflows/main/.github/reusable-configurations/check-dist-config.schema.json
+packages:
+  all:
+    commitDist: false
+    distPath: "{packageDir}/dist"
+
+  "packages/actions":
+    commitDist: true
+    distPath: actions
+    buildCommand: npm run build:actions
+
+  "packages/cli":
+    distPath: packages/cli/dist
+    buildCommand: npm run build:cli
+```
+
+`packages.all` provides shared defaults. Entries keyed by package name or directory override individual fields. Distribution paths support `{packageDir}`, `{package}`, `{packageName}`, and `{workspace}` placeholders. Use `extraPackages` for build targets not returned by workspace discovery.
+
+## Call the reusable workflow
 
 ```yaml
 jobs:
   check-dist:
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_check-dist.yml@v1
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_self-heal-check-dist.yml@main
+    permissions:
+      contents: write
     with:
-      dist-path: dist/
-      build-command: npm run build:actions
-      node-version: "24"
+      config-path: .github/check-dist-config.yml
+      package: all
+      dry-run: true
+      commit: false
 ```
 
-This validation complements self-healing workflows: CI reports stale committed output and preserves the expected rebuilt artifact, while a separate self-heal workflow may regenerate and commit it.
+The caller workflow templates are maintained in [reusable-workflows-callers](https://github.com/moyarich/reusable-workflows-callers).
+
+The `commit` workflow input controls whether an eligible committed distribution is pushed back to Git. `dry-run: true` prevents commits even for `commitDist: true`. Packages with `commitDist: false` are never staged or committed by this check.
+
+## Failure behavior
+
+- Invalid YAML or values that violate the schema: fail configuration validation.
+- Selected package build fails: fail.
+- Expected output directory still missing after the build: fail.
+- Committed distribution differs from Git: report the difference and allow the configured self-heal behavior.
+- CI-generated distribution absent before the build: not an error.
