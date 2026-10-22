@@ -21,6 +21,10 @@ on:
 
   workflow_call:
     inputs:
+      checkout-sha:
+        description: Commit SHA to validate in check mode
+        type: string
+        default: ""
       mode:
         description: Check lockfile consistency or repair it
         type: string
@@ -59,7 +63,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}
+          ref: ${{ inputs.mode == 'check' && inputs.checkout-sha || (github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name) }}
           persist-credentials: ${{ inputs.commit }}
           fetch-depth: 1
 
