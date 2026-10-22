@@ -251,7 +251,7 @@ jobs:
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
       - name: Upload rebuilt dist
-        if: ${{ always() && steps.resolve.outputs.dist-path != '' && (!(inputs.commit && !inputs.dry-run && needs.select-packages.outputs.single-package == 'true') || (steps.compare.outputs.changed == 'true' && failure())) }}
+        if: ${{ always() && steps.resolve.outputs.dist-path != '' && (!matrix.commitDist || !(inputs.commit && !inputs.dry-run && needs.select-packages.outputs.single-package == 'true') || (steps.compare.outputs.changed == 'true' && failure())) }}
         uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs.artifact-name || format('dist-{0}', matrix.artifactSuffix) }}
