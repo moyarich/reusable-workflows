@@ -1,4 +1,4 @@
-name: CI / npm package lock
+name: CI / package-lock
 
 on:
   push:
