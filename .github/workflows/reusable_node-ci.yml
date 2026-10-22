@@ -254,7 +254,15 @@ jobs:
         env:
           WORKSPACE: ${{ matrix.directory }}
         run: |
-          if [ "$WORKSPACE" = "." ]; then npm run lint --if-present; else npm run lint --workspace "$WORKSPACE" --if-present; fi
+          if [ -f eslint.config.mjs ] || [ -f eslint.config.js ] || [ -f eslint.config.cjs ]; then
+            if [ "$WORKSPACE" = "." ]; then
+              npx --no-install eslint . --max-warnings 0
+            else
+              npx --no-install eslint "$WORKSPACE" --max-warnings 0
+            fi
+          else
+            echo "No ESLint configuration found; skipping ESLint."
+          fi
       - name: Typecheck
         env:
           WORKSPACE: ${{ matrix.directory }}
