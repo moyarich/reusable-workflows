@@ -111,7 +111,6 @@ jobs:
           persist-credentials: false
 
       - name: Verify target commit
-        if: ${{ true }}
         env:
           EXPECTED_SHA: ${{ inputs.expected-sha }}
           TARGET_BRANCH: ${{ inputs.target-branch || github.ref_name }}
@@ -220,7 +219,6 @@ jobs:
 
       - name: Record verified SHA
         id: head
-        if: ${{ true }}
         env:
           TARGET_BRANCH: ${{ inputs.target-branch || github.ref_name }}
           GH_TOKEN: ${{ github.token }}
