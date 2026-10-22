@@ -36,5 +36,5 @@ jobs:
             echo "| --- | --- |"
             echo "| Actionlint (workflow syntax and expressions) | $RESULT |"
             echo
-            echo "Actionlint version: `1.7.12`"
+            echo 'Actionlint version: `1.7.12`'
           } >> "$GITHUB_STEP_SUMMARY"
