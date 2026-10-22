@@ -33,7 +33,7 @@ jobs:
   discover:
     permissions:
       contents: read
-    uses: ./.github/workflows/reusable_discover-packages.yml
+    uses: $/.github/workflows/reusable_discover-packages.yml
     with:
       packages-directory: packages
       workspace-tools-source: ${{ inputs.workspace-tools-source }}

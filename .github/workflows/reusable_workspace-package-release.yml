@@ -51,7 +51,7 @@ jobs:
     name: Discover publishable packages
     permissions:
       contents: read
-    uses: ./.github/workflows/reusable_discover-packages.yml
+    uses: $/.github/workflows/reusable_discover-packages.yml
     with:
       packages-directory: packages
       workspace-tools-source: ${{ inputs.workspace-tools-source }}
@@ -64,7 +64,7 @@ jobs:
     needs: discover-packages
     permissions:
       contents: read
-    uses: ./.github/workflows/reusable_select-release-packages.yml
+    uses: $/.github/workflows/reusable_select-release-packages.yml
     with:
       packages-json: ${{ needs.discover-packages.outputs.packages }}
       package: ${{ inputs.package }}
@@ -93,7 +93,7 @@ jobs:
           persist-credentials: false
       - name: Resolve Workspace Tools CLI
         id: workspace-tools
-        uses: moyarich/reusable-workflows/actions/setup-workspace-tools@main
+        uses: $/actions/setup-workspace-tools
         with:
           workspace-tools-source: ${{ inputs.workspace-tools-source }}
       - name: Resolve release versions
@@ -288,7 +288,7 @@ jobs:
       matrix: ${{ fromJSON(needs.select.outputs.matrix) }}
     permissions:
       contents: write
-    uses: ./.github/workflows/reusable_release.yml
+    uses: $/.github/workflows/reusable_release.yml
     with:
       version: ${{ matrix.version }}
       release-tag: ${{ format('{0}@{1}', matrix.name, matrix.version) }}
