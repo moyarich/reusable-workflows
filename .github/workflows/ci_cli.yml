@@ -69,7 +69,7 @@ jobs:
         uses: ./actions/validate-package-changelogs
 
       - name: Run lint
-        run: npm run lint
+        run: npx --no-install eslint . --max-warnings 0
 
       - name: Run Typecheck
         id: typecheck
