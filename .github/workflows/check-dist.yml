@@ -54,65 +54,17 @@ on:
 permissions: {}
 
 jobs:
-  discover-packages:
-    name: Discover workspace packages
-    permissions:
-      contents: read
-    uses: 
-      $/.github/workflows/reusable_discover-packages.yml
-    with:
-      packages-directory: packages
-      use-workspaces: true
-      require-build-script: true
-      include-private: true
-      include-root-package: ${{ inputs.include-root-package }}
-      workspace-tools-source: ${{ inputs.workspace-tools-source }}
-
-  select-packages:
-    name: Select distributions
-    needs: discover-packages
-    runs-on: ubuntu-latest
-    permissions: {}
-    outputs:
-      matrix: ${{ steps.select.outputs.matrix }}
-      has-packages: ${{ steps.select.outputs.has-packages }}
-      single-package: ${{ steps.select.outputs.single-package }}
-    steps:
-      - name: Checkout configuration
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - name: Select and validate distribution packages
-        id: select
-        uses: $/actions/check-dist
-        with:
-          discovered: ${{ needs.discover-packages.outputs.packages }}
-          package: ${{ inputs.package }}
-          dist-path: ${{ inputs.dist-path }}
-          build-command: ${{ inputs.build-command }}
-
   check-dist:
-    name: "dist: ${{ matrix.name }}"
-    needs: select-packages
-    if: ${{ needs.select-packages.outputs.has-packages == 'true' }}
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.select-packages.outputs.matrix) }}
     permissions:
       contents: write
-    uses: 
-      $/.github/workflows/reusable_self-heal-dist.yml
+    uses: $/.github/workflows/reusable_check-dist.yml
     with:
-      dist-path: ${{ matrix.distTemplate }}
-      build-command: ${{ matrix.buildCommand }}
+      package: ${{ inputs.package }}
+      dist-path: ${{ inputs.dist-path }}
+      build-command: ${{ inputs.build-command }}
       install-command: ${{ inputs.install-command }}
+      dry-run: ${{ inputs.dry-run }}
+      commit: ${{ inputs.commit }}
       node-caching: ${{ inputs.node-caching }}
-      package-name: ${{ matrix.name }}
-      package-directory: ${{ matrix.directory }}
-      artifact-name: ${{ format('dist-{0}', matrix.artifactSuffix) }}
-      node-version: "24"
-      repair: true
-      commit: ${{ inputs.commit && !inputs.dry-run && needs.select-packages.outputs.single-package == 'true' }}
-      target-branch: ${{ github.ref_name }}
-      expected-sha: ${{ github.sha }}
-      checkout-sha: ${{ github.sha }}
+      include-root-package: ${{ inputs.include-root-package }}
+      workspace-tools-source: ${{ inputs.workspace-tools-source }}
