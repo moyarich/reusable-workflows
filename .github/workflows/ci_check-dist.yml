@@ -81,7 +81,7 @@ jobs:
   check-dist:
     permissions:
       contents: write
-    uses: $/.github/workflows/reusable_check-dist.yml
+    uses: $/.github/workflows/reusable_self-heal-check-dist.yml
     with:
       package: ${{ github.event_name == 'push' && 'packages/actions' || inputs.package }}
       dist-path: ${{ github.event_name == 'push' && 'actions/' || inputs.dist-path }}
