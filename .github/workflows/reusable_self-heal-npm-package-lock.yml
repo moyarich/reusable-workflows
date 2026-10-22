@@ -64,7 +64,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ inputs.mode == 'check' && inputs.checkout-sha || (github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name) }}
-          persist-credentials: ${{ inputs.commit }}
+          persist-credentials: ${{ inputs.mode == 'fix' && inputs.commit }}
           fetch-depth: 1
 
       - name: Set up Node.js
@@ -74,7 +74,7 @@ jobs:
           registry-url: https://npm.pkg.github.com
           scope: "@moyarich"
 
-      - name: Recreate package-lock.json
+      - name: Check lockfile consistency and prepare repair
         id: recreate
         env:
           NODE_AUTH_TOKEN: ${{ secrets.package-token || github.token }}
@@ -107,18 +107,18 @@ jobs:
               | tee /tmp/package-lock-result.json
           fi
 
-      - name: Validate recreated lockfile
+      - name: Validate checked or repaired lockfile
         env:
           NODE_AUTH_TOKEN: ${{ secrets.package-token || github.token }}
         run: npm ci --ignore-scripts --no-audit --no-fund
 
-      - name: Fail on lockfile drift in check mode
+      - name: Fail when lockfile check detects drift
         if: ${{ inputs.mode == 'check' && steps.recreate.outputs.changed == 'true' }}
         run: |
-          echo "::error::package-lock.json is out of sync with package manifests."
+          echo "::error::package-lock.json is out of sync with package manifests; run self-heal in fix mode."
           exit 1
 
-      - name: Commit recreated package-lock.json
+      - name: Self-heal changed package-lock.json
         if: ${{ inputs.mode == 'fix' && inputs.commit && steps.recreate.outputs.changed == 'true' }}
         shell: bash
         env:
