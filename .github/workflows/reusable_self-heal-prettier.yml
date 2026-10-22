@@ -1,4 +1,4 @@
-name: "Reusable · Prettier self-heal"
+name: "Reusable · self-heal · Prettier"
 
 on:
   workflow_dispatch:
