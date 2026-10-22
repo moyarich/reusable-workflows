@@ -29,9 +29,15 @@ runs:
             continue;
           }
           const lines = readFileSync(changelog, 'utf8').split(/\r?\n/);
-          const expected = `## ${manifest.version}`;
-          if (!lines.some(line => line.trim() === expected)) {
-            errors.push(`${manifest.name ?? file}: ${changelog} must contain "${expected}"`);
+          // Accept Keep a Changelog headings (## [1.2.3]) as well as plain
+          // Markdown headings (## 1.2.3). Compare the complete version,
+          // not a substring, so 1.2.3 never matches 1.2.30.
+          const hasVersion = lines.some(line => {
+            const match = line.match(/^##[ \t]+(?:\[([^\]]+)\]|([^\s]+))/);
+            return match && (match[1] ?? match[2]) === manifest.version;
+          });
+          if (!hasVersion) {
+            errors.push(`${manifest.name ?? file}: ${changelog} must contain a version heading "## ${manifest.version}" or "## [${manifest.version}]"`);
           } else {
             validated++;
           }
