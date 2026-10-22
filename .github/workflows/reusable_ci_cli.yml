@@ -1,15 +1,16 @@
-name: Reusable CI / CLI and workspace quality
+name: Reusable CI / CLI build and tests
 on:
   workflow_call:
     inputs:
       checkout-sha:
+        description: Exact commit SHA to validate
         type: string
         required: false
         default: ""
   workflow_dispatch:
     inputs:
       checkout-sha:
-        description: Exact commit SHA to validate (e.g. after self-heal)
+        description: Exact commit SHA to validate
         type: string
         required: false
         default: ""
@@ -22,36 +23,65 @@ jobs:
   cli:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.checkout-sha || github.sha }}
           persist-credentials: false
-      - uses: actions/setup-node@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
         with:
           node-version: "24"
           cache: npm
-      - run: npm ci --include=optional --no-audit --no-fund
-      - name: Lint
+
+      - name: Install dependencies
+        run: npm install --no-package-lock --no-audit --no-fund
+        
+      - name: Validate package changelogs
+        uses: ./packages/actions/actions/validate-package-changelogs
+
+      - name: Run lint
+        run: npx --no-install eslint . --max-warnings 0
+
+      - name: Run Typecheck
+        id: typecheck
         shell: bash
         run: |
-          set -euo pipefail
-          if [[ -f eslint.config.js || -f eslint.config.mjs || -f eslint.config.cjs ]]; then
-            npx --no-install eslint . --max-warnings 0
-          else
-            npx --yes @biomejs/biome@2.2.5 lint packages apps
-          fi
-      - name: Typecheck
-        shell: bash
-        run: |
-          set -euo pipefail
-          npm run typecheck --if-present
           npm run typecheck --workspaces --if-present
+
           if [[ -f tsconfig.tests.json ]]; then
             npx --no-install tsc -p tsconfig.tests.json --noEmit
+          elif [[ -f tsconfig.json ]]; then
+            npx --no-install tsc -p tsconfig.json --noEmit
+          else
+            echo "No TypeScript configuration found; skipping tsc."
           fi
-      - name: Build
-        run: npm run build --if-present
-      - name: Vitest (workspaces and root)
+
+      - name: Build npm Commander CLI
+        id: build-package
+        run: npm run build:package
+
+      - name: Run Vitest (workspaces and root)
+        id: vitest
         run: npm test --workspaces --if-present --include-workspace-root
-      - name: Package contents
-        run: npm run pack:check --if-present
+
+      - name: Verify npm CLI help and package contents
+        id: verify-package
+        run: |
+          node packages/cli/dist/cli.mjs --help
+          node packages/cli/dist/workspace-source.mjs --help
+          node packages/cli/dist/release-validate.mjs --help
+          node packages/cli/dist/browser.mjs --help
+          node packages/cli/dist/setup-workspace-tools.mjs --help
+          npm exec --workspace @moyarich/reusable-workflows-cli -- reusable-workflows-cli --help
+          node packages/cli/dist/cli.mjs workspace-source --source registry:npm:latest
+          npm pack --workspace @moyarich/reusable-workflows-cli --dry-run
+          node --input-type=module <<'NODE'
+          import { readFileSync, existsSync } from 'node:fs';
+          const manifest = JSON.parse(readFileSync('packages/cli/package.json', 'utf8'));
+          for (const [name, file] of Object.entries(manifest.bin)) {
+            if (!existsSync('packages/cli/' + file)) throw new Error(`Missing npm bin ${name}: ${file}`);
+          }
+          NODE
+
