@@ -73,19 +73,25 @@ describe("Workspace Tools source selection", () => {
     const root = mkdtempSync(join(tmpdir(), "workspace-tools-setup-cli-"));
     try {
       const output = join(root, "outputs");
-      await createSetupWorkspaceToolsCommand().parseAsync([
-        "--workspace-tools-source",
-        "registry:npm:latest",
-        "--github-output",
-        output,
-      ], { from: "user" });
+      await createSetupWorkspaceToolsCommand().parseAsync(
+        [
+          "--workspace-tools-source",
+          "registry:npm:latest",
+          "--github-output",
+          output,
+        ],
+        { from: "user" },
+      );
       expect(readFileSync(output, "utf8")).toContain(
         "mode=registry\\nvalue=latest",
       );
       const invalid = createSetupWorkspaceToolsCommand().exitOverride();
-      await expect(invalid.parseAsync([
-        "--workspace-tools-source", "registry:npm:latest", "--invalid",
-      ], { from: "user" })).rejects.toMatchObject({
+      await expect(
+        invalid.parseAsync(
+          ["--workspace-tools-source", "registry:npm:latest", "--invalid"],
+          { from: "user" },
+        ),
+      ).rejects.toMatchObject({
         code: "commander.unknownOption",
       });
     } finally {
