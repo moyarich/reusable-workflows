@@ -22,8 +22,8 @@ on:
       - ".prettierignore"
       - "tests/**"
       - "actions/**"
-      - ".github/workflows/check-dist.yml"
-      - ".github/workflows/reusable_check-dist.yml"
+      - ".github/workflows/ci_check-dist.yml"
+      - ".github/workflows/reusable_self-heal-check-dist.yml"
   workflow_dispatch:
     inputs:
       package:
