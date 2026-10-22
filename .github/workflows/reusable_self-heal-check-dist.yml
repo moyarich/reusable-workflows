@@ -1,4 +1,4 @@
-name: Reusable · Check distributions
+name: Reusable · self-heal · Check distributions
 
 on:
   workflow_call:
