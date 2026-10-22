@@ -1,6 +1,6 @@
 type Package = { name: string; directory: string; [key: string]: unknown };
 type Config = {
-  packages?: Record<string, { distPath?: string; buildCommand?: string }>;
+  packages?: Record<string, { distPath?: string; buildCommand?: string; commitDist?: boolean }>;
   extraPackages?: Package[];
 };
 const required = (name: string): string => {
@@ -54,6 +54,7 @@ const matrix = {
       artifactSuffix: dir
         .replace(/^(packages|apps)\//, "")
         .replace(/[^a-zA-Z0-9._-]+/g, "-"),
+      commitDist: settings.commitDist ?? false,
       distTemplate:
         process.env.DIST_PATH_OVERRIDE ||
         settings.distPath ||
