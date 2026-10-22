@@ -99,7 +99,18 @@ jobs:
       - name: Install locked dependencies
         env:
           NODE_AUTH_TOKEN: ${{ github.token }}
-        run: npm ci --ignore-scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f package-lock.json ]]; then
+            npm ci --ignore-scripts
+          elif [[ -f pnpm-lock.yaml ]]; then
+            corepack enable
+            pnpm install --frozen-lockfile --ignore-scripts
+          else
+            echo "::error::Expected package-lock.json or pnpm-lock.yaml"
+            exit 1
+          fi
 
       - name: Resolve installed Prettier
         id: prettier
@@ -107,8 +118,10 @@ jobs:
         run: |
           set -euo pipefail
           if [[ ! -x node_modules/.bin/prettier ]]; then
-            echo "Prettier is not a direct dependency; install an isolated runner-only copy."
-            npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund prettier@3.9.10
+            echo "Installing isolated runner-only Prettier for repositories without a direct dependency."
+            npm install --prefix "$RUNNER_TEMP/prettier" --no-save --ignore-scripts --no-audit --no-fund prettier@3.9.10
+            mkdir -p node_modules/.bin
+            ln -s "$RUNNER_TEMP/prettier/node_modules/.bin/prettier" node_modules/.bin/prettier
           fi
           test -x node_modules/.bin/prettier || { echo "::error::Unable to resolve Prettier"; exit 1; }
           echo "version=$(node_modules/.bin/prettier --version)" >> "$GITHUB_OUTPUT"
