@@ -33,7 +33,7 @@ runs:
           // Markdown headings (## 1.2.3). Compare the complete version,
           // not a substring, so 1.2.3 never matches 1.2.30.
           const hasVersion = lines.some(line => {
-            const match = line.match(/^##[ \\t]+(?:\\[([^\\]]+)\\]|([^\\s]+))/);
+            const match = line.match(/^##[ \t]+(?:\[([^\]]+)\]|([^\s]+))/);
             return match && (match[1] ?? match[2]) === manifest.version;
           });
           if (!hasVersion) {
