@@ -1,4 +1,5 @@
 name: CI / Prettier
+
 on:
   push:
     branches: [main]
@@ -17,6 +18,7 @@ on:
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/ci_prettier.yml"
+      - ".github/workflows/reusable_ci_prettier.yml"
   pull_request:
     paths:
       - "**/*.js"
@@ -33,75 +35,24 @@ on:
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/ci_prettier.yml"
-  workflow_dispatch:
-
-on:
+      - ".github/workflows/reusable_ci_prettier.yml"
   workflow_dispatch:
     inputs:
-      expected-sha:
-        description: Require the checked-out branch to equal the prior repair commit
+      checkout-sha:
+        description: Exact commit SHA to validate
+        type: string
         required: false
         default: ""
-        type: string
-      mode:
-        description: Check formatting without changes, or fix it in the runner
-        required: false
-        default: check
-        type: string
-      prettier-config:
-        description: Use this repository's Prettier rules or the reusable-workflows reference rules
-        required: true
-        default: this-repository
-        type: choice
-        options:
-          - this-repository
-          - reusable-workflows
-      commit:
-        description: Commit Prettier changes
-        required: true
-        default: false
-        type: boolean
-      node-version:
-        description: Node.js version
-        required: true
-        default: "24"
-        type: string
 
-  workflow_call:
-    inputs:
-      expected-sha:
-        description: Require the checked-out branch to equal the prior repair commit
-        required: false
-        default: ""
-        type: string
-      mode:
-        description: Check formatting without changes, or fix it in the runner
-        required: false
-        default: check
-        type: string
-      prettier-config:
-        description: Use this repository's Prettier rules or the reusable-workflows reference rules
-        required: false
-        default: this-repository
-        type: string
-      commit:
-        description: Commit Prettier changes
-        required: false
-        default: false
-        type: boolean
-      node-version:
-        description: Node.js version
-        required: false
-        default: "24"
-        type: string
-
-permissions:
-  contents: write
 concurrency:
   group: ci-${{ github.repository }}-${{ github.workflow }}-${{ github.event.pull_request.number || inputs.checkout-sha || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
 jobs:
   prettier:
-    uses: $/.github/workflows/reusable_self-heal-prettier.yml
+    uses: $/.github/workflows/reusable_ci_prettier.yml
     with:
       checkout-sha: ${{ inputs.checkout-sha }}
