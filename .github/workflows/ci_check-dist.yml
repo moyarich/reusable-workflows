@@ -74,7 +74,7 @@ on:
 permissions: {}
 
 concurrency:
-  group: ci-check-dist-${{ github.repository }}-${{ github.ref_name }}
+  group: ci-${{ github.repository }}-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
 jobs:
