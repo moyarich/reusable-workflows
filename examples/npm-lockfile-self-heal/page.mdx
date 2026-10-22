@@ -4,7 +4,7 @@ description: Copyable npm Lockfile Self Heal caller workflow.
 ---
 
 import workflow from "./workflow.yml?raw";
-import reusableWorkflow from "../../.github/workflows/reusable_npm-package-lock.yml?raw";
+import reusableWorkflow from "../../.github/workflows/reusable_self-heal_package-lock.yml?raw";
 
 # npm Lockfile Self Heal
 
@@ -12,7 +12,7 @@ import reusableWorkflow from "../../.github/workflows/reusable_npm-package-lock.
   files={[
     { name: "workflow.yml", source: workflow, language: "yaml" },
     {
-      name: "reusable_npm-package-lock.yml",
+      name: "reusable_self-heal_package-lock.yml",
       source: reusableWorkflow,
       language: "yaml",
     },
