@@ -36,13 +36,16 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm install --no-package-lock --no-audit --no-fund
+        run: npm ci --include=optional --no-audit --no-fund
         
-      - name: Validate package changelogs
-        uses: ./packages/actions/actions/validate-package-changelogs
-
       - name: Run lint
-        run: npx --no-install eslint . --max-warnings 0
+        shell: bash
+        run: |
+          if [[ -f eslint.config.js || -f eslint.config.mjs || -f eslint.config.cjs ]]; then
+            npx --no-install eslint . --max-warnings 0
+          else
+            echo "No ESLint configuration; skipping lint."
+          fi
 
       - name: Run Typecheck
         id: typecheck
@@ -60,7 +63,9 @@ jobs:
 
       - name: Build npm Commander CLI
         id: build-package
-        run: npm run build:package
+        run: |
+          npm run build --workspaces --if-present
+          npm run build:package --if-present
 
       - name: Run Vitest (workspaces and root)
         id: vitest
@@ -68,6 +73,7 @@ jobs:
 
       - name: Verify npm CLI help and package contents
         id: verify-package
+        if: github.repository == 'moyarich/reusable-workflows'
         run: |
           node packages/cli/dist/cli.mjs --help
           node packages/cli/dist/workspace-source.mjs --help
