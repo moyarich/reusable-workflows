@@ -4,7 +4,7 @@ description: Verify committed distribution output with a clean rebuild.
 ---
 
 import workflow from "./workflow.yml?raw";
-import reusableWorkflow from "../../.github/workflows/reusable_self-heal-dist.yml?raw";
+import reusableWorkflow from "../../.github/workflows/reusable_check-dist.yml?raw";
 
 # Check dist
 
@@ -12,7 +12,7 @@ import reusableWorkflow from "../../.github/workflows/reusable_self-heal-dist.ym
   files={[
     { name: "workflow.yml", source: workflow, language: "yaml" },
     {
-      name: "reusable_self-heal-dist.yml",
+      name: "reusable_check-dist.yml",
       source: reusableWorkflow,
       language: "yaml",
     },
