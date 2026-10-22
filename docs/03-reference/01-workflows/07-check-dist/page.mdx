@@ -11,10 +11,10 @@ The `reusable_self-heal-check-dist.yml` workflow rebuilds selected npm workspace
 
 There are two different cases:
 
-| Mode | `commitDist` | Behavior |
-| --- | --- | --- |
-| **Committed distribution** | `true` | Generated files (for example `dist/`, `actions/`, or extension bundles) are checked into Git. Rebuild and compare them with committed files, and optionally commit regenerated output when self-healing is enabled. |
-| **CI-generated distribution** | `false` (default) | Generate output during CI, packaging, or publishing without requiring that output to be checked into Git. Build and validate the output; do not stage, compare against Git, or commit it. |
+| Mode                          | `commitDist`      | Behavior                                                                                                                                                                                                            |
+| ----------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Committed distribution**    | `true`            | Generated files (for example `dist/`, `actions/`, or extension bundles) are checked into Git. Rebuild and compare them with committed files, and optionally commit regenerated output when self-healing is enabled. |
+| **CI-generated distribution** | `false` (default) | Generate output during CI, packaging, or publishing without requiring that output to be checked into Git. Build and validate the output; do not stage, compare against Git, or commit it.                           |
 
 Only committed distributions need to match checked-in build output. For CI-generated distributions, the output directory may be absent **before** the build. It still must exist **after** the build for artifact validation.
 
