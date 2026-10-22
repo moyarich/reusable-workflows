@@ -1,0 +1,73 @@
+name: "Self-test · Typed input parser"
+
+on:
+  pull_request:
+    paths:
+      - actions/parse-typed-inputs/**
+      - .github/workflows/_self-test_typed-input-parser.yml
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  parser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Parse explicitly blank optional inputs
+        id: defaults
+        uses: $/actions/parse-typed-inputs
+        with:
+          version: ""
+          target: ""
+          release: ""
+          workspace-tools-source: ""
+      - name: Verify defaults
+        shell: bash
+        env:
+          VERSION: ${{ steps.defaults.outputs.version-mode }}
+          SOURCE: ${{ steps.defaults.outputs.workspace-tools-source }}
+        run: |
+          set -euo pipefail
+          test "$VERSION" = auto
+          test "$SOURCE" = registry:npm:0.2.0
+      - name: Parse explicit overrides
+        id: overrides
+        uses: $/actions/parse-typed-inputs
+        with:
+          version: bump:minor
+          target: package:example
+          release: tag:v1.2.3
+          workspace-tools-source: checkout:upstream;branch:main
+      - name: Verify overrides
+        shell: bash
+        env:
+          MODE: ${{ steps.overrides.outputs.version-mode }}
+          BUMP: ${{ steps.overrides.outputs.version-bump }}
+          PACKAGE: ${{ steps.overrides.outputs.package-name }}
+          TAG: ${{ steps.overrides.outputs.release-tag }}
+          SOURCE: ${{ steps.overrides.outputs.workspace-tools-source }}
+        run: |
+          set -euo pipefail
+          test "$MODE" = bump
+          test "$BUMP" = minor
+          test "$PACKAGE" = example
+          test "$TAG" = v1.2.3
+          test "$SOURCE" = 'checkout:upstream;branch:main'
+
+      - name: Write parser self-test summary
+        if: always()
+        env:
+          DEFAULTS: ${{ steps.defaults.outcome }}
+          OVERRIDES: ${{ steps.overrides.outcome }}
+          RESULT: ${{ job.status }}
+        run: |
+          {
+            echo "## Typed input parser self-test"
+            echo
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+            echo "| Default inputs | $DEFAULTS |"
+            echo "| Explicit overrides | $OVERRIDES |"
+            echo "| Verification | $RESULT |"
+          } >> "$GITHUB_STEP_SUMMARY"
