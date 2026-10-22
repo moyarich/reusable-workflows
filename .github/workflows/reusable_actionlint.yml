@@ -25,9 +25,9 @@ jobs:
           FILTERED="$RUNNER_TEMP/actionlint-filtered.txt"
           # Capture raw diagnostics without failing CI; actionlint's configured
           # execution below determines the job result.
-          docker run --rm -v "$PWD:/repo" -w /repo "$IMAGE" -oneline -shellcheck= > "$RAW" 2>&1 || true
+          docker run --rm -v "$PWD:/repo" -w /repo "$IMAGE" -format '{{json .}}' -shellcheck= > "$RAW" 2>&1 || true
           status=0
-          docker run --rm -v "$PWD:/repo" -w /repo "$IMAGE" -oneline -shellcheck= \
+          docker run --rm -v "$PWD:/repo" -w /repo "$IMAGE" -format '{{json .}}' -shellcheck= \
             -ignore 'property "workflow_(repository|sha|ref)" is not defined' \
             -ignore '^reusable workflow call "\$/' \
             -ignore '^specifying action "\$/' > "$FILTERED" 2>&1 || status=$?
@@ -54,20 +54,22 @@ jobs:
           ]
 
           def diagnostics(path):
-              if not path.exists():
+              if not path.exists() or not path.read_text(errors="replace").strip():
                   return []
-              return [
-                  line.strip()
-                  for line in path.read_text(errors="replace").splitlines()
-                  if re.match(r"^.+?\.ya?ml:\d+:\d+: ", line)
-              ]
+              import json
+              try:
+                  parsed = json.loads(path.read_text(errors="replace"))
+              except json.JSONDecodeError as exc:
+                  raise RuntimeError(f"Could not parse actionlint JSON at {path}: {exc}")
+              if not isinstance(parsed, list):
+                  raise RuntimeError(f"Unexpected actionlint output at {path}: expected array")
+              return parsed
 
           raw_lines = diagnostics(raw)
           filtered_lines = diagnostics(filtered)
           counts = {name: 0 for name, _ in rules}
-          for line in raw_lines:
-              # -oneline includes the path and location before the message.
-              message = re.sub(r"^.+?\.ya?ml:\d+:\d+: ", "", line)
+          for diagnostic in raw_lines:
+              message = diagnostic.get("message", "")
               for name, pattern in rules:
                   if re.search(pattern, message):
                       counts[name] += 1
@@ -92,7 +94,7 @@ jobs:
               summary.append(f"| {name} | {counts[name]} |")
           summary.extend([
               "",
-              "Counts are from an unfiltered actionlint pass; the filtered pass determines CI success.",
+              "Counts are from structured JSON diagnostics from an unfiltered pass; the filtered pass determines CI success.",
               "Suppression rules remain active even when their matching count is zero.",
               "",
               "Actionlint version: `1.7.12` (image pinned by digest)",
