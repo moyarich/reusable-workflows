@@ -41,7 +41,7 @@ jobs:
     permissions:
       contents: write
       packages: read
-    uses: $/.github/workflows/reusable_npm-package-lock.yml
+    uses: $/.github/workflows/reusable_self-heal-npm-package-lock.yml
     with:
       commit: ${{ inputs.commit }}
       node-version: ${{ inputs.node-version }}
