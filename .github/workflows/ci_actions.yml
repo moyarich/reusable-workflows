@@ -1,5 +1,24 @@
 name: CI / GitHub Actions bundles
 on:
+  push:
+    branches: [main]
+    paths:
+      - "actions/**"
+      - "packages/actions/**"
+      - "packages/cli/**"
+      - "vite.config.*"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/ci_actions.yml"
+  pull_request:
+    paths:
+      - "actions/**"
+      - "packages/actions/**"
+      - "packages/cli/**"
+      - "vite.config.*"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/ci_actions.yml"
   workflow_call:
     inputs:
       checkout-sha:

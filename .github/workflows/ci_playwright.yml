@@ -1,5 +1,30 @@
 name: CI / Playwright
 on:
+  push:
+    branches: [main]
+    paths:
+      - "**/*.spec.*"
+      - "**/*.specs.*"
+      - "**/playwright.config.*"
+      - "playwright.config.*"
+      - "tests/**"
+      - "packages/**"
+      - "apps/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/ci_playwright.yml"
+  pull_request:
+    paths:
+      - "**/*.spec.*"
+      - "**/*.specs.*"
+      - "**/playwright.config.*"
+      - "playwright.config.*"
+      - "tests/**"
+      - "packages/**"
+      - "apps/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/ci_playwright.yml"
   workflow_call:
     inputs:
       checkout-sha:

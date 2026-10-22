@@ -1,5 +1,32 @@
 name: CI / CLI build and tests
 on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "packages/**"
+      - "apps/**"
+      - "tests/**"
+      - "vitest.config.*"
+      - "**/vitest.config.*"
+      - "package.json"
+      - "package-lock.json"
+      - "eslint.config.*"
+      - "tsconfig*.json"
+      - ".github/workflows/ci_cli.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - "packages/**"
+      - "apps/**"
+      - "tests/**"
+      - "vitest.config.*"
+      - "**/vitest.config.*"
+      - "package.json"
+      - "package-lock.json"
+      - "eslint.config.*"
+      - "tsconfig*.json"
+      - ".github/workflows/ci_cli.yml"
   workflow_call:
     inputs:
       checkout-sha:
