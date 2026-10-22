@@ -1,4 +1,4 @@
-name: "Reusable · npm lockfile self-heal"
+name: "Reusable · self-heal · package-lock file"
 
 on:
   workflow_dispatch:
