@@ -4,6 +4,10 @@
 # All paths are relative to the repository root.
 # Placeholders: {packageDir}, {package}, {packageName}, {workspace}.
 packages:
+  # all:
+  #   distPath: "{packageDir}/dist"
+  #   buildCommand: "npm run build --workspace {packageName}"
+  # Per-package entries override shared 'all' properties.
   # packages/my-package:
   #   distPath: "{packageDir}/build"
   #   buildCommand: "npm run build --workspace @scope/my-package"

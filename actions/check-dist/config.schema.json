@@ -16,14 +16,16 @@
         "properties": {
           "distPath": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "Supports {packageDir}, {package}, {packageName}, and {workspace} placeholders."
           },
           "buildCommand": {
             "type": "string",
             "minLength": 1
           }
         }
-      }
+      },
+      "description": "The 'all' key applies defaults to all discovered and extra packages; package-specific entries override individual fields."
     },
     "extraPackages": {
       "type": "array",

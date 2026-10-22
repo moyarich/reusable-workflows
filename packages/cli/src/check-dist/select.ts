@@ -31,6 +31,7 @@ const config: Config = fs.existsSync(configPath)
     )
   : {};
 const overrides = config.packages || {};
+const allSettings = overrides.all || {};
 const available = [...report.included, ...(config.extraPackages || [])];
 const requested = required("PACKAGES").trim();
 const selected =
@@ -42,7 +43,11 @@ const selected =
 if (selected.length === 0) throw Error("No packages match: " + requested);
 const matrix = {
   include: selected.map((p) => {
-    const settings = overrides[p.directory] || overrides[p.name] || {};
+    const settings = {
+      ...allSettings,
+      ...(overrides[p.name] || {}),
+      ...(overrides[p.directory] || {}),
+    };
     const dir = p.directory === "." ? "root" : p.directory;
     return {
       ...p,
