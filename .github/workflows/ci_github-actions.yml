@@ -60,11 +60,11 @@ jobs:
           npm run build:actions
           # Authored source files must survive Vite cleanup and regeneration.
           git diff --exit-code -- packages/cli/src/ packages/actions/actions/ packages/actions/scripts/
-          git diff --exit-code -- actions/
-          if [[ -n "$(git ls-files --others --exclude-standard -- actions/)" ]]; then
-            echo "::error::Action build created untracked generated files. Commit regenerated actions/."
-            git ls-files --others --exclude-standard -- actions/
-            exit 1
+          # Distribution drift is repaired by self-heal-ci.yml / check-dist.yml.
+          # Do not fail this package CI job on generated files that need healing.
+          if [[ -n "$(git status --porcelain -- actions/)" ]]; then
+            echo "::notice::Generated actions differ from the checkout; distribution self-heal will update actions/."
+            git status --short -- actions/
           fi
 
       - name: Verify generated action entrypoints

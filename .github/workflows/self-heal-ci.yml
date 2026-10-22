@@ -6,9 +6,11 @@ on:
       - "packages/cli/src/**"
       - "packages/actions/actions/**"
       - "packages/actions/scripts/**"
+      - "packages/actions/plugins/**"
       - "packages/cli/src/workflow-dispatch/**"
       - "packages/cli/src/verify-workflow-runs/**"
       - "packages/actions/vite.config.ts"
+      - ".github/workflows/ci_cli.yml"
       - "vitest.config.ts"
       - "package.json"
       - "package-lock.json"
@@ -65,7 +67,8 @@ jobs:
 
   action-dist:
     name: Rebuild and commit action distribution
-    needs: prettier
+    needs: [package-lock, prettier]
+    if: ${{ always() && !contains(github.event.head_commit.message, '[skip action-dist self-heal]') && (needs.package-lock.result == 'success' || needs.package-lock.result == 'skipped') && (needs.prettier.result == 'success' || needs.prettier.result == 'skipped') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout triggering branch
@@ -73,7 +76,7 @@ jobs:
         with:
           ref: ${{ github.ref_name }}
           fetch-depth: 0
-          persist-credentials: true
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.0.0
@@ -83,14 +86,26 @@ jobs:
       - name: Install build dependencies
         run: npm install --no-package-lock --no-audit --no-fund
 
+      - name: Run source Vitest independently of distribution
+        run: npm test --workspaces --if-present --include-workspace-root
+
       - name: Build action distribution
         run: npm run build:actions
 
-      - name: Test built setup CLI
-        run: npx vitest run
+      - name: Verify rebuilt action entrypoints
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f actions/setup-workspace-tools/action.yml
+          test -f actions/setup-workspace-tools/index.mjs
+          test -f actions/release-draft-sync/action.yml
+          test -f actions/parse-typed-inputs/action.yml
+          test -f actions/validate-package-changelogs/action.yml
 
       - name: Commit rebuilt action distribution
         id: commit
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
@@ -103,18 +118,20 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "build: update action distribution"
-          git push origin "HEAD:refs/heads/${GITHUB_REF_NAME}"
+          git commit -m "build: update action distribution [skip action-dist self-heal]"
+          # GITHUB_TOKEN commits do not create another push workflow run.
+          auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" push origin "HEAD:refs/heads/${GITHUB_REF_NAME}"
           echo "changed=true" >> "$GITHUB_OUTPUT"
 
-      - name: Dispatch distribution validation for healed head
+      - name: Dispatch read-only distribution validation for healed head
         if: steps.commit.outputs.changed == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh workflow run check-dist.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME"
+          gh workflow run check-dist.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME" --field package=packages/actions --field dry-run=true --field commit=false
 
       - name: Self-heal summary
         if: always()

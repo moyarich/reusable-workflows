@@ -43,29 +43,34 @@ function resolveBinDir(mode, paths) {
 function validateBinDir(dir) {
 	for (const cli of ["workspace-release.mjs", "workspace-publish.mjs"]) if (!existsSync(join(dir, cli))) throw new Error(`Workspace Tools CLI is missing: ${join(dir, cli)}`);
 }
-// ../cli/src/setup-workspace-tools/setup-workspace-tools-cli.ts
+// ../cli/src/setup-workspace-tools/setup-workspace-tools-command.ts
 /** Commander-powered CLI command and feature implementation. @module */
-await new Command().name("setup-workspace-tools").requiredOption("--workspace-tools-source <source>", "npm source or checkout reference").option("--mode <mode>", "resolve | bin-dir", "resolve").option("--workspace <path>", "GitHub workspace", process.env.GITHUB_WORKSPACE).option("--runner-temp <path>", "GitHub runner temporary directory", process.env.RUNNER_TEMP).option("--release-bin <path>", "Resolved workspace-release executable").option("--github-output <path>", "GitHub Actions output file", process.env.GITHUB_OUTPUT).action((opts) => {
-	const source = parseWorkspaceToolsSource(opts.workspaceToolsSource);
-	let entries;
-	if (opts.mode === "resolve") entries = {
-		mode: source.mode,
-		value: source.value
-	};
-	else if (opts.mode === "bin-dir") {
-		if (!opts.workspace || !opts.runnerTemp) throw new Error("workspace and runner-temp are required");
-		const binDir = resolveBinDir(source.mode, {
-			workspace: opts.workspace,
-			runnerTemp: opts.runnerTemp,
-			releaseBin: opts.releaseBin
-		});
-		validateBinDir(binDir);
-		entries = {
-			"bin-dir": binDir,
-			source: source.source
+function createSetupWorkspaceToolsCommand() {
+	return new Command().name("setup-workspace-tools").requiredOption("--workspace-tools-source <source>", "npm source or checkout reference").option("--mode <mode>", "resolve | bin-dir", "resolve").option("--workspace <path>", "GitHub workspace", process.env.GITHUB_WORKSPACE).option("--runner-temp <path>", "GitHub runner temporary directory", process.env.RUNNER_TEMP).option("--release-bin <path>", "Resolved workspace-release executable").option("--github-output <path>", "GitHub Actions output file", process.env.GITHUB_OUTPUT).action((opts) => {
+		const source = parseWorkspaceToolsSource(opts.workspaceToolsSource);
+		let entries;
+		if (opts.mode === "resolve") entries = {
+			mode: source.mode,
+			value: source.value
 		};
-	} else throw new InvalidArgumentError("mode must be resolve or bin-dir");
-	if (opts.githubOutput) appendFileSync(opts.githubOutput, Object.entries(entries).map(([key, value]) => `${key}=${value}\n`).join(""));
-	else process.stdout.write(JSON.stringify(entries) + "\n");
-}).parseAsync();
+		else if (opts.mode === "bin-dir") {
+			if (!opts.workspace || !opts.runnerTemp) throw new Error("workspace and runner-temp are required");
+			const binDir = resolveBinDir(source.mode, {
+				workspace: opts.workspace,
+				runnerTemp: opts.runnerTemp,
+				releaseBin: opts.releaseBin
+			});
+			validateBinDir(binDir);
+			entries = {
+				"bin-dir": binDir,
+				source: source.source
+			};
+		} else throw new InvalidArgumentError("mode must be resolve or bin-dir");
+		if (opts.githubOutput) appendFileSync(opts.githubOutput, Object.entries(entries).map(([key, value]) => `${key}=${value}\n`).join(""));
+		else process.stdout.write(JSON.stringify(entries) + "\n");
+	});
+}
+// ../cli/src/setup-workspace-tools/setup-workspace-tools-cli.ts
+/** CLI entrypoint for Workspace Tools setup. */
+await createSetupWorkspaceToolsCommand().parseAsync();
 export {};
