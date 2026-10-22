@@ -1,21 +1,10 @@
 # Node CI workflow
 
-Use `node-ci.yml` for the standard Node workspace CI checks.
+Use `reusable_node-ci.yml` for configurable Node workspace checks. It is intended for consuming repositories that need a combined CI job. When separate `ci_*` workflows already own Vitest, linting, typechecking, or npm packaging, disable the matching checks to avoid duplicate runs.
 
-## Copy and paste
-
-Create `.github/workflows/ci.yml` in the consuming repository:
+## Full CI caller
 
 ```yaml
-name: CI
-
-on:
-  push:
-    branches:
-      - main
-  pull_request:
-  workflow_dispatch:
-
 jobs:
   ci:
     uses: moyarich/reusable-workflows/.github/workflows/reusable_node-ci.yml@v0
@@ -23,19 +12,36 @@ jobs:
       node-version: "24"
 ```
 
-The repository must have a committed `package-lock.json`. The reusable workflow runs:
+Defaults preserve existing behavior: install dependencies, build local workspace dependencies, test, lint, typecheck, and validate workspace package tarballs.
 
-```sh
-npm ci
-npm test
-npm run lint --if-present
-npm run typecheck --if-present
+## Build-only caller alongside separate checks
+
+```yaml
+jobs:
+  build:
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_node-ci.yml@v0
+    with:
+      package-directory: all
+      run-tests: false
+      run-lint: false
+      run-typecheck: false
+      run-pack: false
 ```
 
-If the repository does not define `lint` or `typecheck`, those optional commands are skipped. `npm test` is required.
+When a dedicated `ci_*` workflow already builds the same packages, omit this reusable Node CI job instead of running another build-only job.
 
 ## Inputs
 
-| Input          | Required | Default | Description                |
-| -------------- | -------- | ------- | -------------------------- |
-| `node-version` | No       | `24`    | Node.js version used by CI |
+| Input | Default | Purpose |
+| --- | --- | --- |
+| `checkout-ref` | `""` | Optional checkout override for workflow callers |
+| `package-directory` | `.` | Root, workspace path/name, or `all` |
+| `packages-directory` | `packages` | Directory scanned for the `all` selector |
+| `node-version` | `24` | Node.js version |
+| `browser-tests` | `false` | Install Chromium for browser-oriented test scripts |
+| `run-tests` | `true` | Run npm workspace tests |
+| `run-lint` | `true` | Run ESLint directly if configured |
+| `run-typecheck` | `true` | Run workspace TypeScript typechecking |
+| `run-pack` | `true` | Inspect npm package tarball with `npm pack --dry-run` |
+
+The `run-*` options are also available in manual workflow dispatch. The workspace must have a committed npm lockfile for `npm ci`.
