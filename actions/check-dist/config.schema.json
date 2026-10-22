@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/moyarich/reusable-workflows/main/.github/reusable-configurations/check-dist-config.schema.json",
+  "title": "Check distribution configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "packages": {
+      "type": "object",
+      "propertyNames": {
+        "minLength": 1
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "distPath": {
+            "type": "string",
+            "minLength": 1
+          },
+          "buildCommand": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "extraPackages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "directory"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "directory": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}
