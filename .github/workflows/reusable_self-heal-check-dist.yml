@@ -9,6 +9,9 @@ on:
       dist-path:
         type: string
         default: ""
+      config-path:
+        type: string
+        default: .github/check-dist-config.yml
       build-command:
         type: string
         default: ""
@@ -87,6 +90,7 @@ jobs:
           discovered: ${{ needs.discover-packages.outputs.packages }}
           package: ${{ inputs.package }}
           dist-path: ${{ inputs.dist-path }}
+          config-path: ${{ inputs.config-path }}
           build-command: ${{ inputs.build-command }}
 
   check-dist:
