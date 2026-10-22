@@ -23,9 +23,9 @@ on:
   workflow_dispatch:
     inputs:
       repair:
-        description: Repair and commit formatting or lockfile drift
+        description: Repair and commit package-lock.json drift
         type: boolean
-        default: true
+        default: false
 
 concurrency:
   group: ci-${{ github.repository }}-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
@@ -39,6 +39,6 @@ jobs:
   lockfile:
     uses: $/.github/workflows/reusable_self-heal_package-lock.yml
     with:
-      mode: ${{ (github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && !inputs.repair)) && 'check' || 'fix' }}
-      commit: ${{ github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.repair) }}
+      mode: ${{ ((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) || (github.event_name == 'workflow_dispatch' && !inputs.repair)) && 'check' || 'fix' }}
+      commit: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && (github.event_name != 'workflow_dispatch' || inputs.repair) }}
 
