@@ -45,42 +45,6 @@ permissions:
   contents: read
 jobs:
   playwright:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ inputs.checkout-sha || github.sha }}
-          persist-credentials: false
-      - uses: actions/setup-node@v7
-        with:
-          node-version: "24"
-          cache: npm
-      - run: npm ci --include=optional --no-audit --no-fund
-      - name: Discover Playwright configuration
-        id: discover
-        shell: bash
-        run: |
-          node --input-type=module <<'NODE'
-          import {existsSync,appendFileSync,readFileSync} from 'node:fs';
-          const root=JSON.parse(readFileSync('package.json','utf8'));
-          const configured=['playwright.config.ts','playwright.config.js','playwright.config.mjs','playwright.config.cts'].some(existsSync);
-          const runnable=configured && (root.scripts?.['test:e2e']||root.devDependencies?.['@playwright/test']||root.dependencies?.['@playwright/test']);
-          appendFileSync(process.env.GITHUB_OUTPUT,`enabled=${Boolean(runnable)}\n`);
-          console.log(runnable?'Playwright configured':'No root Playwright configuration; skipping');
-          NODE
-      - name: Install Chromium
-        if: steps.discover.outputs.enabled == 'true'
-        run: npx --no-install playwright install --with-deps chromium
-      - name: Run Playwright
-        id: test
-        if: steps.discover.outputs.enabled == 'true'
-        run: npx --no-install playwright test
-      - name: Upload failure traces
-        if: failure() && steps.test.outcome == 'failure'
-        uses: actions/upload-artifact@v6
-        with:
-          name: playwright-traces
-          path: |
-            test-results/
-            playwright-report/
-          if-no-files-found: ignore
+    uses: $/.github/workflows/reusable_ci_playwright.yml
+    with:
+      checkout-sha: ${{ inputs.checkout-sha }}
