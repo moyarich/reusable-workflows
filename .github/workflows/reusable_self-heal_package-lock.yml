@@ -3,6 +3,11 @@ name: "Reusable · npm lockfile self-heal"
 on:
   workflow_dispatch:
     inputs:
+      mode:
+        description: Check lockfile consistency or repair it
+        type: choice
+        options: [check, fix]
+        default: fix
       commit:
         description: Commit recreated package-lock.json
         required: true
@@ -16,6 +21,14 @@ on:
 
   workflow_call:
     inputs:
+      checkout-sha:
+        description: Commit SHA to validate in check mode
+        type: string
+        default: ""
+      mode:
+        description: Check lockfile consistency or repair it
+        type: string
+        default: fix
       commit:
         description: Commit recreated package-lock.json
         required: false
@@ -50,8 +63,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}
-          persist-credentials: ${{ inputs.commit }}
+          ref: ${{ inputs.mode == 'check' && (inputs.checkout-sha || github.event.pull_request.head.sha || github.sha) || (github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name) }}
+          persist-credentials: ${{ inputs.mode == 'fix' && inputs.commit }}
           fetch-depth: 1
 
       - name: Set up Node.js
@@ -61,7 +74,7 @@ jobs:
           registry-url: https://npm.pkg.github.com
           scope: "@moyarich"
 
-      - name: Recreate package-lock.json
+      - name: Check lockfile consistency and prepare repair
         id: recreate
         env:
           NODE_AUTH_TOKEN: ${{ secrets.package-token || github.token }}
@@ -75,6 +88,7 @@ jobs:
             : > /tmp/package-lock.before.json
           fi
 
+          test "${{ inputs.mode }}" = check -o "${{ inputs.mode }}" = fix
           npm install \
             --package-lock-only \
             --ignore-scripts \
@@ -93,13 +107,19 @@ jobs:
               | tee /tmp/package-lock-result.json
           fi
 
-      - name: Validate recreated lockfile
+      - name: Validate checked or repaired lockfile
         env:
           NODE_AUTH_TOKEN: ${{ secrets.package-token || github.token }}
         run: npm ci --ignore-scripts --no-audit --no-fund
 
-      - name: Commit recreated package-lock.json
-        if: ${{ inputs.commit && steps.recreate.outputs.changed == 'true' }}
+      - name: Fail when lockfile check detects drift
+        if: ${{ inputs.mode == 'check' && steps.recreate.outputs.changed == 'true' }}
+        run: |
+          echo "::error::package-lock.json is out of sync with package manifests; run self-heal in fix mode."
+          exit 1
+
+      - name: Self-heal changed package-lock.json
+        if: ${{ inputs.mode == 'fix' && inputs.commit && steps.recreate.outputs.changed == 'true' }}
         shell: bash
         env:
           TARGET_REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}

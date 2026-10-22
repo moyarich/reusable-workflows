@@ -4,7 +4,7 @@ description: Copyable Prettier Self Heal caller workflow.
 ---
 
 import workflow from "./workflow.yml?raw";
-import reusableWorkflow from "../../.github/workflows/reusable_prettier.yml?raw";
+import reusableWorkflow from "../../.github/workflows/reusable_self-heal-prettier.yml?raw";
 
 # Prettier Self Heal
 
@@ -12,7 +12,7 @@ import reusableWorkflow from "../../.github/workflows/reusable_prettier.yml?raw"
   files={[
     { name: "workflow.yml", source: workflow, language: "yaml" },
     {
-      name: "reusable_prettier.yml",
+      name: "reusable_self-heal-prettier.yml",
       source: reusableWorkflow,
       language: "yaml",
     },

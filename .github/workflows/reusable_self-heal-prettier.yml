@@ -6,7 +6,7 @@ on:
       mode:
         description: Check formatting without changes, or fix it in the runner
         required: false
-        default: check
+        default: fix
         type: string
       prettier-config:
         description: Use this repository's Prettier rules or the reusable-workflows reference rules
@@ -19,7 +19,7 @@ on:
       commit:
         description: Commit Prettier changes
         required: true
-        default: false
+        default: true
         type: boolean
       node-version:
         description: Node.js version
@@ -28,7 +28,15 @@ on:
         type: string
 
   workflow_call:
+    outputs:
+      healed-sha:
+        description: Checked-out or committed branch SHA at end of repair
+        value: ${{ jobs.format.outputs.healed-sha }}
     inputs:
+      checkout-sha:
+        description: Commit SHA to validate in check mode
+        type: string
+        default: ""
       expected-sha:
         description: Require the checked-out branch to equal the prior repair commit
         required: false
@@ -37,7 +45,7 @@ on:
       mode:
         description: Check formatting without changes, or fix it in the runner
         required: false
-        default: check
+        default: fix
         type: string
       prettier-config:
         description: Use this repository's Prettier rules or the reusable-workflows reference rules
@@ -47,7 +55,7 @@ on:
       commit:
         description: Commit Prettier changes
         required: false
-        default: false
+        default: true
         type: boolean
       node-version:
         description: Node.js version
@@ -70,8 +78,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}
-          persist-credentials: ${{ inputs.commit }}
+          ref: ${{ inputs.mode == 'check' && (inputs.checkout-sha || github.event.pull_request.head.sha || github.sha) || (github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name) }}
+          persist-credentials: ${{ inputs.mode == 'fix' && inputs.commit }}
           fetch-depth: 1
 
       - name: Verify branch has not moved after prior repair
@@ -146,11 +154,22 @@ jobs:
           CONFIG_ARGS=()
           if [ -n "$CONFIG_FILE" ]; then CONFIG_ARGS+=(--config "$CONFIG_FILE"); fi
           case "$MODE" in
-            check) ACTION=--check ;;
-            fix) ACTION=--write ;;
+            check|fix) ;;
             *) echo "::error::mode must be check or fix"; exit 1 ;;
           esac
-          node_modules/.bin/prettier . "$ACTION" \
+          if node_modules/.bin/prettier . --check \
+            --ignore-path "${{ steps.config.outputs.ignore-file }}" \
+            "${CONFIG_ARGS[@]}"; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Formatting already matches Prettier."
+            exit 0
+          fi
+          if [[ "$MODE" == check ]]; then
+            echo "::error::Formatting differs from Prettier. Run self-heal in fix mode."
+            exit 1
+          fi
+          echo "Prettier drift detected; applying formatting fixes."
+          node_modules/.bin/prettier . --write \
             --ignore-path "${{ steps.config.outputs.ignore-file }}" \
             "${CONFIG_ARGS[@]}"
           git status --short -- . ':!.github/workflows/**' ':!dist/**' ':!.prettier-self-heal.ignore' > /tmp/format-status.txt

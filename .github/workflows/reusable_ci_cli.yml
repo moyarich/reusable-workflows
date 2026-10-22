@@ -1,0 +1,90 @@
+name: Reusable CI / CLI build and tests
+on:
+  workflow_call:
+    inputs:
+      checkout-sha:
+        description: Exact commit SHA to validate
+        type: string
+        required: false
+        default: ""
+  workflow_dispatch:
+    inputs:
+      checkout-sha:
+        description: Exact commit SHA to validate
+        type: string
+        required: false
+        default: ""
+permissions:
+  contents: read
+jobs:
+  cli:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.checkout-sha || github.sha }}
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --include=optional --no-audit --no-fund
+        
+      - name: Run lint
+        shell: bash
+        run: |
+          if [[ -f eslint.config.js || -f eslint.config.mjs || -f eslint.config.cjs ]]; then
+            npx --no-install eslint . --max-warnings 0
+          else
+            echo "No ESLint configuration; skipping lint."
+          fi
+
+      - name: Run Typecheck
+        id: typecheck
+        shell: bash
+        run: |
+          npm run typecheck --workspaces --if-present
+
+          if [[ -f tsconfig.tests.json ]]; then
+            npx --no-install tsc -p tsconfig.tests.json --noEmit
+          elif [[ -f tsconfig.json ]]; then
+            npx --no-install tsc -p tsconfig.json --noEmit
+          else
+            echo "No TypeScript configuration found; skipping tsc."
+          fi
+
+      - name: Build npm Commander CLI
+        id: build-package
+        run: |
+          npm run build --workspaces --if-present
+          npm run build:package --if-present
+
+      - name: Run Vitest (workspaces and root)
+        id: vitest
+        run: npm test --workspaces --if-present --include-workspace-root
+
+      - name: Verify npm CLI help and package contents
+        id: verify-package
+        if: github.repository == 'moyarich/reusable-workflows'
+        run: |
+          node packages/cli/dist/cli.mjs --help
+          node packages/cli/dist/workspace-source.mjs --help
+          node packages/cli/dist/release-validate.mjs --help
+          node packages/cli/dist/browser.mjs --help
+          node packages/cli/dist/setup-workspace-tools.mjs --help
+          npm exec --workspace @moyarich/reusable-workflows-cli -- reusable-workflows-cli --help
+          node packages/cli/dist/cli.mjs workspace-source --source registry:npm:latest
+          npm pack --workspace @moyarich/reusable-workflows-cli --dry-run
+          node --input-type=module <<'NODE'
+          import { readFileSync, existsSync } from 'node:fs';
+          const manifest = JSON.parse(readFileSync('packages/cli/package.json', 'utf8'));
+          for (const [name, file] of Object.entries(manifest.bin)) {
+            if (!existsSync('packages/cli/' + file)) throw new Error(`Missing npm bin ${name}: ${file}`);
+          }
+          NODE
+

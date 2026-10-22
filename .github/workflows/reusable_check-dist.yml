@@ -1,63 +1,101 @@
-name: Reusable · Self-heal distribution
+name: Reusable · Check distributions
 
 on:
   workflow_call:
     inputs:
-      checkout-sha:
+      package:
         type: string
-        default: ""
+        default: all
       dist-path:
-        type: string
-        default: dist/
-      package-name:
-        type: string
-        default: ""
-      package-directory:
         type: string
         default: ""
       build-command:
         type: string
-        default: npm run build
+        default: ""
       install-command:
         type: string
-        default: npm install --no-package-lock --no-audit --no-fund
+        default: npm ci --ignore-scripts
+      dry-run:
+        type: boolean
+        default: true
+      commit:
+        type: boolean
+        default: false
+      node-caching:
+        type: string
+        default: npm
+      include-root-package:
+        type: boolean
+        default: false
+      workspace-tools-source:
+        type: string
+        default: auto
       validation-command:
         type: string
         default: ""
-      node-version:
-        type: string
-        default: "24"
-      node-caching:
+      checkout-sha:
         type: string
         default: ""
-      artifact-name:
-        type: string
-        default: dist
-      repair:
-        description: Enable validation and optional commit on a target branch
-        type: boolean
-        default: false
-      commit:
-        description: Commit changed dist when repair is enabled
-        type: boolean
-        default: false
       target-branch:
         type: string
         default: ""
       expected-sha:
         type: string
         default: ""
-    outputs:
-      changed:
-        value: ${{ jobs.dist.outputs.changed }}
-      healed-sha:
-        value: ${{ jobs.dist.outputs.healed-sha }}
+      node-version:
+        type: string
+        default: "24"
+      artifact-name:
+        type: string
+        default: ""
 
 permissions: {}
 
 jobs:
-  dist:
-    name: Build, compare and optionally repair dist
+  discover-packages:
+    name: Discover workspace packages
+    permissions:
+      contents: read
+    uses: 
+      $/.github/workflows/reusable_discover-packages.yml
+    with:
+      packages-directory: packages
+      use-workspaces: true
+      require-build-script: true
+      include-private: true
+      include-root-package: ${{ inputs.include-root-package }}
+      workspace-tools-source: ${{ inputs.workspace-tools-source }}
+
+  select-packages:
+    name: Select distributions
+    needs: discover-packages
+    runs-on: ubuntu-latest
+    permissions: {}
+    outputs:
+      matrix: ${{ steps.select.outputs.matrix }}
+      has-packages: ${{ steps.select.outputs.has-packages }}
+      single-package: ${{ steps.select.outputs.single-package }}
+    steps:
+      - name: Checkout configuration
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Select and validate distribution packages
+        id: select
+        uses: $/actions/check-dist
+        with:
+          discovered: ${{ needs.discover-packages.outputs.packages }}
+          package: ${{ inputs.package }}
+          dist-path: ${{ inputs.dist-path }}
+          build-command: ${{ inputs.build-command }}
+
+  check-dist:
+    name: "dist: ${{ matrix.name }}"
+    needs: select-packages
+    if: ${{ needs.select-packages.outputs.has-packages == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.select-packages.outputs.matrix) }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -73,10 +111,9 @@ jobs:
           persist-credentials: false
 
       - name: Verify target commit
-        if: inputs.repair
         env:
           EXPECTED_SHA: ${{ inputs.expected-sha }}
-          TARGET_BRANCH: ${{ inputs.target-branch }}
+          TARGET_BRANCH: ${{ inputs.target-branch || github.ref_name }}
         run: |
           set -euo pipefail
           test -n "$TARGET_BRANCH" || { echo "::error::Missing repair target branch"; exit 1; }
@@ -89,9 +126,9 @@ jobs:
         id: resolve
         shell: bash
         env:
-          DIST_TEMPLATE: ${{ inputs.dist-path }}
-          PACKAGE_NAME: ${{ inputs.package-name }}
-          PACKAGE_DIRECTORY: ${{ inputs.package-directory }}
+          DIST_TEMPLATE: ${{ matrix.distTemplate }}
+          PACKAGE_NAME: ${{ matrix.name }}
+          PACKAGE_DIRECTORY: ${{ matrix.directory }}
         run: |
           node <<'NODE'
           const fs = require('node:fs');
@@ -134,14 +171,14 @@ jobs:
 
       - name: Rebuild distribution
         env:
-          BUILD_COMMAND: ${{ inputs.build-command }}
+          BUILD_COMMAND: ${{ matrix.buildCommand }}
         run: bash -euo pipefail -c "$BUILD_COMMAND"
 
       - name: Compare distribution
         id: compare
         env:
           DIST_PATH: ${{ steps.resolve.outputs.dist-path }}
-          REPAIR: ${{ inputs.repair }}
+          REPAIR: true
         shell: bash
         run: |
           set -euo pipefail
@@ -169,9 +206,9 @@ jobs:
         run: bash -euo pipefail -c "$VALIDATION_COMMAND"
 
       - name: Commit regenerated distribution
-        if: inputs.repair && inputs.commit && steps.compare.outputs.changed == 'true'
+        if: ${{ inputs.commit && !inputs.dry-run && needs.select-packages.outputs.single-package == 'true' && steps.compare.outputs.changed == 'true' }}
         env:
-          TARGET_BRANCH: ${{ inputs.target-branch }}
+          TARGET_BRANCH: ${{ inputs.target-branch || github.ref_name }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
@@ -182,11 +219,10 @@ jobs:
 
       - name: Record verified SHA
         id: head
-        if: inputs.repair
         env:
-          TARGET_BRANCH: ${{ inputs.target-branch }}
+          TARGET_BRANCH: ${{ inputs.target-branch || github.ref_name }}
           GH_TOKEN: ${{ github.token }}
-          COMMIT_CHANGES: ${{ inputs.commit }}
+          COMMIT_CHANGES: ${{ inputs.commit && !inputs.dry-run && needs.select-packages.outputs.single-package == 'true' }}
           CHANGED: ${{ steps.compare.outputs.changed }}
         run: |
           set -euo pipefail
@@ -205,10 +241,10 @@ jobs:
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
       - name: Upload rebuilt dist
-        if: always() && steps.resolve.outputs.dist-path != '' && (!inputs.commit || (steps.compare.outputs.changed == 'true' && failure()))
+        if: ${{ always() && steps.resolve.outputs.dist-path != '' && (!(inputs.commit && !inputs.dry-run && needs.select-packages.outputs.single-package == 'true') || (steps.compare.outputs.changed == 'true' && failure())) }}
         uses: actions/upload-artifact@v6
         with:
-          name: ${{ inputs.artifact-name }}
+          name: ${{ inputs.artifact-name || format('dist-{0}', matrix.artifactSuffix) }}
           path: ${{ steps.resolve.outputs.dist-path }}
           if-no-files-found: error
 
@@ -217,8 +253,8 @@ jobs:
         env:
           CHANGED: ${{ steps.compare.outputs.changed || 'unknown' }}
           RESULT: ${{ job.status }}
-          REPAIR: ${{ inputs.repair }}
-          COMMIT: ${{ inputs.commit }}
+          REPAIR: ${{ true }}
+          COMMIT: ${{ inputs.commit && !inputs.dry-run && needs.select-packages.outputs.single-package == 'true' }}
           SHA: ${{ steps.head.outputs.sha }}
           RESOLVED_PATH: ${{ steps.resolve.outputs.dist-path }}
         run: |
