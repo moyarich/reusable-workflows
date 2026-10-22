@@ -1,0 +1,10 @@
+# Temporary compatibility for GitHub's self-repository `$/` syntax.
+# https://github.com/rhysd/actionlint/issues/711
+# These narrow ignores bypass only reference-format errors.
+# GitHub Actions runs must validate inputs/secrets for these calls.
+paths:
+  .github/workflows/**/*.yml:
+    ignore:
+      - 'property "workflow_(repository|sha|ref)" is not defined'
+      - '^reusable workflow call "\$/'
+      - '^specifying action "\$/'
