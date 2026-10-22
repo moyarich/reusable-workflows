@@ -20,7 +20,8 @@
     "checks": "npm run format:check && npm run lint && npm run typecheck",
     "build:package": "npm run build:cli",
     "build:actions": "npm run build -w @moyarich/reusable-workflows-actions",
-    "build:all": "npm run build:cli && npm run build:actions"
+    "build:all": "npm run build:cli && npm run build:actions",
+    "test": "vitest run tests"
   },
   "engines": {
     "node": ">=24"
