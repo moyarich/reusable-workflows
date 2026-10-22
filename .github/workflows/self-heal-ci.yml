@@ -51,6 +51,7 @@ jobs:
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.repair != 'prettier' }}
     uses: $/.github/workflows/reusable_self-heal-npm-package-lock.yml
     with:
+      mode: fix
       commit: ${{ github.event_name != 'workflow_dispatch' || inputs.commit }}
       node-version: "24"
 
