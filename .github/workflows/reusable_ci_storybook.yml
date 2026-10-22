@@ -1,0 +1,77 @@
+name: Reusable CI / Storybook
+on:
+  workflow_call:
+    inputs:
+      checkout-sha:
+        type: string
+        required: false
+        default: ""
+  workflow_dispatch:
+    inputs:
+      checkout-sha:
+        description: Exact commit SHA to validate (e.g. after self-heal)
+        type: string
+        required: false
+        default: ""
+concurrency:
+  group: ci-${{ github.repository }}-${{ github.workflow }}-${{ github.event.pull_request.number || inputs.checkout-sha || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+permissions:
+  contents: read
+jobs:
+  storybook:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.checkout-sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --include=optional --no-audit --no-fund
+      - name: Discover Storybook scripts
+        id: discover
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync,readdirSync,existsSync,appendFileSync,writeFileSync} from 'node:fs';
+          import {join} from 'node:path';
+          const root=JSON.parse(readFileSync('package.json','utf8'));
+          const patterns=Array.isArray(root.workspaces)?root.workspaces:root.workspaces?.packages??[];
+          const dirs=new Set(['.']);
+          for(const pattern of patterns){
+            if(!pattern.endsWith('/*'))continue;
+            const parent=pattern.slice(0,-2);
+            if(!existsSync(parent))continue;
+            for(const entry of readdirSync(parent,{withFileTypes:true}))if(entry.isDirectory())dirs.add(join(parent,entry.name));
+          }
+          const commands=[];
+          for(const dir of dirs){
+            const p=join(dir,'package.json');if(!existsSync(p))continue;
+            const pkg=JSON.parse(readFileSync(p,'utf8'));
+            const script=['test:storybook','test-storybook'].find(s=>pkg.scripts?.[s]);
+            if(script)commands.push({dir,script});
+          }
+          writeFileSync(join(process.env.RUNNER_TEMP,'storybook.json'),JSON.stringify(commands));
+          appendFileSync(process.env.GITHUB_OUTPUT,`enabled=${commands.length>0}\n`);
+          console.log(commands.length?`Storybook: ${commands.length} test script(s)`:'No Storybook test scripts configured');
+          NODE
+      - name: Install Chromium
+        if: steps.discover.outputs.enabled == 'true'
+        run: npx --no-install playwright install --with-deps chromium
+      - name: Run Storybook tests
+        if: steps.discover.outputs.enabled == 'true'
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          import {join} from 'node:path';
+          import {spawnSync} from 'node:child_process';
+          for(const {dir,script} of JSON.parse(readFileSync(join(process.env.RUNNER_TEMP,'storybook.json'),'utf8'))){
+            const args=['run',script,...(dir==='.'?[]:['--workspace',dir])];
+            const result=spawnSync('npm',args,{stdio:'inherit'});
+            if(result.status!==0)process.exit(result.status||1);
+          }
+          NODE
