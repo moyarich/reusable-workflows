@@ -189,7 +189,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.package-token || github.token }}
         run: |
           set -euo pipefail
-          bash -lc "$INSTALL_COMMAND"
+          bash -c "$INSTALL_COMMAND"
 
       # ------------------------------------------------------------
       # Build
@@ -204,7 +204,7 @@ jobs:
           PAGES_ORIGIN: ${{ steps.pages.outputs.origin }}
         run: |
           set -euo pipefail
-          bash -lc "$BUILD_COMMAND"
+          bash -c "$BUILD_COMMAND"
 
       # ------------------------------------------------------------
       # Validate artifact before allowing upload/find
