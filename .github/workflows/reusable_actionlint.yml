@@ -54,18 +54,26 @@ jobs:
           ]
 
           def diagnostics(path):
-              if not path.exists() or not path.read_text(errors="replace").strip():
+              if not path.exists():
                   return []
               import json
-              try:
-                  parsed = json.loads(path.read_text(errors="replace"))
-              except json.JSONDecodeError as exc:
-                  raise RuntimeError(f"Could not parse actionlint JSON at {path}: {exc}")
-              if parsed is None:
-                  return []
-              if not isinstance(parsed, list):
-                  raise RuntimeError(f"Unexpected actionlint output at {path}: expected array")
-              return parsed
+              entries = []
+              for line_number, line in enumerate(path.read_text(errors="replace").splitlines(), 1):
+                  if not line.strip():
+                      continue
+                  try:
+                      parsed = json.loads(line)
+                  except json.JSONDecodeError as exc:
+                      raise RuntimeError(
+                          f"Non-JSON actionlint output at {path}:{line_number}: {line[:250]!r}"
+                      ) from exc
+                  if isinstance(parsed, dict):
+                      entries.append(parsed)
+                  elif isinstance(parsed, list):
+                      entries.extend(parsed)
+                  else:
+                      raise RuntimeError(f"Unexpected actionlint diagnostic at {path}:{line_number}")
+              return entries
 
           raw_lines = diagnostics(raw)
           filtered_lines = diagnostics(filtered)
