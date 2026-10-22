@@ -1,7 +1,7 @@
 # Generated and vendored assets
 node_modules/
 # Generated GitHub Action bundles are validated by check-dist, not Prettier.
-actions/
+actions/**/*.mjs
 dist/
 coverage/
 apps/playground/dist/
