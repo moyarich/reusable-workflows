@@ -1,15 +1,45 @@
 import type { ErrnoException } from "node:util";
-type Manifest = { name: string; version: string; private?: boolean; workspaces?: string[] | {packages:string[]}; dependencies?: Record<string,string>; optionalDependencies?: Record<string,string>; peerDependencies?: Record<string,string> };
+type Manifest = {
+  name: string;
+  version: string;
+  private?: boolean;
+  workspaces?: string[] | { packages: string[] };
+  dependencies?: Record<string, string>;
+  optionalDependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
+};
 type Field = "dependencies" | "optionalDependencies" | "peerDependencies";
-type Workspace = {directory:string;absolute:string;pkg:Manifest};
-type Dependency = {name:string;field:Field;original:string;resolved:string;version:string;publishDependency:boolean};
-type Change = {field:Field;name:string;from:string;to:string};
-type ResultPackage = {name:string;version:string;directory:string;private:boolean;publishable:boolean;dependencies:Dependency[];changes:Change[];manifest:Manifest;absolute:string};
+type Workspace = { directory: string; absolute: string; pkg: Manifest };
+type Dependency = {
+  name: string;
+  field: Field;
+  original: string;
+  resolved: string;
+  version: string;
+  publishDependency: boolean;
+};
+type Change = { field: Field; name: string; from: string; to: string };
+type ResultPackage = {
+  name: string;
+  version: string;
+  directory: string;
+  private: boolean;
+  publishable: boolean;
+  dependencies: Dependency[];
+  changes: Change[];
+  manifest: Manifest;
+  absolute: string;
+};
 import { readFile, writeFile, mkdir, readdir } from "node:fs/promises";
 import path from "node:path";
 
-const fields: Field[] = ["dependencies", "optionalDependencies", "peerDependencies"];
-const read = async (file: string): Promise<Manifest> => JSON.parse(await readFile(file, "utf8")) as Manifest;
+const fields: Field[] = [
+  "dependencies",
+  "optionalDependencies",
+  "peerDependencies",
+];
+const read = async (file: string): Promise<Manifest> =>
+  JSON.parse(await readFile(file, "utf8")) as Manifest;
 const slash = (value: string) => value.split(path.sep).join("/");
 function globRegex(glob: string) {
   let pattern = "^";
@@ -45,7 +75,7 @@ function globRegex(glob: string) {
   return new RegExp(pattern + "$");
 }
 async function manifests(root: string, patterns: string[]) {
-  const found: Array<{directory:string;absolute:string}> = [];
+  const found: Array<{ directory: string; absolute: string }> = [];
   async function walk(dir: string) {
     for (const entry of await readdir(dir, { withFileTypes: true })) {
       if (
@@ -106,7 +136,13 @@ export async function resolveWorkspaces({
   range = "caret",
   write = false,
   output = "resolve-workspaces.json",
-}: {cwd?:string;packageSelector?:string;range?:string;write?:boolean;output?:string} = {}) {
+}: {
+  cwd?: string;
+  packageSelector?: string;
+  range?: string;
+  write?: boolean;
+  output?: string;
+} = {}) {
   if (!["caret", "exact", "tilde"].includes(range))
     throw new Error("Invalid range: " + range);
   const root = path.resolve(cwd);

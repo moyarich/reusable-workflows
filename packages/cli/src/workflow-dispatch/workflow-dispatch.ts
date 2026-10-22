@@ -1,10 +1,32 @@
-type WorkflowRun = { id: number; event: string; path: string; head_sha: string; head_branch: string; status: string; conclusion?: string; html_url?: string };
-type DispatchOptions = { repository: string; workflow: string; branch: string; sha: string; token: string; inputs?: Record<string,string>; timeoutSeconds?: number; pollSeconds?: number; request?: typeof fetch; pause?: (ms: number) => Promise<void>; root?: string };
+type WorkflowRun = {
+  id: number;
+  event: string;
+  path: string;
+  head_sha: string;
+  head_branch: string;
+  status: string;
+  conclusion?: string;
+  html_url?: string;
+};
+type DispatchOptions = {
+  repository: string;
+  workflow: string;
+  branch: string;
+  sha: string;
+  token: string;
+  inputs?: Record<string, string>;
+  timeoutSeconds?: number;
+  pollSeconds?: number;
+  request?: typeof fetch;
+  pause?: (ms: number) => Promise<void>;
+  root?: string;
+};
 import { appendFileSync } from "node:fs";
 
 const env = (name: string) => process.env[name] ?? "";
 const apiRoot = env("GITHUB_API_URL") || "https://api.github.com";
-const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+const sleep = (ms: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 export function normalizeInputs(json: string, shaInput: string, sha: string) {
   const values = JSON.parse(json || "{}");
@@ -28,7 +50,15 @@ export function normalizeInputs(json: string, shaInput: string, sha: string) {
   return normalized;
 }
 
-export function assertRun(run: WorkflowRun, { id, sha, branch, workflow }: {id:number;sha:string;branch:string;workflow:string}) {
+export function assertRun(
+  run: WorkflowRun,
+  {
+    id,
+    sha,
+    branch,
+    workflow,
+  }: { id: number; sha: string; branch: string; workflow: string },
+) {
   if (
     run.id !== id ||
     run.event !== "workflow_dispatch" ||
@@ -80,9 +110,12 @@ export async function dispatchAndWait({
   );
   if (!dispatched.ok)
     throw new Error(`Workflow dispatch failed: HTTP ${dispatched.status}`);
-  let details: {workflow_run_id:number;html_url?:string};
+  let details: { workflow_run_id: number; html_url?: string };
   try {
-    details = (await dispatched.json()) as {workflow_run_id:number;html_url?:string};
+    details = (await dispatched.json()) as {
+      workflow_run_id: number;
+      html_url?: string;
+    };
   } catch {
     throw new Error("Dispatch API did not return run details");
   }
@@ -153,7 +186,9 @@ if (
         `Required workflow: [${result.id}](${result.url}) — ${result.conclusion}\n`,
       );
   } catch (error) {
-    console.error(`::error::${error instanceof Error ? error.message : String(error)}`);
+    console.error(
+      `::error::${error instanceof Error ? error.message : String(error)}`,
+    );
     process.exitCode = 1;
   }
 }

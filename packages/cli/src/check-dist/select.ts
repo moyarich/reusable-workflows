@@ -1,10 +1,17 @@
 type Package = { name: string; directory: string; [key: string]: unknown };
-type Config = { packages?: Record<string, { distPath?: string; buildCommand?: string }>; extraPackages?: Package[] };
-const required = (name: string): string => { const value = process.env[name]; if (!value) throw new Error("Missing " + name); return value; };
+type Config = {
+  packages?: Record<string, { distPath?: string; buildCommand?: string }>;
+  extraPackages?: Package[];
+};
+const required = (name: string): string => {
+  const value = process.env[name];
+  if (!value) throw new Error("Missing " + name);
+  return value;
+};
 import fs from "node:fs";
 import { execFileSync } from "node:child_process";
 
-const report = JSON.parse(required("DISCOVERED")) as {included: Package[]};
+const report = JSON.parse(required("DISCOVERED")) as { included: Package[] };
 const configPath = required("CONFIG_FILE");
 const config: Config = fs.existsSync(configPath)
   ? JSON.parse(
