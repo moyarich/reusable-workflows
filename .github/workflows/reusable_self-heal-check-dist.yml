@@ -182,6 +182,7 @@ jobs:
         id: compare
         env:
           DIST_PATH: ${{ steps.resolve.outputs.dist-path }}
+          COMMIT_DIST: ${{ matrix.commitDist }}
           REPAIR: true
         shell: bash
         run: |
@@ -189,6 +190,11 @@ jobs:
           if [[ -z "$DIST_PATH" || "$DIST_PATH" == /* || "$DIST_PATH" == *..* || ! -d "$DIST_PATH" ]]; then
             echo "::error::dist-path must be an existing safe relative directory"
             exit 1
+          fi
+          if [[ "$COMMIT_DIST" != "true" ]]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "CI-only distribution: build output exists; Git comparison skipped."
+            exit 0
           fi
           git add -f -- "$DIST_PATH"
           if git diff --cached --quiet -- "$DIST_PATH"; then
@@ -210,7 +216,7 @@ jobs:
         run: bash -euo pipefail -c "$VALIDATION_COMMAND"
 
       - name: Commit regenerated distribution
-        if: ${{ inputs.commit && !inputs.dry-run && needs.select-packages.outputs.single-package == 'true' && steps.compare.outputs.changed == 'true' }}
+        if: ${{ matrix.commitDist && inputs.commit && !inputs.dry-run && needs.select-packages.outputs.single-package == 'true' && steps.compare.outputs.changed == 'true' }}
         env:
           TARGET_BRANCH: ${{ inputs.target-branch || github.ref_name }}
           GH_TOKEN: ${{ github.token }}
@@ -226,7 +232,7 @@ jobs:
         env:
           TARGET_BRANCH: ${{ inputs.target-branch || github.ref_name }}
           GH_TOKEN: ${{ github.token }}
-          COMMIT_CHANGES: ${{ inputs.commit && !inputs.dry-run && needs.select-packages.outputs.single-package == 'true' }}
+          COMMIT_CHANGES: ${{ matrix.commitDist && inputs.commit && !inputs.dry-run && needs.select-packages.outputs.single-package == 'true' }}
           CHANGED: ${{ steps.compare.outputs.changed }}
         run: |
           set -euo pipefail
@@ -258,7 +264,8 @@ jobs:
           CHANGED: ${{ steps.compare.outputs.changed || 'unknown' }}
           RESULT: ${{ job.status }}
           REPAIR: ${{ true }}
-          COMMIT: ${{ inputs.commit && !inputs.dry-run && needs.select-packages.outputs.single-package == 'true' }}
+          COMMIT: ${{ matrix.commitDist && inputs.commit && !inputs.dry-run && needs.select-packages.outputs.single-package == 'true' }}
+          COMMIT_DIST: ${{ matrix.commitDist }}
           SHA: ${{ steps.head.outputs.sha }}
           RESOLVED_PATH: ${{ steps.resolve.outputs.dist-path }}
         run: |
@@ -269,6 +276,7 @@ jobs:
             echo "| --- | --- |"
             echo "| Distribution path | $RESOLVED_PATH |"
             echo "| Repair mode | $REPAIR |"
+            echo "| Commit distribution | $COMMIT_DIST |"
             echo "| Distribution changed | $CHANGED |"
             echo "| Commit requested | $COMMIT |"
             echo "| Result | $RESULT |"
