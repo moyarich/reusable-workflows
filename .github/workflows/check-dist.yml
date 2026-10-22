@@ -1,7 +1,7 @@
 name: Check distribution
 
 run-name: >-
-  Check dist · ${{ inputs.package }}
+  Check dist · ${{ github.event_name == 'push' && 'actions' || inputs.package }}
 
 on:
   push:
@@ -22,7 +22,8 @@ on:
       - ".prettierignore"
       - "tests/**"
       - "actions/**"
-      - ".github/workflows/self-heal-ci.yml"
+      - ".github/workflows/check-dist.yml"
+      - ".github/workflows/reusable_check-dist.yml"
   workflow_dispatch:
     inputs:
       package:
