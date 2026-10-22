@@ -22,8 +22,8 @@ on:
       - ".prettierignore"
       - "tests/**"
       - "actions/**"
-      - ".github/workflows/check-dist.yml"
-      - ".github/workflows/reusable_check-dist.yml"
+      - ".github/workflows/ci_check-dist.yml"
+      - ".github/workflows/reusable_self-heal-check-dist.yml"
   workflow_dispatch:
     inputs:
       package:
@@ -74,7 +74,7 @@ on:
 permissions: {}
 
 concurrency:
-  group: ci-check-dist-${{ github.repository }}-${{ github.ref_name }}
+  group: ci-${{ github.repository }}-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
