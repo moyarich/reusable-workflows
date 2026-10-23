@@ -96,22 +96,6 @@ jobs:
         with:
           node-version: ${{ inputs.node-version }}
 
-      - name: Install locked dependencies
-        env:
-          NODE_AUTH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ -f package-lock.json ]]; then
-            npm ci --ignore-scripts
-          elif [[ -f pnpm-lock.yaml ]]; then
-            corepack enable
-            pnpm install --frozen-lockfile --ignore-scripts
-          else
-            echo "::error::Expected package-lock.json or pnpm-lock.yaml"
-            exit 1
-          fi
-
       - name: Install Prettier
         id: prettier
         shell: bash
