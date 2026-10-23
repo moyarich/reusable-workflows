@@ -1,5 +1,5 @@
 name: Dispatch and wait for workflow
-description: Dispatch a workflow using its exact GitHub API run ID, poll and verify successful completion.
+description: Dispatch one or more workflow_dispatch targets with individual inputs, verify each exact run ID and commit.
 inputs:
   required_workflows:
     description: Comma-separated list of one or more required workflow filenames
@@ -13,8 +13,8 @@ inputs:
   token:
     description: Token with actions write/read
     required: true
-  inputs:
-    description: JSON object of workflow_dispatch inputs
+  workflow_inputs:
+    description: JSON object keyed by workflow filename, with workflow_dispatch inputs for each target
     default: "{}"
   sha-input:
     description: Optional input name for the expected SHA; empty disables injection
@@ -39,7 +39,7 @@ runs:
         REQUIRED_WORKFLOWS: ${{ inputs.required_workflows }}
         DISPATCH_BRANCH: ${{ inputs.branch }}
         DISPATCH_SHA: ${{ inputs.sha }}
-        DISPATCH_INPUTS: ${{ inputs.inputs }}
+        WORKFLOW_INPUTS: ${{ inputs.workflow_inputs }}
         DISPATCH_SHA_INPUT: ${{ inputs.sha-input }}
         DISPATCH_TIMEOUT: ${{ inputs.timeout-seconds }}
         DISPATCH_POLL_INTERVAL: ${{ inputs.poll-seconds }}
