@@ -2,8 +2,8 @@ import { test, assert, expect } from "vitest";
 import {
   selectRun,
   validateRun,
-  verify,
-} from "../packages/cli/src/verify-workflow-runs/index.ts";
+} from "../packages/cli/src/verify-workflow-runs/select-run.ts";
+import { verify } from "../packages/cli/src/verify-workflow-runs/index.ts";
 
 const sha = "a".repeat(40);
 const path = ".github/workflows/ci.yml";

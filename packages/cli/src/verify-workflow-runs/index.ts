@@ -1,16 +1,6 @@
-type WorkflowRun = {
-  id: number;
-  path: string;
-  head_sha: string;
-  head_branch: string;
-  event: string;
-  created_at: string;
-  run_attempt: number;
-  status: string;
-  conclusion: string | null;
-  html_url: string;
-};
-type Selection = { path: string; sha: string; branch: string; event: string };
+/** GitHub API and runner output adapter for workflow verification. */
+import type { WorkflowRun } from "./select-run.js";
+import { selectRun, validateRun } from "./select-run.js";
 type VerifyOptions = {
   workflows: string[];
   repository: string;
@@ -22,47 +12,6 @@ type VerifyOptions = {
   request?: typeof fetch;
 };
 import { appendFileSync } from "node:fs";
-
-const input = (key: string) => (process.env[key] ?? "").trim();
-const workflows = input("VERIFY_WORKFLOWS")
-  .split(",")
-  .map((s) => s.trim());
-const repository = input("GITHUB_REPOSITORY");
-const token = input("GH_TOKEN");
-const sha = input("VERIFY_SHA");
-const branch = input("VERIFY_BRANCH");
-const event = input("VERIFY_EVENT") || "pull_request";
-const apiRoot = process.env.GITHUB_API_URL || "https://api.github.com";
-
-export function selectRun(
-  runs: WorkflowRun[],
-  { path, sha, branch, event }: Selection,
-) {
-  return runs
-    .filter(
-      (run) =>
-        run.path === path &&
-        run.head_sha === sha &&
-        run.head_branch === branch &&
-        run.event === event,
-    )
-    .sort(
-      (a, b) =>
-        a.created_at.localeCompare(b.created_at) ||
-        a.run_attempt - b.run_attempt ||
-        a.id - b.id,
-    )
-    .at(-1);
-}
-
-export function validateRun(run: WorkflowRun | undefined, path: string) {
-  if (!run) throw new Error(`No matching run for ${path}`);
-  if (run.status !== "completed" || run.conclusion !== "success")
-    throw new Error(
-      `Latest run for ${path} is ${run.status}/${run.conclusion ?? "pending"}`,
-    );
-  return run;
-}
 
 export async function verify({
   workflows,
@@ -143,13 +92,15 @@ if (
 ) {
   try {
     const results = await verify({
-      workflows,
-      repository,
-      token,
-      sha,
-      branch,
-      event,
-      apiRoot,
+      workflows: (process.env.VERIFY_WORKFLOWS ?? "")
+        .split(",")
+        .map((s) => s.trim()),
+      repository: (process.env.GITHUB_REPOSITORY ?? "").trim(),
+      token: (process.env.GH_TOKEN ?? "").trim(),
+      sha: (process.env.VERIFY_SHA ?? "").trim(),
+      branch: (process.env.VERIFY_BRANCH ?? "").trim(),
+      event: (process.env.VERIFY_EVENT ?? "").trim() || "pull_request",
+      apiRoot: process.env.GITHUB_API_URL || "https://api.github.com",
     });
     const resultJson = JSON.stringify(results);
     if (process.env.GITHUB_OUTPUT)
