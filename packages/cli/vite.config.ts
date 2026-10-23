@@ -19,7 +19,7 @@ export default defineConfig({
         browser: resolve(root, "src/bin/browser-entry.ts"),
         "setup-workspace-tools": resolve(
           root,
-          "src/setup-workspace-tools/setup-workspace-tools-cli.ts",
+          "src/setup-workspace-tools/bin-entry.ts",
         ),
       },
       output: {
