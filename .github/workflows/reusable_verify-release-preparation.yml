@@ -54,28 +54,48 @@ jobs:
           import fs from "node:fs";
           import { execFileSync } from "node:child_process";
           const git=(args)=>execFileSync("git",args,{encoding:"utf8"}).trim();
-          // Compare the final merged tree with the exact PR base SHA.
-          // Using merge-base may include unrelated changes from main.
+          // The tracked release plan selects packages, but does not freeze versions.
+          // Source code, tests, lockfiles, changelogs and versions can all evolve
+          // while the PR is reviewed. Read versions from the final merged commit.
           const event=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,"utf8"));
-          const before=event.pull_request?.base?.sha;
-          if (!/^[0-9a-f]{40}$/.test(before ?? "")) throw Error("Missing PR base SHA");
-          const base=before;
-          git(["cat-file","-e",base+"^{commit}"]);
-          const changed=git(["diff","--name-only",base,"HEAD"]).split("\n");
+          const planFile=".github/release-preparation.json";
           const selected=[];
           const names=new Set();
-          for(const file of changed) {
-            if(!/^(?:packages\/|apps\/)[a-zA-Z0-9_./-]+\/package\.json$/.test(file) || file.includes("..")) continue;
-            let previous;
-            try { previous=JSON.parse(git(["show",base+":"+file])); } catch { previous=null; }
-            const after=JSON.parse(fs.readFileSync(file,"utf8"));
-            if(previous?.version===after.version) continue;
-            if(after.private || typeof after.name!=="string" || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(after.version)) throw Error("Invalid publishable package version in "+file);
-            if(names.has(after.name))throw Error("Duplicate changed workspace package: "+after.name);
-            names.add(after.name);
-            selected.push({name:after.name,directory:file.slice(0,-"/package.json".length),version:after.version});
+          let packages;
+          if (fs.existsSync(planFile)) {
+            const plan=JSON.parse(fs.readFileSync(planFile,"utf8"));
+            if(plan.schemaVersion!==1 || !Array.isArray(plan.packages) || !plan.packages.length)
+              throw Error("Invalid release preparation plan");
+            packages=plan.packages;
+          } else {
+            // Compatibility with older release preparation PRs that predate
+            // tracked package selection: discover changed package versions.
+            const base=event.pull_request?.base?.sha;
+            if (!/^[0-9a-f]{40}$/.test(base??"")) throw Error("Missing PR base SHA");
+            git(["cat-file","-e",base+"^{commit}"]);
+            const changed=git(["diff","--name-only",base,"HEAD"]).split("\\n");
+            packages=changed.filter(file=>/^(?:packages\\/|apps\\/)[a-zA-Z0-9_./-]+\\/package\\.json$/.test(file) && !file.includes(".."))
+              .filter(file=>{
+                let previous;
+                try {previous=JSON.parse(git(["show",base+":"+file]));} catch {previous=null;}
+                const after=JSON.parse(fs.readFileSync(file,"utf8"));
+                return previous?.version!==after.version;
+              }).map(file=>({directory:file.slice(0,-"/package.json".length)}));
           }
-          if(!selected.length) throw Error("No publishable workspace versions changed in approved merge");
+          for(const pkg of packages) {
+            const dir=pkg.directory;
+            if(typeof dir!=="string" || !/^(?:packages|apps)\\/[a-zA-Z0-9_./-]+$/.test(dir) || dir.includes(".."))
+              throw Error("Invalid release package directory: "+dir);
+            const file=dir+"/package.json";
+            const final=JSON.parse(fs.readFileSync(file,"utf8"));
+            if(final.private===true || typeof final.name!=="string" || !/^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$/.test(final.version))
+              throw Error("Invalid final publishable version in "+file);
+            if(pkg.name && pkg.name!==final.name) throw Error("Package identity changed: "+file);
+            if(names.has(final.name)) throw Error("Duplicate release package: "+final.name);
+            names.add(final.name);
+            selected.push({name:final.name,directory:dir,version:final.version});
+          }
+          if(!selected.length) throw Error("No release packages selected");
           const manifest={schemaVersion:1,packages:selected};
           fs.appendFileSync(process.env.GITHUB_OUTPUT,"manifest="+JSON.stringify(manifest)+"\npackages="+JSON.stringify(selected)+"\n");
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,"## Approved merged package versions\n\n"+selected.map(p=>"- "+p.name+"@"+p.version).join("\n")+"\n");
