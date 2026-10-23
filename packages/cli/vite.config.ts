@@ -15,7 +15,7 @@ export default defineConfig({
       input: {
         cli: resolve(root, "src/cli.ts"),
         "workspace-source": resolve(root, "src/bin/workspace-source-entry.ts"),
-        "release-validate": resolve(root, "src/bin/release-validate.ts"),
+        "release-validate": resolve(root, "src/bin/release-validate-entry.ts"),
         browser: resolve(root, "src/bin/browser.ts"),
         "setup-workspace-tools": resolve(
           root,
