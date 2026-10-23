@@ -96,12 +96,35 @@ export async function dispatchAndWait({ repository, workflow, branch, sha, token
         await pause(Math.min(pollSeconds * 1000, Math.max(0, deadline - Date.now())));
     }
 }
+export function parseWorkflows(workflow, workflows = "") {
+  const selected = workflows.trim() || workflow.trim();
+  const names = selected.split(",").map((name) => name.trim()).filter(Boolean);
+  if (!names.length || names.some((name) => !/^[\\w.-]+\\.ya?ml$/.test(name)))
+    throw new Error("Provide one or more valid workflow filenames");
+  if (new Set(names).size !== names.length)
+    throw new Error("Duplicate workflow filenames are not allowed");
+  return names;
+}
+
+export async function dispatchRequiredWorkflows(
+  options,
+) {
+  const names = parseWorkflows(options.workflow, options.workflows);
+  const results = [];
+  for (const workflow of names) {
+    const results = await dispatchRequiredWorkflows({ ...options, workflow });
+    results.push({ workflow, ...result });
+  }
+  return results;
+}
+
 if (process.argv[1] &&
     import.meta.url === new URL(`file://${process.argv[1]}`).href) {
     try {
         const result = await dispatchAndWait({
             repository: env("GITHUB_REPOSITORY"),
             workflow: env("DISPATCH_WORKFLOW"),
+      workflows: env("DISPATCH_WORKFLOWS"),
             branch: env("DISPATCH_BRANCH"),
             sha: env("DISPATCH_SHA"),
             token: env("GH_TOKEN"),
@@ -109,13 +132,16 @@ if (process.argv[1] &&
             timeoutSeconds: Number(env("DISPATCH_TIMEOUT") || 300),
             pollSeconds: Number(env("DISPATCH_POLL_INTERVAL") || 15),
         });
-        if (env("GITHUB_OUTPUT"))
-            appendFileSync(env("GITHUB_OUTPUT"), `workflow-id=${result.id}\nworkflow-url=${result.url}\nworkflow-conclusion=${result.conclusion}\n`);
-        if (env("GITHUB_STEP_SUMMARY"))
-            appendFileSync(env("GITHUB_STEP_SUMMARY"), `Required workflow: [${result.id}](${result.url}) — ${result.conclusion}\n`);
-    }
-    catch (error) {
-        console.error(`::error::${error instanceof Error ? error.message : String(error)}`);
-        process.exitCode = 1;
-    }
-}
+        const result = results[0];
+    if (env("GITHUB_OUTPUT"))
+      appendFileSync(
+        env("GITHUB_OUTPUT"),
+        `workflow-id=${result.id}\\nworkflow-url=${result.url}\\nworkflow-conclusion=${result.conclusion}\\nworkflow-results=${JSON.stringify(results)}\\n`,
+      );
+    if (env("GITHUB_STEP_SUMMARY"))
+      appendFileSync(
+        env("GITHUB_STEP_SUMMARY"),
+        "## Required workflow runs\\n\\n" +
+          results.map((r) => `- [${r.workflow}](${r.url}): **${r.conclusion}**\\n`).join(""),
+      );
+
