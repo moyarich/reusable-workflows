@@ -73,7 +73,7 @@ jobs:
       package: ${{ inputs.package }}
       event-name: workflow_dispatch
       after-sha: ${{ github.sha }}
-      target-branch: main
+      target-branch: ${{ github.ref_name }}
       version-mode: ${{ inputs.version-mode }}
       version-bump: ${{ inputs.version-bump }}
       exact-version: ${{ inputs.exact-version }}
@@ -155,7 +155,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: main
+          ref: ${{ github.ref_name }}
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
@@ -197,7 +197,7 @@ jobs:
       release-tag: ${{ format('{0}@{1}', matrix.name, matrix.version) }}
       release-name: ${{ format('{0} v{1}', matrix.name, matrix.version) }}
       changelog-file: ${{ matrix.directory == '.' && 'CHANGELOG.md' || format('{0}/CHANGELOG.md', matrix.directory) }}
-      target-ref: main
+      target-ref: ${{ github.ref_name }}
       create-tag: true
       major-tag: ${{ format('{0}@v{1}', matrix.name, matrix.major) }}
       update-major-tag: ${{ inputs.update-major-tag }}
