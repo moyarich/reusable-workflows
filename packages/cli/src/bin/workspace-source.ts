@@ -10,4 +10,3 @@ export function createWorkspaceSourceCommand() {
       console.log(JSON.stringify(parseWorkspaceToolsSource(source))),
     );
 }
-
