@@ -1,34 +1,12 @@
-type Manifest = {
-  name: string;
-  version: string;
-  private?: boolean;
-  workspaces?: string[] | { packages: string[] };
-  dependencies?: Record<string, string>;
-  optionalDependencies?: Record<string, string>;
-  peerDependencies?: Record<string, string>;
-};
-type Field = "dependencies" | "optionalDependencies" | "peerDependencies";
-type Workspace = { directory: string; absolute: string; pkg: Manifest };
-type Dependency = {
-  name: string;
-  field: Field;
-  original: string;
-  resolved: string;
-  version: string;
-  publishDependency: boolean;
-};
-type Change = { field: Field; name: string; from: string; to: string };
-type ResultPackage = {
-  name: string;
-  version: string;
-  directory: string;
-  private: boolean;
-  publishable: boolean;
-  dependencies: Dependency[];
-  changes: Change[];
-  manifest: Manifest;
-  absolute: string;
-};
+import type {
+  Manifest,
+  Field,
+  Workspace,
+  Dependency,
+  Change,
+  ResultPackage,
+} from "./workspace-rules.js";
+import { globRegex, batchesFor } from "./workspace-rules.js";
 import { readFile, writeFile, mkdir, readdir } from "node:fs/promises";
 import path from "node:path";
 
@@ -40,39 +18,6 @@ const fields: Field[] = [
 const read = async (file: string): Promise<Manifest> =>
   JSON.parse(await readFile(file, "utf8")) as Manifest;
 const slash = (value: string) => value.split(path.sep).join("/");
-function globRegex(glob: string) {
-  let pattern = "^";
-  for (let i = 0; i < glob.length; i++) {
-    const c = glob[i];
-    if (c === "*") {
-      if (glob[i + 1] === "*") {
-        i++;
-        if (glob[i + 1] === "/") {
-          i++;
-          pattern += "(?:.*/)?";
-        } else pattern += ".*";
-      } else pattern += "[^/]*";
-    } else if (c === "?") pattern += "[^/]";
-    else
-      pattern += new Set([
-        ".",
-        "+",
-        "^",
-        "$",
-        "(",
-        ")",
-        "{",
-        "}",
-        "|",
-        "[",
-        "]",
-        "\\",
-      ]).has(c)
-        ? "\\" + c
-        : c;
-  }
-  return new RegExp(pattern + "$");
-}
 async function manifests(root: string, patterns: string[]) {
   const found: Array<{ directory: string; absolute: string }> = [];
   async function walk(dir: string) {
@@ -101,33 +46,6 @@ async function manifests(root: string, patterns: string[]) {
   }
   await walk(root);
   return found;
-}
-function batchesFor(packages: ResultPackage[]) {
-  const remaining = new Map(
-    packages.map((p) => [
-      p.name,
-      new Set(
-        p.dependencies.filter((d) => d.publishDependency).map((d) => d.name),
-      ),
-    ]),
-  );
-  const waves: string[][] = [];
-  while (remaining.size) {
-    const ready = [...remaining]
-      .filter(([, deps]) => deps.size === 0)
-      .map(([name]) => name)
-      .sort();
-    if (!ready.length)
-      throw new Error(
-        "Workspace publish dependency cycle: " +
-          [...remaining.keys()].join(", "),
-      );
-    waves.push(ready);
-    for (const name of ready) remaining.delete(name);
-    for (const deps of remaining.values())
-      for (const name of ready) deps.delete(name);
-  }
-  return waves;
 }
 export async function resolveWorkspaces({
   cwd = process.cwd(),
