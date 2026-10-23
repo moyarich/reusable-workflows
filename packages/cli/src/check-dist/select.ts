@@ -3,8 +3,8 @@ import fs from "node:fs";
 import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
-import { selectDistributionTargets } from "./select-targets.ts";
-import type { Config, Package } from "./select-targets.ts";
+import { selectDistributionTargets } from "./select-targets.js";
+import type { Config, Package } from "./select-targets.js";
 
 function required(env: NodeJS.ProcessEnv, name: string): string {
   const value = env[name];
