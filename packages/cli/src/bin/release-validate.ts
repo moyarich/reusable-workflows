@@ -24,6 +24,3 @@ export function createReleaseValidateCommand() {
     });
 }
 
-if (process.argv[1] && /release-validate\.mjs$/.test(process.argv[1])) {
-  await createReleaseValidateCommand().parseAsync();
-}
