@@ -7,7 +7,7 @@ on:
         default: all
       version-bump:
         type: string
-        default: patch
+        default: package-json
       target-branch:
         type: string
         default: main
@@ -60,14 +60,14 @@ jobs:
           const packages=candidates.filter(p=>!p.private&&p.name&&p.version&&p.location);
           const selected=process.env.SELECTOR==="all"?packages:packages.filter(p=>p.name===process.env.SELECTOR||p.location===process.env.SELECTOR);
           if (!selected.length) throw Error("Unknown publishable package selector");
-          if (!["patch","minor","major"].includes(process.env.BUMP)) throw Error("Unsupported version bump");
+          if (!["package-json","patch","minor","major"].includes(process.env.BUMP)) throw Error("Unsupported version bump");
           const bump=(v)=>{
             const m=/^(\d+)\.(\d+)\.(\d+)$/.exec(v);
             if(!m)throw Error("Stable semver required: "+v);
             const [a,b,c]=m.slice(1).map(Number);
             return process.env.BUMP==="major"?[a+1,0,0].join("."):process.env.BUMP==="minor"?[a,b+1,0].join("."):[a,b,c+1].join(".");
           };
-          const versions=new Map(selected.map(p=>[p.name,bump(p.version)]));
+          const versions=new Map(selected.map(p=>[p.name,process.env.BUMP==="package-json"?p.version:bump(p.version)]));
           for(const p of candidates){
             const file=p.location==="."?"package.json":p.location+"/package.json";
             const doc=JSON.parse(fs.readFileSync(file,"utf8"));
@@ -111,7 +111,7 @@ jobs:
           git checkout -b "$branch"
           # Checkout is clean; stage only tracked version/lockfile edits.
           git add -u
-          git diff --cached --quiet && { echo "No release changes"; exit 0; }
+          git diff --cached --quiet && { echo "No version changes needed; package.json already defines the selected release version."; exit 0; }
           git commit -m "release: prepare selected workspace versions"
           git push "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git" "HEAD:refs/heads/$branch"
           gh pr create --base "$BASE" --head "$branch" --title "release: prepare packages" --body "Review workspace versions, dependency ranges and lockfile. The proposed manifest is attached to the preparation workflow run; merge only after CI passes."
