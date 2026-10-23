@@ -1,3 +1,7 @@
+import {
+  changelogSection,
+  hasMeaningfulGeneratedBody,
+} from "./release-note-rules.js";
 /** Commander-powered CLI command and feature implementation. @module */
 import {
   existsSync,
@@ -9,32 +13,6 @@ import process from "node:process";
 import { execFileSync } from "node:child_process";
 const GENERATED_START = "<!-- release-draft-sync:generated:start -->";
 const GENERATED_END = "<!-- release-draft-sync:generated:end -->";
-function changelogSection(markdown, version) {
-  if (!version) return "";
-  const escaped = version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const heading = new RegExp(
-    "^##\\s+\\[?" + escaped + "\\]?(?:\\s+-\\s+.+)?\\s*$",
-  );
-  const notes = [];
-  let collecting = false;
-  for (const line of markdown.split("\n")) {
-    if (!collecting && heading.test(line.trim())) {
-      collecting = true;
-      continue;
-    }
-    if (collecting && /^##\s+/.test(line)) break;
-    if (collecting) notes.push(line);
-  }
-  return notes.join("\n").trim();
-}
-function hasMeaningfulGeneratedBody(body) {
-  return (
-    body
-      .replace(/[*-]\s*No changes\.?/gi, "")
-      .replace(/#+\s*(Changes|Release notes|What's Changed)/gi, "")
-      .trim().length > 0
-  );
-}
 function commitFallback(targetPath) {
   const args = ["log", "--reverse", "--format=%s%x09%h", "HEAD"];
   if (targetPath && targetPath !== ".") {
