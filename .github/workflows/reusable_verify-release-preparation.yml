@@ -58,7 +58,7 @@ jobs:
           // The merged commit is authoritative for code and final versions.
           const event=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,"utf8"));
           const body=event.pull_request?.body ?? "";
-          const marker=/<!-- release-preparation:start -->\\s*```json\\s*([\\s\\S]*?)\\s*```\\s*<!-- release-preparation:end -->/g;
+          const marker=/<!-- release-preparation:start -->\s*```json\s*([\s\S]*?)\s*```\s*<!-- release-preparation:end -->/g;
           const matches=[...body.matchAll(marker)];
           if(matches.length!==1) throw Error("Expected exactly one release preparation JSON section in the merged PR description");
           const plan=JSON.parse(matches[0][1]);
@@ -69,11 +69,11 @@ jobs:
           const names=new Set();
           for(const pkg of packages) {
             const dir=pkg.directory;
-            if(typeof dir!=="string" || !/^(?:packages|apps)\\/[a-zA-Z0-9_./-]+$/.test(dir) || dir.includes(".."))
+            if(typeof dir!=="string" || !/^(?:packages|apps)\/[a-zA-Z0-9_./-]+$/.test(dir) || dir.includes(".."))
               throw Error("Invalid release package directory: "+dir);
             const file=dir+"/package.json";
             const final=JSON.parse(fs.readFileSync(file,"utf8"));
-            if(final.private===true || typeof final.name!=="string" || !/^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$/.test(final.version))
+            if(final.private===true || typeof final.name!=="string" || !/^\d+\\.\d+\\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(final.version))
               throw Error("Invalid final publishable version in "+file);
             if(pkg.name && pkg.name!==final.name) throw Error("Package identity changed: "+file);
             if(names.has(final.name)) throw Error("Duplicate release package: "+final.name);
