@@ -47,7 +47,7 @@ export function reconcileReleaseBody(options: ReleaseBodyInputs): string {
   if (options.curatedNotes) {
     const curated = options.curatedNotes;
     const existingSeed = existing.match(
-      /<!--\\s*release-draft-sync:seed-sha=([^\\s]+)(?:\\s+source=[^>]+)?\\s*-->/,
+      /<!--\s*release-draft-sync:seed-sha=([^\s]+)(?:\s+source=[^>]+)?\s*-->/,
     );
     const seedSha = existingSeed?.[1] || options.seedSha;
     return ensureMetadata(curated, options.targetKey, seedSha, "changelog");
