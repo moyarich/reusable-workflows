@@ -5,9 +5,18 @@ on:
       package:
         type: string
         default: all
-      version-bump:
+      version-mode:
         type: string
         default: package-json
+      initial-version:
+        type: string
+        default: '0.1.0'
+      version-bump:
+        type: string
+        default: patch
+      exact-version:
+        type: string
+        default: ''
       target-branch:
         type: string
         default: main
@@ -45,6 +54,9 @@ jobs:
         env:
           SELECTOR: ${{ inputs.package }}
           BUMP: ${{ inputs.version-bump }}
+          MODE: ${{ inputs.version-mode }}
+          INITIAL: ${{ inputs.initial-version }}
+          EXACT: ${{ inputs.exact-version }}
         shell: bash
         run: |
           set -euo pipefail
@@ -60,14 +72,36 @@ jobs:
           const packages=candidates.filter(p=>!p.private&&p.name&&p.version&&p.location);
           const selected=process.env.SELECTOR==="all"?packages:packages.filter(p=>p.name===process.env.SELECTOR||p.location===process.env.SELECTOR);
           if (!selected.length) throw Error("Unknown publishable package selector");
-          if (!["package-json","patch","minor","major"].includes(process.env.BUMP)) throw Error("Unsupported version bump");
-          const bump=(v)=>{
-            const m=/^(\d+)\.(\d+)\.(\d+)$/.exec(v);
-            if(!m)throw Error("Stable semver required: "+v);
-            const [a,b,c]=m.slice(1).map(Number);
-            return process.env.BUMP==="major"?[a+1,0,0].join("."):process.env.BUMP==="minor"?[a,b+1,0].join("."):[a,b,c+1].join(".");
+          const semver=/^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$/;
+          const valid=(v)=>semver.test(v)&&!v.split("-")[1]?.split("+")[0].split(".").some(p=>/^\\d+$/.test(p)&&p.length>1&&p.startsWith("0"));
+          const mode=process.env.MODE;
+          const bump=process.env.BUMP;
+          if(!["auto","bump","package-json","exact"].includes(mode))throw Error("Unsupported version mode: "+mode);
+          if(!["patch","minor","major","prepatch","preminor","premajor","prerelease"].includes(bump))throw Error("Unsupported bump: "+bump);
+          if(!valid(process.env.INITIAL))throw Error("Invalid initial-version");
+          if(mode==="exact"&&!valid(process.env.EXACT))throw Error("Invalid exact-version");
+          const increment=(v,kind)=>{
+            if(!valid(v))throw Error("Invalid SemVer: "+v);
+            const [,major,minor,patch,pre]=semver.exec(v);
+            let a=+major,b=+minor,d=+patch;
+            if(kind==="major")return [a+(b!==0||d!==0||pre?0:1),0,0].join(".");
+            if(kind==="minor")return [a,b+(d!==0||pre?0:1),0].join(".");
+            if(kind==="patch")return [a,b,d+(pre?0:1)].join(".");
+            if(kind==="premajor")return [a+1,0,0].join(".")+"-0";
+            if(kind==="preminor")return [a,b+1,0].join(".")+"-0";
+            if(kind==="prepatch")return [a,b,d+1].join(".")+"-0";
+            const parts=pre?.split(".")??[];
+            if(!parts.length)return [a,b,d+1].join(".")+"-0";
+            const last=parts.findLastIndex(p=>/^\\d+$/.test(p));
+            if(last<0)parts.push("0");else parts[last]=String(Number(parts[last])+1);
+            return [a,b,d].join(".")+"-"+parts.join(".");
           };
-          const versions=new Map(selected.map(p=>[p.name,process.env.BUMP==="package-json"?p.version:bump(p.version)]));
+          const versions=new Map(selected.map(p=>{
+            const current=p.version;
+            const value=mode==="package-json"?current:mode==="exact"?process.env.EXACT:mode==="auto"&&(!current||current==="0.0.0")?process.env.INITIAL:increment(current,bump);
+            if(!valid(value))throw Error("Invalid resolved version for "+p.name+": "+value);
+            return [p.name,value];
+          }));
           for(const p of candidates){
             const file=p.location==="."?"package.json":p.location+"/package.json";
             const doc=JSON.parse(fs.readFileSync(file,"utf8"));
