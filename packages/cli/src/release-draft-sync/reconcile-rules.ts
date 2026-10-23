@@ -37,7 +37,11 @@ export function generatedEntries(body: string) {
   }
   return groups;
 }
-export function appendCategoryEntries(markdown: string, category: string, entries: string[]) {
+export function appendCategoryEntries(
+  markdown: string,
+  category: string,
+  entries: string[],
+) {
   if (!entries.length) return markdown;
   const source = markdown.trim();
   const heading = `### ${category}`;
@@ -67,7 +71,10 @@ ${entries.join("\n")}`;
     .join("\n")
     .trim();
 }
-export function mergeGeneratedEntries(existingGenerated: string, latestGenerated: string) {
+export function mergeGeneratedEntries(
+  existingGenerated: string,
+  latestGenerated: string,
+) {
   let merged = existingGenerated.trim();
   const seen = pullRequestMarkers(merged);
   for (const [category, entries] of generatedEntries(latestGenerated)) {
@@ -88,7 +95,12 @@ export function generatedRegion(body: string) {
     .filter(Boolean)
     .join("\n\n");
 }
-export function ensureMetadata(body: string, targetKey: string, seedSha: string, source: string) {
+export function ensureMetadata(
+  body: string,
+  targetKey: string,
+  seedSha: string,
+  source: string,
+) {
   let result = body.trim();
   if (!/<!--\s*release-draft-sync:target=/.test(result)) {
     result = `<!-- release-draft-sync:target=${targetKey} -->

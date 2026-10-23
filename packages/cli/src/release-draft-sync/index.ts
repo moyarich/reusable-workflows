@@ -1,4 +1,12 @@
-import { splitGeneratedRegion, pullRequestMarkers, generatedEntries, appendCategoryEntries, mergeGeneratedEntries, generatedRegion, ensureMetadata } from "./reconcile-rules.js";
+import {
+  splitGeneratedRegion,
+  pullRequestMarkers,
+  generatedEntries,
+  appendCategoryEntries,
+  mergeGeneratedEntries,
+  generatedRegion,
+  ensureMetadata,
+} from "./reconcile-rules.js";
 import {
   changelogSection,
   hasMeaningfulGeneratedBody,
