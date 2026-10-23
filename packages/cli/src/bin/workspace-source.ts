@@ -10,7 +10,3 @@ export function createWorkspaceSourceCommand() {
       console.log(JSON.stringify(parseWorkspaceToolsSource(source))),
     );
 }
-
-if (process.argv[1] && /workspace-source\.mjs$/.test(process.argv[1])) {
-  await createWorkspaceSourceCommand().parseAsync();
-}
