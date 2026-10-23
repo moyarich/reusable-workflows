@@ -11,6 +11,3 @@ export function createWorkspaceSourceCommand() {
     );
 }
 
-if (process.argv[1] && /workspace-source\.mjs$/.test(process.argv[1])) {
-  await createWorkspaceSourceCommand().parseAsync();
-}
