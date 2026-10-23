@@ -1,11 +1,12 @@
 /** Commander-powered CLI command and feature implementation. @module */
 import { Command, InvalidArgumentError } from "commander";
-import { appendFileSync, readFileSync, mkdirSync, existsSync } from "node:fs";
-import { resolve, join } from "node:path";
-import { execFileSync } from "node:child_process";
+import { appendFileSync } from "node:fs";
+import { resolve } from "node:path";
 import process from "node:process";
 
-import { validate, safeDir, type Store } from "./manifest";
+import { validate, type Store } from "./manifest";
+import { packageExtension } from "./package-extension.js";
+export { packageExtension } from "./package-extension.js";
 import { firefoxPublish } from "./firefox-publish.js";
 export { firefoxPublish } from "./firefox-publish.js";
 const store = (value: string): Store => {
@@ -43,13 +44,7 @@ program
   .requiredOption("--build-directory <dir>")
   .option("--output <zip>", "Archive destination", "extension.zip")
   .action((opts) => {
-    const directory = safeDir(opts.buildDirectory);
-    readFileSync(join(directory, "manifest.json"));
-    const output = resolve(process.cwd(), opts.output);
-    if (existsSync(output)) throw new Error("Output already exists: " + output);
-    mkdirSync(resolve(output, ".."), { recursive: true });
-    execFileSync("zip", ["-q", "-r", output, "."], { cwd: directory });
-    execFileSync("unzip", ["-t", output], { stdio: "ignore" });
+    const output = packageExtension(opts.buildDirectory, opts.output);
     console.log("Packaged " + output);
   });
 program
