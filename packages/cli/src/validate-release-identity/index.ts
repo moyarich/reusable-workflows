@@ -2,8 +2,6 @@
 import process from "node:process";
 import { execFileSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { resolve } from "node:path";
 import { validateReleaseMarker } from "../release-draft-sync/identity";
 import { findReleaseByTag } from "./release-lookup.js";
 
@@ -47,18 +45,4 @@ export function runAction(): void {
   console.log("Release " + tag + " metadata format: " + marker.format);
   if (process.env.GITHUB_OUTPUT)
     appendFileSync(process.env.GITHUB_OUTPUT, "format=" + marker.format + "\n");
-}
-
-if (
-  process.argv[1] &&
-  resolve(process.argv[1]) === fileURLToPath(import.meta.url)
-) {
-  try {
-    runAction();
-  } catch (error) {
-    console.error(
-      "::error::" + (error instanceof Error ? error.message : String(error)),
-    );
-    process.exitCode = 1;
-  }
 }
