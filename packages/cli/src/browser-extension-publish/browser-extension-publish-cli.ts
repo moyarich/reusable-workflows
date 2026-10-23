@@ -6,6 +6,8 @@ import { execFileSync } from "node:child_process";
 import process from "node:process";
 
 import { validate, safeDir, type Store } from "./manifest";
+import { firefoxPublish } from "./firefox-publish.js";
+export { firefoxPublish } from "./firefox-publish.js";
 const store = (value: string): Store => {
   if (!["chrome", "firefox", "all"].includes(value))
     throw new InvalidArgumentError("registry must be chrome, firefox, or all");
@@ -71,34 +73,7 @@ program
     "firefox-signed",
   )
   .action((opts) => {
-    const key = process.env.FIREFOX_API_KEY;
-    const secret = process.env.FIREFOX_API_SECRET;
-    if (!key || !secret) throw new Error("Firefox API credentials required");
-    validate(opts.buildDirectory, "firefox");
-    const output = safeDir(opts.outputDirectory);
-    mkdirSync(output, { recursive: true });
-    execFileSync(
-      "npm",
-      [
-        "exec",
-        "--yes",
-        "--package=web-ext",
-        "--",
-        "web-ext",
-        "sign",
-        "--source-dir",
-        safeDir(opts.buildDirectory),
-        "--artifacts-dir",
-        output,
-        "--channel",
-        "listed",
-        "--api-key",
-        key,
-        "--api-secret",
-        secret,
-      ],
-      { stdio: "inherit" },
-    );
+    firefoxPublish(opts.buildDirectory, opts.outputDirectory);
     console.log("Firefox Add-ons submission completed");
   });
 await program.parseAsync();
