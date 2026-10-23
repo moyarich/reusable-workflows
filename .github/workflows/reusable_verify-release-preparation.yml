@@ -54,34 +54,19 @@ jobs:
           import fs from "node:fs";
           import { execFileSync } from "node:child_process";
           const git=(args)=>execFileSync("git",args,{encoding:"utf8"}).trim();
-          // The tracked release plan selects packages, but does not freeze versions.
-          // Source code, tests, lockfiles, changelogs and versions can all evolve
-          // while the PR is reviewed. Read versions from the final merged commit.
+          // Package selection is maintained in the editable PR description.
+          // The merged commit is authoritative for code and final versions.
           const event=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,"utf8"));
-          const planFile=".github/release-preparation.json";
+          const body=event.pull_request?.body ?? "";
+          const marker=/<!-- release-preparation:start -->\\s*```json\\s*([\\s\\S]*?)\\s*```\\s*<!-- release-preparation:end -->/g;
+          const matches=[...body.matchAll(marker)];
+          if(matches.length!==1) throw Error("Expected exactly one release preparation JSON section in the merged PR description");
+          const plan=JSON.parse(matches[0][1]);
+          if(plan.schemaVersion!==1 || !Array.isArray(plan.packages) || !plan.packages.length)
+            throw Error("Invalid release preparation selection");
+          const packages=plan.packages;
           const selected=[];
           const names=new Set();
-          let packages;
-          if (fs.existsSync(planFile)) {
-            const plan=JSON.parse(fs.readFileSync(planFile,"utf8"));
-            if(plan.schemaVersion!==1 || !Array.isArray(plan.packages) || !plan.packages.length)
-              throw Error("Invalid release preparation plan");
-            packages=plan.packages;
-          } else {
-            // Compatibility with older release preparation PRs that predate
-            // tracked package selection: discover changed package versions.
-            const base=event.pull_request?.base?.sha;
-            if (!/^[0-9a-f]{40}$/.test(base??"")) throw Error("Missing PR base SHA");
-            git(["cat-file","-e",base+"^{commit}"]);
-            const changed=git(["diff","--name-only",base,"HEAD"]).split("\\n");
-            packages=changed.filter(file=>/^(?:packages\\/|apps\\/)[a-zA-Z0-9_./-]+\\/package\\.json$/.test(file) && !file.includes(".."))
-              .filter(file=>{
-                let previous;
-                try {previous=JSON.parse(git(["show",base+":"+file]));} catch {previous=null;}
-                const after=JSON.parse(fs.readFileSync(file,"utf8"));
-                return previous?.version!==after.version;
-              }).map(file=>({directory:file.slice(0,-"/package.json".length)}));
-          }
           for(const pkg of packages) {
             const dir=pkg.directory;
             if(typeof dir!=="string" || !/^(?:packages|apps)\\/[a-zA-Z0-9_./-]+$/.test(dir) || dir.includes(".."))
