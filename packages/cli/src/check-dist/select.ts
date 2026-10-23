@@ -1,86 +1,62 @@
-type Package = { name: string; directory: string; [key: string]: unknown };
-type Config = {
-  packages?: Record<
-    string,
-    { distPath?: string; buildCommand?: string; commitDist?: boolean }
-  >;
-  extraPackages?: Package[];
-};
-const required = (name: string): string => {
-  const value = process.env[name];
-  if (!value) throw new Error("Missing " + name);
-  return value;
-};
+/** CLI adapter for distribution selection and GitHub Actions outputs. */
 import fs from "node:fs";
 import { execFileSync } from "node:child_process";
+import { pathToFileURL } from "node:url";
 
-const report = JSON.parse(required("DISCOVERED")) as { included: Package[] };
-const configPath = required("CONFIG_FILE");
-const config: Config = fs.existsSync(configPath)
-  ? JSON.parse(
-      execFileSync(
-        "ruby",
-        [
-          "-r",
-          "yaml",
-          "-r",
-          "json",
-          "-e",
-          "print JSON.generate(YAML.safe_load(File.read(ARGV.fetch(0)), aliases: false) || {})",
-          configPath,
-        ],
-        { encoding: "utf8" },
-      ),
-    )
-  : {};
-const overrides = config.packages || {};
-const allSettings = overrides.all || {};
-const available = [...report.included, ...(config.extraPackages || [])];
-const requested = required("PACKAGES").trim();
-const selected =
-  requested === "all"
-    ? available
-    : available.filter(
-        (p) => p.directory === requested || p.name === requested,
-      );
-if (selected.length === 0) throw Error("No packages match: " + requested);
-const matrix = {
-  include: selected.map((p) => {
-    const settings = {
-      ...allSettings,
-      ...(overrides[p.name] || {}),
-      ...(overrides[p.directory] || {}),
-    };
-    const dir = p.directory === "." ? "root" : p.directory;
-    return {
-      ...p,
-      artifactSuffix: dir
-        .replace(/^(packages|apps)\//, "")
-        .replace(/[^a-zA-Z0-9._-]+/g, "-"),
-      commitDist: settings.commitDist ?? false,
-      distTemplate:
-        process.env.DIST_PATH_OVERRIDE ||
-        settings.distPath ||
-        "{packageDir}/dist",
-      buildCommand:
-        process.env.BUILD_COMMAND_OVERRIDE ||
-        settings.buildCommand ||
-        (p.directory === "."
-          ? "npm run build"
-          : "npm run build --workspace " + p.name),
-    };
-  }),
-};
-fs.appendFileSync(
-  required("GITHUB_OUTPUT"),
-  "matrix=" + JSON.stringify(matrix) + "\n",
-);
-fs.appendFileSync(required("GITHUB_OUTPUT"), "has-packages=true\n");
-fs.appendFileSync(
-  required("GITHUB_OUTPUT"),
-  "single-package=" + (selected.length === 1) + "\n",
-);
-console.log(
-  "Selected distribution targets:",
-  selected.map((p) => p.directory).join(", "),
-);
+import { selectDistributionTargets } from "./select-targets.js";
+import type { Config, Package } from "./select-targets.js";
+
+function required(env: NodeJS.ProcessEnv, name: string): string {
+  const value = env[name];
+  if (!value) throw new Error("Missing " + name);
+  return value;
+}
+
+/** Read CI inputs and emit GitHub outputs; called only by the CLI entrypoint. */
+export function runSelection(env: NodeJS.ProcessEnv = process.env): void {
+  const report = JSON.parse(required(env, "DISCOVERED")) as {
+    included: Package[];
+  };
+  const configPath = required(env, "CONFIG_FILE");
+  const config: Config = fs.existsSync(configPath)
+    ? (JSON.parse(
+        execFileSync(
+          "ruby",
+          [
+            "-r",
+            "yaml",
+            "-r",
+            "json",
+            "-e",
+            "print JSON.generate(YAML.safe_load(File.read(ARGV.fetch(0)), aliases: false) || {})",
+            configPath,
+          ],
+          { encoding: "utf8" },
+        ),
+      ) as Config)
+    : {};
+  const result = selectDistributionTargets({
+    discovered: report.included,
+    config,
+    requested: required(env, "PACKAGES").trim(),
+    distPathOverride: env.DIST_PATH_OVERRIDE,
+    buildCommandOverride: env.BUILD_COMMAND_OVERRIDE,
+  });
+  fs.appendFileSync(
+    required(env, "GITHUB_OUTPUT"),
+    [
+      "matrix=" + JSON.stringify(result.matrix),
+      "has-packages=" + result.hasPackages,
+      "single-package=" + result.singlePackage,
+      "",
+    ].join("\n"),
+  );
+  console.log("Selected distribution targets:", result.directories.join(", "));
+}
+
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
+  runSelection();
+}
