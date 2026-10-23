@@ -31,6 +31,10 @@ on:
         type: string
         required: true
         default: all
+      required_workflows:
+        description: Comma-separated workflow filenames to run after a successful repair commit
+        type: string
+        default: ""
       config-path:
         description: Repository-local distribution configuration YAML
         type: string
@@ -85,10 +89,12 @@ jobs:
   check-dist:
     permissions:
       contents: write
+      actions: write
     uses: $/.github/workflows/reusable_self-heal-check-dist.yml
     with:
       package: ${{ github.event_name == 'push' && 'packages/actions' || inputs.package || 'all' }}
       config-path: ${{ inputs.config-path || '.github/check-dist-config.yml' }}
+      required_workflows: ${{ inputs.required_workflows || '' }}
       dist-path: ${{ github.event_name == 'push' && 'actions/' || inputs.dist-path }}
       build-command: ${{ github.event_name == 'push' && 'npm run build:actions' || inputs.build-command }}
       install-command: ${{ github.event_name == 'push' && 'npm install --no-package-lock --no-audit --no-fund' || inputs.install-command || 'npm ci --ignore-scripts' }}
