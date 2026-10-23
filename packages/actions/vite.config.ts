@@ -14,7 +14,7 @@ const stagingRoot = resolve(packageRoot, "dist/.bundles");
 const entries: Record<string, string> = {
   "browser-extension-publish": "browser-extension-publish/entry.ts",
   "release-draft-sync": "release-draft-sync/index.ts",
-  "setup-workspace-tools": "setup-workspace-tools/setup-workspace-tools-cli.ts",
+  "setup-workspace-tools": "setup-workspace-tools/action-entry.ts",
   "validate-release-identity": "validate-release-identity/index.ts",
 };
 
