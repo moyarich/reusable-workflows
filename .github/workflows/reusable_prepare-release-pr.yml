@@ -7,7 +7,7 @@ on:
         default: all
       version-mode:
         type: string
-        default: package-json
+        default: auto
       initial-version:
         type: string
         default: '0.1.0'
@@ -45,6 +45,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.target-branch }}
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
