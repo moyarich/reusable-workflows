@@ -34,7 +34,17 @@ jobs:
 
       - name: Install dependencies
         run: npm ci --include=optional --no-audit --no-fund
-        
+
+      - name: Detect npm workspaces
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, appendFileSync } from 'node:fs';
+          const { workspaces } = JSON.parse(readFileSync('package.json', 'utf8'));
+          const patterns = Array.isArray(workspaces) ? workspaces : workspaces?.packages;
+          appendFileSync(process.env.GITHUB_ENV, `HAS_NPM_WORKSPACES=${Array.isArray(patterns) && patterns.length > 0}\n`);
+          NODE
+
       - name: Run lint
         shell: bash
         run: |
@@ -48,7 +58,11 @@ jobs:
         id: typecheck
         shell: bash
         run: |
-          npm run typecheck --workspaces --if-present
+          if [[ "$HAS_NPM_WORKSPACES" == true ]]; then
+            npm run typecheck --workspaces --if-present
+          else
+            npm run typecheck --if-present
+          fi
 
           if [[ -f tsconfig.tests.json ]]; then
             npx --no-install tsc -p tsconfig.tests.json --noEmit
@@ -61,12 +75,22 @@ jobs:
       - name: Build npm Commander CLI
         id: build-package
         run: |
-          npm run build --workspaces --if-present
+          if [[ "$HAS_NPM_WORKSPACES" == true ]]; then
+            npm run build --workspaces --if-present
+          else
+            npm run build --if-present
+          fi
           npm run build:package --if-present
 
       - name: Run Vitest (workspaces and root)
         id: vitest
-        run: npm test --workspaces --if-present --include-workspace-root
+        shell: bash
+        run: |
+          if [[ "$HAS_NPM_WORKSPACES" == true ]]; then
+            npm test --workspaces --if-present --include-workspace-root
+          else
+            npm test --if-present
+          fi
 
       - name: Verify npm CLI help and package contents
         id: verify-package
