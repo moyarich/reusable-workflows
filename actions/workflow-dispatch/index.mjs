@@ -21,6 +21,21 @@ export function normalizeInputs(json, shaInput, sha) {
     }
     return normalized;
 }
+
+/** Parse workflow-specific workflow_dispatch inputs, keyed by workflow filename. */
+export function normalizeWorkflowInputs(json, shaInput, sha {
+  const value = JSON.parse(json || "{}");
+  if (value === null || Array.isArray(value) || typeof value !== "object")
+    throw new Error("workflow_inputs must be a JSON object keyed by workflow filename");
+  const inputs = {};
+  for (const [name, config] of Object.entries(value)) {
+    if (!/^[\\w.-]+\\.ya?ml$/.test(name))
+      throw new Error("Invalid workflow_inputs filename: " + name);
+    inputs[name] = normalizeInputs(JSON.stringify(config), shaInput, sha);
+  }
+  return inputs;
+}
+
 export function assertRun(run, { id, sha, branch, workflow, }) {
     if (run.id !== id ||
         run.event !== "workflow_dispatch" ||
@@ -109,7 +124,11 @@ export async function dispatchRequiredWorkflows(options) {
   const names = parseRequiredWorkflows(options.required_workflows);
   const results = [];
   for (const workflow of names) {
-    const result = await dispatchAndWait({ ...options, workflow });
+    const result = await dispatchAndWait({
+      ...options,
+      workflow,
+      inputs: options.workflow_inputs?.[workflow] ?? options.inputs ?? {},
+    });
     results.push({ workflow, ...result });
   }
   return results;
@@ -126,8 +145,8 @@ if (
       branch: env("DISPATCH_BRANCH"),
       sha: env("DISPATCH_SHA"),
       token: env("GH_TOKEN"),
-      inputs: normalizeInputs(
-        env("DISPATCH_INPUTS"),
+      workflow_inputs: normalizeWorkflowInputs(
+        env("WORKFLOW_INPUTS"),
         env("DISPATCH_SHA_INPUT"),
         env("DISPATCH_SHA"),
       ),
