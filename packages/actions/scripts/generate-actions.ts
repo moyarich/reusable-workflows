@@ -36,6 +36,7 @@ const runtimeFiles: Record<string, Record<string, string>> = {
   },
   "resolve-workspaces": {
     "index.mjs": "packages/cli/src/resolve-workspaces/index.ts",
+    "workspace-rules.js": "packages/cli/src/resolve-workspaces/workspace-rules.ts",
   },
   "workflow-dispatch": {
     "index.mjs": "packages/cli/src/workflow-dispatch/workflow-dispatch.ts",
