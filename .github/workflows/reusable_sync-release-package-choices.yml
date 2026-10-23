@@ -117,6 +117,7 @@ jobs:
           import os
           from pathlib import Path
           from ruamel.yaml import YAML
+          from ruamel.yaml.scalarstring import DoubleQuotedScalarString
 
           files = json.loads(os.environ["WORKFLOW_FILES"]) or [os.environ["WORKFLOW_FILE"]]
           release_packages = json.loads(os.environ["RELEASE_PACKAGES_JSON"])["included"]
@@ -185,13 +186,15 @@ jobs:
               package_input["description"] = description
               package_input["required"] = True
               package_input["type"] = "choice"
-              package_input["default"] = default
-              package_input["options"] = options
+              package_input["default"] = DoubleQuotedScalarString(default)
+              package_input["options"] = [DoubleQuotedScalarString(option) for option in options]
 
               from io import StringIO
               stream = StringIO()
               yaml.dump(workflow, stream)
               updated = stream.getvalue()
+              # Validate the generated document before allowing a workflow-file commit.
+              yaml.load(updated)
               if updated != original:
                   path.write_text(updated, encoding="utf-8")
                   print(f"Updated {filename}: {', '.join(options)}")
