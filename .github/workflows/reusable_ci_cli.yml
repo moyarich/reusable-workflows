@@ -1,4 +1,4 @@
-name: Reusable CI / CLI build and tests
+name: Reusable CI / Node workspace quality
 on:
   workflow_call:
     inputs:
@@ -35,58 +35,49 @@ jobs:
       - name: Install dependencies
         run: npm ci --include=optional --no-audit --no-fund
 
-      - name: Detect npm workspaces
-        shell: bash
-        run: |
-          node --input-type=module <<'NODE'
-          import { readFileSync, appendFileSync } from 'node:fs';
-          const { workspaces } = JSON.parse(readFileSync('package.json', 'utf8'));
-          const patterns = Array.isArray(workspaces) ? workspaces : workspaces?.packages;
-          appendFileSync(process.env.GITHUB_ENV, `HAS_NPM_WORKSPACES=${Array.isArray(patterns) && patterns.length > 0}\n`);
-          NODE
-
       - name: Run lint
         shell: bash
         run: |
-          if [[ -f eslint.config.js || -f eslint.config.mjs || -f eslint.config.cjs ]]; then
+          if [[ -f eslint.config.js || -f eslint.config.mjs || -f eslint.config.cjs || -f eslint.config.ts ]]; then
             npx --no-install eslint . --max-warnings 0
           else
             echo "No ESLint configuration; skipping lint."
           fi
 
-      - name: Run Typecheck
+      - name: Build packages
+        id: build-package
+        shell: bash
+        run: |
+          # Prefer the root build script: workspaces can require ordered builds.
+          if node -e "process.exit(require('./package.json').scripts?.build ? 0 : 1)"; then
+            npm run build
+          else
+            npm run build --workspaces --if-present
+          fi
+          npm run build:package --if-present
+
+      - name: Run typecheck
         id: typecheck
         shell: bash
         run: |
-          if [[ "$HAS_NPM_WORKSPACES" == true ]]; then
-            npm run typecheck --workspaces --if-present
+          # Root scripts may prepare generated declarations before typechecking.
+          if node -e "process.exit(require('./package.json').scripts?.typecheck ? 0 : 1)"; then
+            npm run typecheck
           else
-            npm run typecheck --if-present
+            npm run typecheck --workspaces --if-present
           fi
-
           if [[ -f tsconfig.tests.json ]]; then
             npx --no-install tsc -p tsconfig.tests.json --noEmit
           elif [[ -f tsconfig.json ]]; then
             npx --no-install tsc -p tsconfig.json --noEmit
-          else
-            echo "No TypeScript configuration found; skipping tsc."
           fi
 
-      - name: Build npm Commander CLI
-        id: build-package
-        run: |
-          if [[ "$HAS_NPM_WORKSPACES" == true ]]; then
-            npm run build --workspaces --if-present
-          else
-            npm run build --if-present
-          fi
-          npm run build:package --if-present
-
-      - name: Run Vitest (workspaces and root)
+      - name: Run tests (root and workspaces if present)
         id: vitest
         shell: bash
         run: |
-          if [[ "$HAS_NPM_WORKSPACES" == true ]]; then
+          # Include root tests and every workspace that declares a test script.
+          if node -e "const w=require('./package.json').workspaces; process.exit(Array.isArray(w) && w.length || Array.isArray(w?.packages) && w.packages.length ? 0 : 1)"; then
             npm test --workspaces --if-present --include-workspace-root
           else
             npm test --if-present
