@@ -3,7 +3,11 @@ description: Dispatch a workflow using its exact GitHub API run ID, poll and ver
 inputs:
   workflow:
     description: Required workflow filename
-    required: true
+    required: false
+    default: ""
+  workflows:
+    description: Comma-separated list of one or more workflow filenames; overrides workflow when provided
+    default: ""
   branch:
     description: Target branch
     required: true
@@ -32,6 +36,9 @@ outputs:
     value: ${{ steps.dispatch.outputs.workflow-url }}
   workflow-conclusion:
     value: ${{ steps.dispatch.outputs.workflow-conclusion }}
+  workflow-results:
+    description: JSON array of successfully completed required workflow runs
+    value: ${{ steps.dispatch.outputs.workflow-results }}
 runs:
   using: composite
   steps:
@@ -40,6 +47,7 @@ runs:
       env:
         GH_TOKEN: ${{ inputs.token }}
         DISPATCH_WORKFLOW: ${{ inputs.workflow }}
+        DISPATCH_WORKFLOWS: ${{ inputs.workflows }}
         DISPATCH_BRANCH: ${{ inputs.branch }}
         DISPATCH_SHA: ${{ inputs.sha }}
         DISPATCH_INPUTS: ${{ inputs.inputs }}
