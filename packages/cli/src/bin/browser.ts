@@ -16,6 +16,3 @@ export function createBrowserCommand() {
       ]);
     });
 }
-if (process.argv[1] && /browser\.mjs$/.test(process.argv[1])) {
-  await createBrowserCommand().parseAsync();
-}
