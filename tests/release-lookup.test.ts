@@ -8,10 +8,12 @@ describe("pure GitHub release lookup", () => {
   ]);
   it("selects only the exact tag across paginated results", () => {
     expect(findReleaseByTag(response, "v1.1.0")?.body).toBe("Current notes");
-    expect(findReleaseByTag(response, "v1.1") ).toBeUndefined();
+    expect(findReleaseByTag(response, "v1.1")).toBeUndefined();
   });
   it("does not match malformed records", () => {
-    expect(findReleaseByTag(JSON.stringify([[null, "v1.1.0", {}]]), "v1.1.0")).toBeUndefined();
+    expect(
+      findReleaseByTag(JSON.stringify([[null, "v1.1.0", {}]]), "v1.1.0"),
+    ).toBeUndefined();
   });
   it("rejects unexpected API result formats", () => {
     expect(() => findReleaseByTag("{}", "v1.1.0")).toThrow(/array/);

@@ -17,27 +17,48 @@ export function runAction(): void {
   const tag = input("release-tag");
   if (!tag) throw new Error("release-tag is required");
   const repository = process.env.GITHUB_REPOSITORY;
-  if (!repository || !/^[\w.-]+\/[\w.-]+$/.test(repository)) throw new Error("Invalid GitHub repository");
-  const raw = execFileSync("gh", [
-    "api", "--paginate", "--slurp",
-    "repos/" + repository + "/releases?per_page=100",
-  ], { encoding: "utf8" });
+  if (!repository || !/^[\w.-]+\/[\w.-]+$/.test(repository))
+    throw new Error("Invalid GitHub repository");
+  const raw = execFileSync(
+    "gh",
+    [
+      "api",
+      "--paginate",
+      "--slurp",
+      "repos/" + repository + "/releases?per_page=100",
+    ],
+    { encoding: "utf8" },
+  );
   const release = findReleaseByTag(raw, tag);
   if (!release) {
-    if (input("required") === "true") throw new Error("No GitHub Release for tag: " + tag);
-    console.log("No release exists for tag " + tag + "; skipping marker validation.");
+    if (input("required") === "true")
+      throw new Error("No GitHub Release for tag: " + tag);
+    console.log(
+      "No release exists for tag " + tag + "; skipping marker validation.",
+    );
     return;
   }
   const marker = validateReleaseMarker(release.body || "", {
-    tag, package: input("package-name"), version: input("version"), target: input("target"),
+    tag,
+    package: input("package-name"),
+    version: input("version"),
+    target: input("target"),
   });
   console.log("Release " + tag + " metadata format: " + marker.format);
-  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, "format=" + marker.format + "\n");
+  if (process.env.GITHUB_OUTPUT)
+    appendFileSync(process.env.GITHUB_OUTPUT, "format=" + marker.format + "\n");
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  try { runAction(); } catch (error) {
-    console.error("::error::" + (error instanceof Error ? error.message : String(error)));
+if (
+  process.argv[1] &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
+  try {
+    runAction();
+  } catch (error) {
+    console.error(
+      "::error::" + (error instanceof Error ? error.message : String(error)),
+    );
     process.exitCode = 1;
   }
 }
