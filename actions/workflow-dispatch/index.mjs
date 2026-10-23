@@ -23,13 +23,13 @@ export function normalizeInputs(json, shaInput, sha) {
 }
 
 /** Parse workflow-specific workflow_dispatch inputs, keyed by workflow filename. */
-export function normalizeWorkflowInputs(json, shaInput, sha {
+export function normalizeWorkflowInputs(json, shaInput, sha) {
   const value = JSON.parse(json || "{}");
   if (value === null || Array.isArray(value) || typeof value !== "object")
     throw new Error("workflow_inputs must be a JSON object keyed by workflow filename");
   const inputs = {};
   for (const [name, config] of Object.entries(value)) {
-    if (!/^[\\w.-]+\\.ya?ml$/.test(name))
+    if (!/^[\w.-]+\.ya?ml$/.test(name))
       throw new Error("Invalid workflow_inputs filename: " + name);
     inputs[name] = normalizeInputs(JSON.stringify(config), shaInput, sha);
   }
