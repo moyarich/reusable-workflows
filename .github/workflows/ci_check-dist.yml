@@ -31,6 +31,14 @@ on:
         type: string
         required: true
         default: all
+      required_workflows:
+        description: Comma-separated workflow filenames to dispatch after a successful distribution repair commit
+        type: string
+        default: ""
+      config-path:
+        description: Repository-local distribution configuration file
+        type: string
+        default: .github/check-dist-config.yml
       dist-path:
         description: "Distribution path template. Supports {packageDir}, {package}, {packageName}, {workspace}; blank uses repository configuration or {packageDir}/dist."
         type: string
@@ -81,15 +89,18 @@ jobs:
   check-dist:
     permissions:
       contents: write
+      actions: write
     uses: $/.github/workflows/reusable_self-heal-check-dist.yml
     with:
-      package: ${{ github.event_name == 'push' && 'packages/actions' || inputs.package }}
+      package: ${{ github.event_name == 'push' && 'packages/actions' || inputs.package || 'all' }}
+      config-path: ${{ inputs.config-path || '.github/check-dist-config.yml' }}
+      required_workflows: ${{ inputs.required_workflows || '' }}
       dist-path: ${{ github.event_name == 'push' && 'actions/' || inputs.dist-path }}
       build-command: ${{ github.event_name == 'push' && 'npm run build:actions' || inputs.build-command }}
-      install-command: ${{ github.event_name == 'push' && 'npm install --no-package-lock --no-audit --no-fund' || inputs.install-command }}
+      install-command: ${{ github.event_name == 'push' && 'npm install --no-package-lock --no-audit --no-fund' || inputs.install-command || 'npm ci --ignore-scripts' }}
       dry-run: ${{ github.event_name != 'push' && inputs.dry-run }}
       commit: ${{ github.event_name == 'push' || inputs.commit }}
-      node-caching: ${{ github.event_name == 'push' && '' || inputs.node-caching }}
+      node-caching: ${{ github.event_name == 'push' && 'npm' || inputs.node-caching || 'npm' }}
       include-root-package: ${{ inputs.include-root-package }}
-      workspace-tools-source: ${{ github.event_name == 'push' && 'auto' || inputs.workspace-tools-source }}
+      workspace-tools-source: ${{ github.event_name == 'push' && 'auto' || inputs.workspace-tools-source || 'auto' }}
       validation-command: ${{ github.event_name == 'push' && 'test -f actions/setup-workspace-tools/action.yml && test -f actions/setup-workspace-tools/index.mjs && test -f actions/release-draft-sync/action.yml && test -f actions/parse-typed-inputs/action.yml && test -f actions/validate-package-changelogs/action.yml' || '' }}
