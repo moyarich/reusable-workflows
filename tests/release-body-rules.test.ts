@@ -21,6 +21,7 @@ describe("pure release body selection", () => {
     expect(body).toContain("## 1.2.3");
     expect(body).toContain("seed-sha=old");
     expect(body).not.toContain("Older");
+    expect(body).not.toContain("seed-sha=abc123");
   });
   it("uses supplied commit summaries for an initial draft", () => {
     const body = reconcileReleaseBody({
