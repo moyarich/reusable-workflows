@@ -16,6 +16,8 @@ describe("pure release commit formatting", () => {
   });
   it("handles empty logs and ordinary commit messages", () => {
     expect(formatReleaseCommits("")).toBe("");
-    expect(formatReleaseCommits("Improve documentation\tabc123")).toBe("- Improve documentation (abc123)");
+    expect(formatReleaseCommits("Improve documentation\tabc123")).toBe(
+      "- Improve documentation (abc123)",
+    );
   });
 });
