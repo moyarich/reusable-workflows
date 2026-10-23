@@ -46,4 +46,3 @@ export function runAction(): void {
   if (process.env.GITHUB_OUTPUT)
     appendFileSync(process.env.GITHUB_OUTPUT, "format=" + marker.format + "\n");
 }
-
