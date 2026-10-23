@@ -42,6 +42,7 @@ const runtimeFiles: Record<string, Record<string, string>> = {
   },
   "verify-workflow-runs": {
     "index.mjs": "packages/cli/src/verify-workflow-runs/index.ts",
+    "select-run.js": "packages/cli/src/verify-workflow-runs/select-run.ts",
   },
 };
 
