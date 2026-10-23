@@ -83,17 +83,4 @@ function runAction() {
   setOutput("body-file", outputFile);
   setOutput("seed-sha", seedSha);
 }
-function runEntryPoint() {
-  try {
-    runAction();
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`release-draft-sync: ${message}
-`);
-    process.exitCode = 1;
-  }
-}
-if (process.env.GITHUB_ACTIONS === "true") {
-  runEntryPoint();
-}
 export { runAction };
