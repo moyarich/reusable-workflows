@@ -13,6 +13,7 @@ export function validateManifest(manifest: ExtensionManifest, registry: Store, f
     ![2, 3].includes(manifest.manifest_version) ||
     typeof manifest.name !== "string" ||
     !manifest.name.trim() ||
+    typeof manifest.version !== "string" ||
     !/^\d+\.\d+\.\d+(?:\.\d+)?$/.test(manifest.version)
   )
     throw new Error(
