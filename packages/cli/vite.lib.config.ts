@@ -9,7 +9,12 @@ const root = dirname(fileURLToPath(import.meta.url));
 // Side-effect-free modules for consumers; do not publish GitHub Action entry points.
 export default defineConfig({
   root,
-  plugins: [dts({ entryRoot: resolve(root, "src"), outDirs: [resolve(root, "dist/types")] })],
+  plugins: [
+    dts({
+      entryRoot: resolve(root, "src"),
+      outDirs: [resolve(root, "dist/types")],
+    }),
+  ],
   build: {
     ssr: true,
     target: "node24",
