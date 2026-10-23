@@ -39,6 +39,7 @@ const runtimeFiles: Record<string, Record<string, string>> = {
   },
   "workflow-dispatch": {
     "index.mjs": "packages/cli/src/workflow-dispatch/workflow-dispatch.ts",
+    "dispatch-rules.js": "packages/cli/src/workflow-dispatch/dispatch-rules.ts",
   },
   "verify-workflow-runs": {
     "index.mjs": "packages/cli/src/verify-workflow-runs/index.ts",
