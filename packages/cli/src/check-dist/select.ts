@@ -3,9 +3,16 @@ import fs from "node:fs";
 import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
-export type Package = { name: string; directory: string; [key: string]: unknown };
+export type Package = {
+  name: string;
+  directory: string;
+  [key: string]: unknown;
+};
 export type Config = {
-  packages?: Record<string, { distPath?: string; buildCommand?: string; commitDist?: boolean }>;
+  packages?: Record<
+    string,
+    { distPath?: string; buildCommand?: string; commitDist?: boolean }
+  >;
   extraPackages?: Package[];
 };
 export type SelectionOptions = {
@@ -26,9 +33,12 @@ export function selectDistributionTargets({
 }: SelectionOptions) {
   const overrides = config.packages ?? {};
   const available = [...discovered, ...(config.extraPackages ?? [])];
-  const selected = requested === "all"
-    ? available
-    : available.filter((p) => p.directory === requested || p.name === requested);
+  const selected =
+    requested === "all"
+      ? available
+      : available.filter(
+          (p) => p.directory === requested || p.name === requested,
+        );
   if (selected.length === 0) throw new Error("No packages match: " + requested);
   const include = selected.map((p) => {
     const settings = {
@@ -43,12 +53,22 @@ export function selectDistributionTargets({
         .replace(/^(packages|apps)\//, "")
         .replace(/[^a-zA-Z0-9._-]+/g, "-"),
       commitDist: settings.commitDist ?? false,
-      distTemplate: distPathOverride || settings.distPath || "{packageDir}/dist",
-      buildCommand: buildCommandOverride || settings.buildCommand ||
-        (p.directory === "." ? "npm run build" : "npm run build --workspace " + p.name),
+      distTemplate:
+        distPathOverride || settings.distPath || "{packageDir}/dist",
+      buildCommand:
+        buildCommandOverride ||
+        settings.buildCommand ||
+        (p.directory === "."
+          ? "npm run build"
+          : "npm run build --workspace " + p.name),
     };
   });
-  return { matrix: { include }, hasPackages: true, singlePackage: selected.length === 1, directories: selected.map((p) => p.directory) };
+  return {
+    matrix: { include },
+    hasPackages: true,
+    singlePackage: selected.length === 1,
+    directories: selected.map((p) => p.directory),
+  };
 }
 
 function required(env: NodeJS.ProcessEnv, name: string): string {
@@ -59,14 +79,26 @@ function required(env: NodeJS.ProcessEnv, name: string): string {
 
 /** Read CI inputs and emit GitHub outputs; called only by the CLI entrypoint. */
 export function runSelection(env: NodeJS.ProcessEnv = process.env): void {
-  const report = JSON.parse(required(env, "DISCOVERED")) as { included: Package[] };
+  const report = JSON.parse(required(env, "DISCOVERED")) as {
+    included: Package[];
+  };
   const configPath = required(env, "CONFIG_FILE");
   const config: Config = fs.existsSync(configPath)
-    ? JSON.parse(execFileSync("ruby", [
-        "-r", "yaml", "-r", "json", "-e",
-        "print JSON.generate(YAML.safe_load(File.read(ARGV.fetch(0)), aliases: false) || {})",
-        configPath,
-      ], { encoding: "utf8" })) as Config
+    ? (JSON.parse(
+        execFileSync(
+          "ruby",
+          [
+            "-r",
+            "yaml",
+            "-r",
+            "json",
+            "-e",
+            "print JSON.generate(YAML.safe_load(File.read(ARGV.fetch(0)), aliases: false) || {})",
+            configPath,
+          ],
+          { encoding: "utf8" },
+        ),
+      ) as Config)
     : {};
   const result = selectDistributionTargets({
     discovered: report.included,
@@ -75,15 +107,21 @@ export function runSelection(env: NodeJS.ProcessEnv = process.env): void {
     distPathOverride: env.DIST_PATH_OVERRIDE,
     buildCommandOverride: env.BUILD_COMMAND_OVERRIDE,
   });
-  fs.appendFileSync(required(env, "GITHUB_OUTPUT"), [
-    "matrix=" + JSON.stringify(result.matrix),
-    "has-packages=" + result.hasPackages,
-    "single-package=" + result.singlePackage,
-    "",
-  ].join("\n"));
+  fs.appendFileSync(
+    required(env, "GITHUB_OUTPUT"),
+    [
+      "matrix=" + JSON.stringify(result.matrix),
+      "has-packages=" + result.hasPackages,
+      "single-package=" + result.singlePackage,
+      "",
+    ].join("\n"),
+  );
   console.log("Selected distribution targets:", result.directories.join(", "));
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
   runSelection();
 }

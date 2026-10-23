@@ -22,12 +22,14 @@ describe("pure distribution target selection", () => {
       requested: "packages/actions",
     });
     expect(result.singlePackage).toBe(true);
-    expect(result.matrix.include).toEqual([expect.objectContaining({
-      distTemplate: "actions",
-      commitDist: true,
-      buildCommand: "npm run build --workspace @example/actions",
-      artifactSuffix: "actions",
-    })]);
+    expect(result.matrix.include).toEqual([
+      expect.objectContaining({
+        distTemplate: "actions",
+        commitDist: true,
+        buildCommand: "npm run build --workspace @example/actions",
+        artifactSuffix: "actions",
+      }),
+    ]);
     expect(JSON.stringify(config)).toBe(snapshot);
   });
 
@@ -41,14 +43,21 @@ describe("pure distribution target selection", () => {
     });
     expect(result.singlePackage).toBe(false);
     expect(result.matrix.include).toHaveLength(2);
-    expect(result.matrix.include.every((p) => p.distTemplate === "custom" && p.buildCommand === "npm run generate")).toBe(true);
+    expect(
+      result.matrix.include.every(
+        (p) =>
+          p.distTemplate === "custom" && p.buildCommand === "npm run generate",
+      ),
+    ).toBe(true);
   });
 
   it("rejects unknown selections without performing I/O", () => {
-    expect(() => selectDistributionTargets({
-      discovered: packages,
-      config: {},
-      requested: "missing",
-    })).toThrow("No packages match: missing");
+    expect(() =>
+      selectDistributionTargets({
+        discovered: packages,
+        config: {},
+        requested: "missing",
+      }),
+    ).toThrow("No packages match: missing");
   });
 });
