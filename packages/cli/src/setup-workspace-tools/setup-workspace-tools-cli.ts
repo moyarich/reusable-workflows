@@ -7,4 +7,3 @@ export async function runSetupWorkspaceToolsCli(
 ): Promise<void> {
   await createSetupWorkspaceToolsCommand().parseAsync(argv);
 }
-
