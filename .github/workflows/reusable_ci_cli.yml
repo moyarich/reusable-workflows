@@ -72,15 +72,15 @@ jobs:
             npx --no-install tsc -p tsconfig.json --noEmit
           fi
 
-      - name: Run tests
+      - name: Run tests (root and workspaces if present)
         id: vitest
         shell: bash
         run: |
-          # A root test script can run Node's test runner, Vitest, or workspace suites.
-          if node -e "process.exit(require('./package.json').scripts?.test ? 0 : 1)"; then
-            npm test
+          # Include root tests and every workspace that declares a test script.
+          if node -e "const w=require('./package.json').workspaces; process.exit(Array.isArray(w) && w.length || Array.isArray(w?.packages) && w.packages.length ? 0 : 1)"; then
+            npm test --workspaces --if-present --include-workspace-root
           else
-            npm test --workspaces --if-present
+            npm test --if-present
           fi
 
       - name: Verify npm CLI help and package contents
