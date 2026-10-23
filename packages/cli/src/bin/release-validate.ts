@@ -23,7 +23,3 @@ export function createReleaseValidateCommand() {
       console.log(JSON.stringify(marker));
     });
 }
-
-if (process.argv[1] && /release-validate\.mjs$/.test(process.argv[1])) {
-  await createReleaseValidateCommand().parseAsync();
-}
