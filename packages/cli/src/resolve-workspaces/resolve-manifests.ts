@@ -1,6 +1,7 @@
 /** Pure workspace dependency resolution and manifest transformations. */
 import type { Workspace, Field, ResultPackage, Dependency, Change } from "./workspace-rules.js";
 import { batchesFor } from "./workspace-rules.js";
+const fields: Field[] = ["dependencies", "optionalDependencies", "peerDependencies"];
 
 export function resolveWorkspaceManifests(all: Workspace[], packageSelector: string, range: string) {
   if (!["caret", "exact", "tilde"].includes(range)) throw new Error("Invalid range: " + range);
