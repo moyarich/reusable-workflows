@@ -34,7 +34,8 @@ jobs:
 
       - name: Install dependencies
         run: npm ci --include=optional --no-audit --no-fund
-\n      - name: Detect npm workspaces
+
+      - name: Detect npm workspaces
         shell: bash
         run: |
           node --input-type=module <<'NODE'
