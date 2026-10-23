@@ -87,8 +87,8 @@ jobs:
           import { readFileSync, appendFileSync } from "node:fs";
           const { packages } = JSON.parse(readFileSync(process.env.RUNNER_TEMP + "/release-preparation/manifest.json", "utf8"));
           appendFileSync(process.env.GITHUB_STEP_SUMMARY,
-            "## Release preparation\\n\\n| Package | Previous version | Prepared version |\\n| --- | --- | --- |\\n" +
-            packages.map(p => `| \`${p.name}\` | \`${p.currentVersion}\` | \`${p.version}\` |`).join("\\n") + "\\n");
+            "## Release preparation\n\n| Package | Previous version | Prepared version |\n| --- | --- | --- |\n" +
+            packages.map(p => `| \`${p.name}\` | \`${p.currentVersion}\` | \`${p.version}\` |`).join("\n") + "\n");
           NODE
       - name: Upload proposed release manifest
         uses: actions/upload-artifact@v7
