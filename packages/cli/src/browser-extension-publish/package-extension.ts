@@ -6,7 +6,10 @@ import process from "node:process";
 import { safeDir } from "./manifest.js";
 
 /** Package an extension directory and verify its ZIP archive. */
-export function packageExtension(buildDirectory: string, destination = "extension.zip"): string {
+export function packageExtension(
+  buildDirectory: string,
+  destination = "extension.zip",
+): string {
   const directory = safeDir(buildDirectory);
   readFileSync(join(directory, "manifest.json"));
   const output = resolve(process.cwd(), destination);
