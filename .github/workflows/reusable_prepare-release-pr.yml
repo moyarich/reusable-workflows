@@ -84,8 +84,8 @@ jobs:
             if(!valid(v))throw Error("Invalid SemVer: "+v);
             const [,major,minor,patch,pre]=semver.exec(v);
             let a=+major,b=+minor,d=+patch;
-            if(kind==="major")return [a+(b!==0||d!==0||pre?0:1),0,0].join(".");
-            if(kind==="minor")return [a,b+(d!==0||pre?0:1),0].join(".");
+            if(kind==="major")return [a+1,0,0].join(".");
+            if(kind==="minor")return [a,b+1,0].join(".");
             if(kind==="patch")return [a,b,d+(pre?0:1)].join(".");
             if(kind==="premajor")return [a+1,0,0].join(".")+"-0";
             if(kind==="preminor")return [a,b+1,0].join(".")+"-0";
