@@ -4,16 +4,32 @@ on:
   workflow_dispatch:
     inputs:
       package:
-        description: Publishable workspace package or all
+        description: Publishable package name or directory, or all
+        required: true
+        type: string
+        default: all
+      version-mode:
+        description: Resolve each package version
+        type: choice
+        required: true
+        default: auto
+        options: [auto, bump, package-json, exact]
+      initial-version:
+        description: Initial release version for auto mode
         type: string
         required: true
-        default: all
+        default: "0.1.0"
       version-bump:
-        description: Version bump
+        description: SemVer increment for bump and auto modes
         type: choice
-        options: [package-json, patch, minor, major]
         required: true
-        default: package-json
+        default: patch
+        options: [patch, minor, major, prepatch, preminor, premajor, prerelease]
+      exact-version:
+        description: Version for exact mode (all selected packages)
+        type: string
+        required: false
+        default: ""
       dry-run:
         description: Preview without opening a PR
         type: boolean
@@ -31,7 +47,10 @@ jobs:
     uses: ./.github/workflows/reusable_prepare-release-pr.yml
     with:
       package: ${{ inputs.package }}
+      version-mode: ${{ inputs.version-mode }}
+      initial-version: ${{ inputs.initial-version }}
       version-bump: ${{ inputs.version-bump }}
+      exact-version: ${{ inputs.exact-version }}
       target-branch: main
       dry-run: ${{ inputs.dry-run }}
     secrets:
