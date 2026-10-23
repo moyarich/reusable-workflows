@@ -6,7 +6,11 @@ describe("root Commander CLI factory", () => {
     const first = createRootCliCommand();
     const second = createRootCliCommand();
     expect(first).not.toBe(second);
-    expect(first.commands.map((command) => command.name())).toEqual(["workspace-source", "release-validate", "browser"]);
+    expect(first.commands.map((command) => command.name())).toEqual([
+      "workspace-source",
+      "release-validate",
+      "browser",
+    ]);
     expect(second.commands).toHaveLength(3);
   });
 });
