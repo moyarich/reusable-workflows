@@ -83,6 +83,17 @@ jobs:
             --write \
             --manifest "$RUNNER_TEMP/release-preparation/manifest.json"
           git diff --check
+          # Track package selection, not a frozen version snapshot. The PR branch
+          # remains editable; final versions come from merged package.json files.
+          mkdir -p .github
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from "node:fs";
+          const prepared = JSON.parse(readFileSync(process.env.RUNNER_TEMP + "/release-preparation/manifest.json", "utf8"));
+          writeFileSync(".github/release-preparation.json", JSON.stringify({
+            schemaVersion: 1,
+            packages: prepared.packages.map(({name, directory}) => ({name, directory}))
+          }, null, 2) + "\n");
+          NODE
           node --input-type=module <<'NODE'
           import { readFileSync, appendFileSync } from "node:fs";
           const { packages } = JSON.parse(readFileSync(process.env.RUNNER_TEMP + "/release-preparation/manifest.json", "utf8"));
@@ -110,11 +121,12 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"
-          # Checkout is clean; stage only tracked version/lockfile edits.
+          # Release selection metadata is committed even when versions already match.
+          # Subsequent commits on this branch are normal development changes.
           git add -u
-          git diff --cached --quiet && { echo "No version changes needed; package.json already defines the selected release version."; exit 0; }
+          git add .github/release-preparation.json
           git commit -m "release: prepare selected workspace versions"
           git push "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git" "HEAD:refs/heads/$branch"
-          gh pr create --base "$BASE" --head "$branch" --title "release: prepare packages" --body "Review workspace versions, dependency ranges and lockfile. The proposed manifest is attached to the preparation workflow run; merge only after CI passes."
+          gh pr create --base "$BASE" --head "$branch" --title "release: prepare packages" --body "Review workspace versions, dependency ranges and lockfile. The release branch is editable: commit source changes, tests, fixes, changelog and version updates before merging. Final versions are read from the merged package.json files. Merge only after CI passes."
           pr="$(gh pr list --head "$branch" --base "$BASE" --state open --json number --jq '.[0].number')"
           echo "number=$pr" >> "$GITHUB_OUTPUT"
