@@ -1,0 +1,34 @@
+name: Verify workflow runs
+description: Verify existing successful workflow runs on an exact branch and SHA, without dispatching new work.
+inputs:
+  workflows:
+    description: Comma-separated paths to required workflows
+    required: true
+  sha:
+    description: Exact commit SHA
+    required: true
+  branch:
+    description: Source branch
+    required: true
+  event:
+    description: Required triggering event
+    default: pull_request
+  token:
+    description: GitHub token with actions read
+    required: true
+outputs:
+  result-json:
+    description: JSON list of verified workflow runs
+    value: ${{ steps.verify.outputs.result-json }}
+runs:
+  using: composite
+  steps:
+    - id: verify
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        VERIFY_WORKFLOWS: ${{ inputs.workflows }}
+        VERIFY_SHA: ${{ inputs.sha }}
+        VERIFY_BRANCH: ${{ inputs.branch }}
+        VERIFY_EVENT: ${{ inputs.event }}
+      run: node "$GITHUB_ACTION_PATH/index.mjs"

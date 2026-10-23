@@ -8,6 +8,13 @@ on:
       - "actions/_assets/**"
       - "packages/actions/**"
       - ".github/workflows/smoke-test_action-dist-path.yml"
+  push:
+    paths:
+      - "packages/cli/src/setup-workspace-tools/**"
+      - "actions/setup-workspace-tools/**"
+      - "actions/_assets/**"
+      - "packages/actions/**"
+      - ".github/workflows/smoke-test_action-dist-path.yml"
   workflow_dispatch:
 
 permissions:

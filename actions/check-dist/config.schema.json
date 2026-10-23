@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/moyarich/reusable-workflows/main/.github/reusable-configurations/check-dist-config.schema.json",
+  "title": "Check distribution configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "packages": {
+      "type": "object",
+      "propertyNames": {
+        "minLength": 1
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "distPath": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Supports {packageDir}, {package}, {packageName}, and {workspace} placeholders."
+          },
+          "buildCommand": {
+            "type": "string",
+            "minLength": 1
+          },
+          "commitDist": {
+            "type": "boolean",
+            "default": false,
+            "description": "Whether rebuilt distribution files are expected to be checked into Git. False validates build output without staging or committing it."
+          }
+        }
+      },
+      "description": "The 'all' key applies defaults to all discovered and extra packages; package-specific entries override individual fields."
+    },
+    "extraPackages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "directory"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "directory": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

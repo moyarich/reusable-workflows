@@ -1,0 +1,46 @@
+name: Dispatch and wait for workflow
+description: Dispatch a workflow using its exact GitHub API run ID, poll and verify successful completion.
+inputs:
+  required_workflows:
+    description: Comma-separated list of one or more required workflow filenames
+    required: true
+  branch:
+    description: Target branch
+    required: true
+  sha:
+    description: Expected branch commit SHA
+    required: true
+  token:
+    description: Token with actions write/read
+    required: true
+  inputs:
+    description: JSON object of workflow_dispatch inputs
+    default: "{}"
+  sha-input:
+    description: Optional input name for the expected SHA; empty disables injection
+    default: checkout-sha
+  timeout-seconds:
+    description: Total wait timeout, in seconds
+    default: "300"
+  poll-seconds:
+    description: Poll interval, in seconds
+    default: "15"
+outputs:
+  workflow-results:
+    description: JSON array of successfully completed required workflow runs
+    value: ${{ steps.dispatch.outputs.workflow-results }}
+runs:
+  using: composite
+  steps:
+    - id: dispatch
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        REQUIRED_WORKFLOWS: ${{ inputs.required_workflows }}
+        DISPATCH_BRANCH: ${{ inputs.branch }}
+        DISPATCH_SHA: ${{ inputs.sha }}
+        DISPATCH_INPUTS: ${{ inputs.inputs }}
+        DISPATCH_SHA_INPUT: ${{ inputs.sha-input }}
+        DISPATCH_TIMEOUT: ${{ inputs.timeout-seconds }}
+        DISPATCH_POLL_INTERVAL: ${{ inputs.poll-seconds }}
+      run: node "$GITHUB_ACTION_PATH/index.mjs"
