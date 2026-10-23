@@ -21,7 +21,6 @@ function hasFzf(): boolean {
   return !probe.error && probe.status === 0;
 }
 
-
 /** Read a response from the controlling terminal without third-party runtime dependencies. */
 async function readAnswer(message: string): Promise<string> {
   const terminal = createInterface({
