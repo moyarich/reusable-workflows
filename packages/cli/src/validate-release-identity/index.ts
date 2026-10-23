@@ -17,7 +17,7 @@ export function runAction(): void {
   const tag = input("release-tag");
   if (!tag) throw new Error("release-tag is required");
   const repository = process.env.GITHUB_REPOSITORY;
-  if (!repository || !/^[\\w.-]+\\/[\\w.-]+$/.test(repository)) throw new Error("Invalid GitHub repository");
+  if (!repository || !/^[\w.-]+\/[\w.-]+$/.test(repository)) throw new Error("Invalid GitHub repository");
   const raw = execFileSync("gh", [
     "api", "--paginate", "--slurp",
     "repos/" + repository + "/releases?per_page=100",
@@ -32,7 +32,7 @@ export function runAction(): void {
     tag, package: input("package-name"), version: input("version"), target: input("target"),
   });
   console.log("Release " + tag + " metadata format: " + marker.format);
-  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, "format=" + marker.format + "\\n");
+  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, "format=" + marker.format + "\n");
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
