@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { globRegex, batchesFor } from "../packages/cli/src/resolve-workspaces/workspace-rules.ts";
+import {
+  globRegex,
+  batchesFor,
+} from "../packages/cli/src/resolve-workspaces/workspace-rules.ts";
 
 describe("pure workspace matching", () => {
   it("matches workspace glob patterns", () => {
@@ -12,7 +15,10 @@ describe("pure workspace matching", () => {
 describe("pure publish ordering", () => {
   const pkg = (name: string, dependencies: string[] = []) => ({
     name,
-    dependencies: dependencies.map((dep) => ({ name: dep, publishDependency: true })),
+    dependencies: dependencies.map((dep) => ({
+      name: dep,
+      publishDependency: true,
+    })),
   });
   it("groups independent packages and dependencies into waves", () => {
     const input = [pkg("app", ["core"]), pkg("core"), pkg("docs")];

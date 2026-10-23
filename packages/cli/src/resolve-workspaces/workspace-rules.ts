@@ -8,7 +8,8 @@ export type Manifest = {
   optionalDependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
 };
-export type Field = "dependencies" | "optionalDependencies" | "peerDependencies";
+export type Field =
+  "dependencies" | "optionalDependencies" | "peerDependencies";
 export type Workspace = { directory: string; absolute: string; pkg: Manifest };
 export type Dependency = {
   name: string;

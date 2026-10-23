@@ -1,4 +1,11 @@
-import type { Manifest, Field, Workspace, Dependency, Change, ResultPackage } from "./workspace-rules.js";
+import type {
+  Manifest,
+  Field,
+  Workspace,
+  Dependency,
+  Change,
+  ResultPackage,
+} from "./workspace-rules.js";
 import { globRegex, batchesFor } from "./workspace-rules.js";
 import { readFile, writeFile, mkdir, readdir } from "node:fs/promises";
 import path from "node:path";
