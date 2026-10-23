@@ -1,6 +1,14 @@
 import { test, assert, expect } from "vitest";
-import { normalizeInputs, normalizeWorkflowInputs, assertRun, parseRequiredWorkflows } from "../packages/cli/src/workflow-dispatch/dispatch-rules.ts";
-import { dispatchAndWait, dispatchRequiredWorkflows } from "../packages/cli/src/workflow-dispatch/workflow-dispatch.ts";
+import {
+  normalizeInputs,
+  normalizeWorkflowInputs,
+  assertRun,
+  parseRequiredWorkflows,
+} from "../packages/cli/src/workflow-dispatch/dispatch-rules.ts";
+import {
+  dispatchAndWait,
+  dispatchRequiredWorkflows,
+} from "../packages/cli/src/workflow-dispatch/workflow-dispatch.ts";
 
 const sha = "a".repeat(40);
 const config = {
