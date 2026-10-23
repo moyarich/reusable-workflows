@@ -1,5 +1,8 @@
 import { formatReleaseCommits } from "./commit-rules.js";
-import { changelogSection, hasMeaningfulGeneratedBody } from "./release-note-rules.js";
+import {
+  changelogSection,
+  hasMeaningfulGeneratedBody,
+} from "./release-note-rules.js";
 import { reconcileReleaseBody } from "./release-body-rules.js";
 /** Commander-powered CLI command and feature implementation. @module */
 import {
@@ -48,14 +51,22 @@ function runAction() {
   const targetKey = input("target-key") || "root";
   const seedSha = input("seed-sha");
   const targetPath = input("target-path");
-  const existingBody = existsSync(existingBodyFile) ? readFileSync(existingBodyFile, "utf8") : "";
-  const generatedBody = existsSync(generatedBodyFile) ? readFileSync(generatedBodyFile, "utf8") : "";
-  const curatedNotes = version && existsSync(changelogPath)
-    ? changelogSection(readFileSync(changelogPath, "utf8"), version)
+  const existingBody = existsSync(existingBodyFile)
+    ? readFileSync(existingBodyFile, "utf8")
     : "";
-  const commitNotes = !curatedNotes && !existingBody.trim() && !hasMeaningfulGeneratedBody(generatedBody.trim())
-    ? commitFallback(targetPath)
+  const generatedBody = existsSync(generatedBodyFile)
+    ? readFileSync(generatedBodyFile, "utf8")
     : "";
+  const curatedNotes =
+    version && existsSync(changelogPath)
+      ? changelogSection(readFileSync(changelogPath, "utf8"), version)
+      : "";
+  const commitNotes =
+    !curatedNotes &&
+    !existingBody.trim() &&
+    !hasMeaningfulGeneratedBody(generatedBody.trim())
+      ? commitFallback(targetPath)
+      : "";
   const result = reconcileReleaseBody({
     existingBody,
     generatedBody,

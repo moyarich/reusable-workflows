@@ -1,6 +1,14 @@
 /** Release body decisions with all external data supplied by the caller. */
 import { hasMeaningfulGeneratedBody } from "./release-note-rules.js";
-import { splitGeneratedRegion, pullRequestMarkers, generatedEntries, appendCategoryEntries, mergeGeneratedEntries, generatedRegion, ensureMetadata } from "./reconcile-rules.js";
+import {
+  splitGeneratedRegion,
+  pullRequestMarkers,
+  generatedEntries,
+  appendCategoryEntries,
+  mergeGeneratedEntries,
+  generatedRegion,
+  ensureMetadata,
+} from "./reconcile-rules.js";
 
 export type ReleaseBodyInputs = {
   existingBody: string;
@@ -12,7 +20,8 @@ export type ReleaseBodyInputs = {
 };
 
 function resolveInitialSeed(options: ReleaseBodyInputs) {
-  if (options.curatedNotes) return { source: "changelog", body: options.curatedNotes };
+  if (options.curatedNotes)
+    return { source: "changelog", body: options.curatedNotes };
   const generated = options.generatedBody.trim();
   if (hasMeaningfulGeneratedBody(generated)) {
     return { source: "release-drafter", body: generatedRegion(generated) };
@@ -37,11 +46,11 @@ export function reconcileReleaseBody(options: ReleaseBodyInputs): string {
   // from persistent Release Drafter output on subsequent runs.
   if (options.curatedNotes) {
     const curated = options.curatedNotes;
-      const existingSeed = existing.match(
-        /<!--\\s*release-draft-sync:seed-sha=([^\\s]+)(?:\\s+source=[^>]+)?\\s*-->/,
-      );
-      const seedSha = existingSeed?.[1] || options.seedSha;
-      return ensureMetadata(curated, options.targetKey, seedSha, "changelog");
+    const existingSeed = existing.match(
+      /<!--\\s*release-draft-sync:seed-sha=([^\\s]+)(?:\\s+source=[^>]+)?\\s*-->/,
+    );
+    const seedSha = existingSeed?.[1] || options.seedSha;
+    return ensureMetadata(curated, options.targetKey, seedSha, "changelog");
   }
   if (!existing) {
     const seed = resolveInitialSeed(options);
