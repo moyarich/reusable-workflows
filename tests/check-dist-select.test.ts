@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { selectDistributionTargets } from "../packages/cli/src/check-dist/select.ts";
+import { selectDistributionTargets } from "../packages/cli/src/check-dist/select-targets.ts";
 
 const packages = [
   { name: "@example/actions", directory: "packages/actions" },
