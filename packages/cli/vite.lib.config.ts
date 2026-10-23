@@ -1,5 +1,6 @@
 /** Build configuration for CLI executable and library output. @module */
 import { defineConfig } from "vite";
+import dts from "unplugin-dts/vite";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -8,6 +9,7 @@ const root = dirname(fileURLToPath(import.meta.url));
 // Side-effect-free modules for consumers; do not publish GitHub Action entry points.
 export default defineConfig({
   root,
+  plugins: [dts({ entryRoot: resolve(root, "src"), outDirs: [resolve(root, "dist/types")] })],
   build: {
     ssr: true,
     target: "node24",
