@@ -1,8 +1,8 @@
 name: Dispatch and wait for workflow
 description: Dispatch a workflow using its exact GitHub API run ID, poll and verify successful completion.
 inputs:
-  workflow:
-    description: Required workflow filename
+  required_workflows:
+    description: Comma-separated list of one or more required workflow filenames
     required: true
   branch:
     description: Target branch
@@ -26,12 +26,9 @@ inputs:
     description: Poll interval, in seconds
     default: "15"
 outputs:
-  workflow-id:
-    value: ${{ steps.dispatch.outputs.workflow-id }}
-  workflow-url:
-    value: ${{ steps.dispatch.outputs.workflow-url }}
-  workflow-conclusion:
-    value: ${{ steps.dispatch.outputs.workflow-conclusion }}
+  workflow-results:
+    description: JSON array of successfully completed required workflow runs
+    value: ${{ steps.dispatch.outputs.workflow-results }}
 runs:
   using: composite
   steps:
@@ -39,7 +36,7 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.token }}
-        DISPATCH_WORKFLOW: ${{ inputs.workflow }}
+        REQUIRED_WORKFLOWS: ${{ inputs.required_workflows }}
         DISPATCH_BRANCH: ${{ inputs.branch }}
         DISPATCH_SHA: ${{ inputs.sha }}
         DISPATCH_INPUTS: ${{ inputs.inputs }}
