@@ -3,7 +3,9 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true
@@ -17,6 +19,7 @@
     "src/check-dist/**/*.ts",
     "src/resolve-workspaces/**/*.ts",
     "src/verify-workflow-runs/**/*.ts",
-    "src/workflow-dispatch/workflow-dispatch.ts"
+    "src/workflow-dispatch/workflow-dispatch.ts",
+    "src/validate-release-identity/*.ts"
   ]
 }
