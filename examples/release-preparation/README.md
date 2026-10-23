@@ -3,6 +3,7 @@
 The release preparation workflow creates an editable `release/prepare-*` branch and embeds package selection in the **pull request description**, between the following markers:
 
 <!-- release-preparation:start -->
+
 ```json
 {
   "schemaVersion": 1,
@@ -12,6 +13,7 @@ The release preparation workflow creates an editable `release/prepare-*` branch 
   ]
 }
 ```
+
 <!-- release-preparation:end -->
 
 The description is the source of truth for **which packages** belong to the release. It may be edited before merging the PR. Code, tests, changelogs, dependencies and package versions on the PR branch remain editable as well.
