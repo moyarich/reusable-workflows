@@ -11,9 +11,9 @@ on:
       version-bump:
         description: Version bump
         type: choice
-        options: [patch, minor, major]
+        options: [package-json, patch, minor, major]
         required: true
-        default: patch
+        default: package-json
       dry-run:
         description: Preview without opening a PR
         type: boolean
@@ -28,7 +28,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    uses: $/.github/workflows/reusable_prepare-release-pr.yml
+    uses: ./.github/workflows/reusable_prepare-release-pr.yml
     with:
       package: ${{ inputs.package }}
       version-bump: ${{ inputs.version-bump }}
