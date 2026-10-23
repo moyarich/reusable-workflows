@@ -1,9 +1,12 @@
 /** Commander-powered CLI command and feature implementation. @module */
-import { Option, program } from "commander";
+import { Command, Option } from "commander";
 import { releaseWorkspacePackage } from "./release.ts";
 import { confirm, askText } from "../cli/prompts/index.ts";
 import { packageChoices, selectOne } from "../cli/prompts/selection.ts";
 
+/** Construct workspace release CLI commands without parsing arguments. */
+export function createWorkspaceReleaseCommand(): Command {
+const program = new Command();
 program
   .name("workspace-release")
   .description("Preview or create a workspace package release.")
@@ -91,4 +94,6 @@ program
     });
   });
 
-await program.parseAsync();
+return program;
+}
+
