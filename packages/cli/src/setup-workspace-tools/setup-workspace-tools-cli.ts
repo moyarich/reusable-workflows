@@ -8,6 +8,3 @@ export async function runSetupWorkspaceToolsCli(
   await createSetupWorkspaceToolsCommand().parseAsync(argv);
 }
 
-if (process.argv[1] && /setup-workspace-tools\.mjs$/.test(process.argv[1])) {
-  await runSetupWorkspaceToolsCli();
-}
