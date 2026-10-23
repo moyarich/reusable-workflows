@@ -30,6 +30,7 @@ const bundles = new Map([
 const runtimeFiles: Record<string, Record<string, string>> = {
   "check-dist": {
     "select.mjs": "packages/cli/src/check-dist/select.ts",
+    "select-targets.js": "packages/cli/src/check-dist/select-targets.ts",
     "config.schema.json":
       ".github/reusable-configurations/check-dist-config.schema.json",
   },
