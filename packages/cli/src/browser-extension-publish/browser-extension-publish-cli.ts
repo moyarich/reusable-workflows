@@ -16,6 +16,8 @@ const store = (value: string): Store => {
 };
 import { chromePublish } from "./chrome-publish.js";
 export { chromePublish } from "./chrome-publish.js";
+/** Build the browser extension command tree without executing it. */
+export function createBrowserExtensionProgram(): Command {
 const program = new Command()
   .name("browser-extension-publish")
   .description(
@@ -71,4 +73,11 @@ program
     firefoxPublish(opts.buildDirectory, opts.outputDirectory);
     console.log("Firefox Add-ons submission completed");
   });
-await program.parseAsync();
+  return program;
+}
+
+/** Execute the browser extension CLI with the supplied argv. */
+export async function runBrowserExtensionCli(argv: string[] = process.argv): Promise<void> {
+  await createBrowserExtensionProgram().parseAsync(argv);
+}
+
