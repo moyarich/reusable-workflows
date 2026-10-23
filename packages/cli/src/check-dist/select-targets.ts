@@ -66,4 +66,3 @@ export function selectDistributionTargets({
     directories: selected.map((p) => p.directory),
   };
 }
-
