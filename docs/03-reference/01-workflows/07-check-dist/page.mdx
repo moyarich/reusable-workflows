@@ -70,7 +70,6 @@ The `commit` workflow input controls whether an eligible committed distribution 
 - Committed distribution differs from Git: report the difference and allow the configured self-heal behavior.
 - CI-generated distribution absent before the build: not an error.
 
-
 ## Workflow dispatch inputs
 
 The `actions/workflow-dispatch` action accepts `required_workflows` (one or more comma-separated workflow filenames) and optional `workflow_inputs`, a JSON object keyed by filename. Each target receives only its own `workflow_dispatch` inputs:
@@ -88,5 +87,4 @@ The `actions/workflow-dispatch` action accepts `required_workflows` (one or more
     sha-input: ""
 ```
 
-This action can be used inside a workflow started by either `workflow_call` or `workflow_dispatch`. Its *targets* must expose `workflow_dispatch`: GitHub's dispatch API cannot directly invoke a workflow that only supports `workflow_call`. For reusable-only workflows, use a `jobs.<id>.uses` call instead. The `sha-input` setting is optional; disable it when targets do not declare that input.
-
+This action can be used inside a workflow started by either `workflow_call` or `workflow_dispatch`. Its _targets_ must expose `workflow_dispatch`: GitHub's dispatch API cannot directly invoke a workflow that only supports `workflow_call`. For reusable-only workflows, use a `jobs.<id>.uses` call instead. The `sha-input` setting is optional; disable it when targets do not declare that input.

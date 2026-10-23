@@ -50,12 +50,17 @@ export function normalizeInputs(json: string, shaInput: string, sha: string) {
   return normalized;
 }
 
-
 /** Parse workflow-specific workflow_dispatch inputs, keyed by workflow filename. */
-export function normalizeWorkflowInputs(json: string, shaInput: string, sha: string): Record<string, Record<string, string>> {
+export function normalizeWorkflowInputs(
+  json: string,
+  shaInput: string,
+  sha: string,
+): Record<string, Record<string, string>> {
   const value: unknown = JSON.parse(json || "{}");
   if (value === null || Array.isArray(value) || typeof value !== "object")
-    throw new Error("workflow_inputs must be a JSON object keyed by workflow filename");
+    throw new Error(
+      "workflow_inputs must be a JSON object keyed by workflow filename",
+    );
   const inputs: Record<string, Record<string, string>> = {};
   for (const [name, config] of Object.entries(value)) {
     if (!/^[\\w.-]+\\.ya?ml$/.test(name))
@@ -184,7 +189,10 @@ export function parseRequiredWorkflows(required_workflows: string): string[] {
 }
 
 export async function dispatchRequiredWorkflows(
-  options: Omit<DispatchOptions, "workflow"> & { required_workflows: string; workflow_inputs?: Record<string, Record<string, string>> },
+  options: Omit<DispatchOptions, "workflow"> & {
+    required_workflows: string;
+    workflow_inputs?: Record<string, Record<string, string>>;
+  },
 ) {
   const names = parseRequiredWorkflows(options.required_workflows);
   const results: Array<{

@@ -181,7 +181,11 @@ test("supports independent workflow_dispatch inputs for one or more workflows", 
         return response({ workflow_run_id: ++count });
       }
       const id = Number(url.match(/runs\/(\d+)$/)?.[1]);
-      return response({ ...run, id, path: `.github/workflows/${expected[id - 1]}` });
+      return response({
+        ...run,
+        id,
+        path: `.github/workflows/${expected[id - 1]}`,
+      });
     },
     pause: async () => {},
   });
@@ -194,6 +198,12 @@ test("supports independent workflow_dispatch inputs for one or more workflows", 
 
 test("rejects invalid workflow_inputs entries", () => {
   assert.throws(() => normalizeWorkflowInputs("[]", "", sha), /JSON object/);
-  assert.throws(() => normalizeWorkflowInputs('{"bad/path.yml":{}}', "", sha), /filename/);
-  assert.throws(() => normalizeWorkflowInputs('{"x.yml":{"nested":{}}}', "", sha), /must be/);
+  assert.throws(
+    () => normalizeWorkflowInputs('{"bad/path.yml":{}}', "", sha),
+    /filename/,
+  );
+  assert.throws(
+    () => normalizeWorkflowInputs('{"x.yml":{"nested":{}}}', "", sha),
+    /must be/,
+  );
 });
