@@ -3,6 +3,8 @@ import {
   normalizeInputs,
   assertRun,
   dispatchAndWait,
+  parseWorkflows,
+  dispatchRequiredWorkflows,
 } from "../packages/cli/src/workflow-dispatch/workflow-dispatch.ts";
 
 const sha = "a".repeat(40);
@@ -118,4 +120,32 @@ test("times out without cancelling the dispatched run", async () => {
       pause: async () => new Promise((resolve) => setTimeout(resolve, 3)),
     }),
   ).rejects.toThrow(/timed out/);
+});
+
+test("accepts one or more required workflows", () => {
+  assert.deepEqual(parseWorkflows("checks.yml"), ["checks.yml"]);
+  assert.deepEqual(parseWorkflows("", "alpha.yml, beta.yaml"), ["alpha.yml", "beta.yaml"]);
+  assert.throws(() => parseWorkflows("", ""), /one or more/);
+  assert.throws(() => parseWorkflows("", "a.yml,a.yml"), /Duplicate/);
+});
+
+test("dispatches multiple workflows and verifies each run", async () => {
+  const expected = ["alpha.yml", "beta.yml"];
+  let index = 0;
+  const results = await dispatchRequiredWorkflows({
+    ...config,
+    workflow: "",
+    workflows: expected.join(","),
+    request: async (url, init) => {
+      if (init?.method === "POST") {
+        index++;
+        return response({ workflow_run_id: index });
+      }
+      const id = Number(url.match(/runs\/(\d+)$/)?.[1]);
+      return response({ ...run, id, path: `.github/workflows/${expected[id - 1]}` });
+    },
+    pause: async () => {},
+  });
+  assert.deepEqual(results.map((r) => r.workflow), expected);
+  assert.deepEqual(results.map((r) => r.id), [1, 2]);
 });
