@@ -1,6 +1,7 @@
 /** Interactive CLI prompting utilities. @module */
 import { spawnSync } from "node:child_process";
 import process from "node:process";
+import { createInterface } from "node:readline/promises";
 
 export interface PromptChoice<T extends string = string> {
   name: string;
@@ -20,7 +21,42 @@ function hasFzf(): boolean {
   return !probe.error && probe.status === 0;
 }
 
-/** Use fzf for large interactive collections; Inquirer is the portable fallback. */
+/** Read a response from the controlling terminal without third-party runtime dependencies. */
+async function readAnswer(message: string): Promise<string> {
+  const terminal = createInterface({
+    input: process.stdin,
+    output: process.stderr,
+  });
+  try {
+    return (await terminal.question(message)).trim();
+  } finally {
+    terminal.close();
+  }
+}
+
+/** Choose one of the provided options using a numbered terminal menu. */
+export async function chooseOne<T extends string>(
+  choices: PromptChoice<T>[],
+  message: string,
+): Promise<T | undefined> {
+  assertInteractive();
+  if (!choices.length) return undefined;
+  process.stderr.write(`${message}\n`);
+  choices.forEach((choice, index) => {
+    process.stderr.write(`  ${index + 1}. ${choice.name}\n`);
+  });
+  while (true) {
+    const answer = await readAnswer("Choice (blank to cancel): ");
+    if (!answer) return undefined;
+    const index = Number(answer) - 1;
+    if (Number.isInteger(index) && index >= 0 && index < choices.length) {
+      return choices[index].value;
+    }
+    process.stderr.write("Enter a number from the list.\n");
+  }
+}
+
+/** Use fzf for large interactive collections; numbered terminal input is the fallback. */
 export async function selectMany<T extends string>(
   choices: PromptChoice<T>[],
   message: string,
@@ -60,8 +96,21 @@ export async function selectMany<T extends string>(
         return choices[index].value;
       });
   }
-  const { checkbox } = await import("@inquirer/prompts");
-  return checkbox({ message, choices });
+  const selected: T[] = [];
+  const remaining = [...choices];
+  while (remaining.length) {
+    const choice = await chooseOne(
+      remaining,
+      `${message} (select one at a time; blank to finish)`,
+    );
+    if (choice === undefined) break;
+    selected.push(choice);
+    remaining.splice(
+      remaining.findIndex((item) => item.value === choice),
+      1,
+    );
+  }
+  return selected;
 }
 
 export async function confirm(
@@ -69,8 +118,10 @@ export async function confirm(
   defaultValue = false,
 ): Promise<boolean> {
   assertInteractive();
-  const { confirm: ask } = await import("@inquirer/prompts");
-  return ask({ message, default: defaultValue });
+  const answer = await readAnswer(
+    `${message} ${defaultValue ? "[Y/n]" : "[y/N]"}: `,
+  );
+  return answer ? ["y", "yes"].includes(answer.toLowerCase()) : defaultValue;
 }
 
 export async function askText(
@@ -78,6 +129,8 @@ export async function askText(
   defaultValue = "",
 ): Promise<string> {
   assertInteractive();
-  const { input } = await import("@inquirer/prompts");
-  return input({ message, default: defaultValue });
+  const answer = await readAnswer(
+    `${message}${defaultValue ? ` [${defaultValue}]` : ""}: `,
+  );
+  return answer || defaultValue;
 }
