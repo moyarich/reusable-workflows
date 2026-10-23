@@ -23,4 +23,3 @@ export function createReleaseValidateCommand() {
       console.log(JSON.stringify(marker));
     });
 }
-
