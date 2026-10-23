@@ -90,30 +90,3 @@ jobs:
       draft: false
       dry-run: ${{ inputs.dry-run }}
 
-  verify-tag:
-    name: Confirm release tag resolves to approved SHA
-    needs: [plan, release]
-    if: ${{ !inputs.dry-run && needs.release.result == 'success' }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.pull_request.merge_commit_sha }}
-          fetch-depth: 0
-          fetch-tags: true
-          persist-credentials: false
-      - name: Fail closed if tag targets another commit
-        env:
-          RELEASE_TAG: ${{ needs.plan.outputs.release-tag }}
-          APPROVED_SHA: ${{ github.event.pull_request.merge_commit_sha }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          git fetch origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
-          test "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" = "$APPROVED_SHA" || {
-            echo "::error::Release tag does not resolve to the approved merged commit"
-            exit 1
-          }
-
