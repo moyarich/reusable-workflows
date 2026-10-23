@@ -63,8 +63,7 @@ jobs:
     name: Discover workspace packages
     permissions:
       contents: read
-    uses: 
-      $/.github/workflows/reusable_discover-packages.yml
+    uses: ./.github/workflows/reusable_discover-packages.yml
     with:
       packages-directory: packages
       use-workspaces: true
@@ -89,7 +88,7 @@ jobs:
           persist-credentials: false
       - name: Select and validate distribution packages
         id: select
-        uses: $/actions/check-dist
+        uses: ./actions/check-dist
         with:
           discovered: ${{ needs.discover-packages.outputs.packages }}
           package: ${{ inputs.package }}
@@ -257,7 +256,7 @@ jobs:
 
       - name: Run required workflows for healed commit
         if: ${{ matrix.commitDist && inputs.commit && !inputs.dry-run && needs.select-packages.outputs.single-package == 'true' && steps.compare.outputs.changed == 'true' && steps.head.outcome == 'success' && inputs.required_workflows != '' }}
-        uses: $/actions/workflow-dispatch
+        uses: ./actions/workflow-dispatch
         with:
           required_workflows: ${{ inputs.required_workflows }}
           branch: ${{ inputs.target-branch || github.ref_name }}
