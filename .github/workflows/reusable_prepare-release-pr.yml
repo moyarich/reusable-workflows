@@ -50,79 +50,45 @@ jobs:
         with:
           node-version: "24"
           cache: npm
-      - name: Prepare workspace versions and manifest
+      - name: Checkout workspace-tools release tooling
+        uses: actions/checkout@v7
+        with:
+          repository: moyarich/workspace-tools
+          ref: main
+          path: .release-tools
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Build workspace preparation CLI
+        run: |
+          npm ci --prefix .release-tools --include=optional --no-audit --no-fund
+          npm run build --prefix .release-tools --workspace @moyarich/workspace-tools
+      - name: Prepare versions and release manifest
+        shell: bash
         env:
           SELECTOR: ${{ inputs.package }}
-          BUMP: ${{ inputs.version-bump }}
           MODE: ${{ inputs.version-mode }}
+          BUMP: ${{ inputs.version-bump }}
           INITIAL: ${{ inputs.initial-version }}
           EXACT: ${{ inputs.exact-version }}
-        shell: bash
         run: |
           set -euo pipefail
-          node --input-type=module <<'NODE'
-          import fs from "node:fs";
-          import {execFileSync} from "node:child_process";
-          const root=JSON.parse(fs.readFileSync("package.json","utf8"));
-          const patterns=Array.isArray(root.workspaces)?root.workspaces:root.workspaces?.packages??[];
-          const workspaces=patterns.length?JSON.parse(execFileSync("npm",["query",".workspace","--workspaces","--include-workspace-root","--json"],{encoding:"utf8"})):[];
-          const rootPackage={...root,location:"."};
-          const candidates=[...workspaces.filter(p=>p.location!==".")];
-          if(root.name && root.version && root.private!==true) candidates.unshift(rootPackage);
-          const packages=candidates.filter(p=>!p.private&&p.name&&p.version&&p.location);
-          const selected=process.env.SELECTOR==="all"?packages:packages.filter(p=>p.name===process.env.SELECTOR||p.location===process.env.SELECTOR);
-          if (!selected.length) throw Error("Unknown publishable package selector");
-          const semver=/^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$/;
-          const valid=(v)=>semver.test(v)&&!v.split("-")[1]?.split("+")[0].split(".").some(p=>/^\\d+$/.test(p)&&p.length>1&&p.startsWith("0"));
-          const mode=process.env.MODE;
-          const bump=process.env.BUMP;
-          if(!["auto","bump","package-json","exact"].includes(mode))throw Error("Unsupported version mode: "+mode);
-          if(!["patch","minor","major","prepatch","preminor","premajor","prerelease"].includes(bump))throw Error("Unsupported bump: "+bump);
-          if(!valid(process.env.INITIAL))throw Error("Invalid initial-version");
-          if(mode==="exact"&&!valid(process.env.EXACT))throw Error("Invalid exact-version");
-          const increment=(v,kind)=>{
-            if(!valid(v))throw Error("Invalid SemVer: "+v);
-            const [,major,minor,patch,pre]=semver.exec(v);
-            let a=+major,b=+minor,d=+patch;
-            if(kind==="major")return [a+1,0,0].join(".");
-            if(kind==="minor")return [a,b+1,0].join(".");
-            if(kind==="patch")return [a,b,d+(pre?0:1)].join(".");
-            if(kind==="premajor")return [a+1,0,0].join(".")+"-0";
-            if(kind==="preminor")return [a,b+1,0].join(".")+"-0";
-            if(kind==="prepatch")return [a,b,d+1].join(".")+"-0";
-            const parts=pre?.split(".")??[];
-            if(!parts.length)return [a,b,d+1].join(".")+"-0";
-            const last=parts.findLastIndex(p=>/^\\d+$/.test(p));
-            if(last<0)parts.push("0");else parts[last]=String(Number(parts[last])+1);
-            return [a,b,d].join(".")+"-"+parts.join(".");
-          };
-          const versions=new Map(selected.map(p=>{
-            const current=p.version;
-            const value=mode==="package-json"?current:mode==="exact"?process.env.EXACT:mode==="auto"&&(!current||current==="0.0.0")?process.env.INITIAL:increment(current,bump);
-            if(!valid(value))throw Error("Invalid resolved version for "+p.name+": "+value);
-            return [p.name,value];
-          }));
-          for(const p of candidates){
-            const file=p.location==="."?"package.json":p.location+"/package.json";
-            const doc=JSON.parse(fs.readFileSync(file,"utf8"));
-            let changed=false;
-            if(versions.has(p.name)){doc.version=versions.get(p.name);changed=true;}
-            for(const field of ["dependencies","devDependencies","optionalDependencies","peerDependencies"])
-              for(const [name,version] of versions){
-                const prior=doc[field]?.[name];
-                if(!prior||prior.startsWith("file:")||prior.startsWith("workspace:"))continue;
-                const prefix=prior.startsWith("^")?"^":prior.startsWith("~")?"~":"";
-                if(prior!==prefix+version){doc[field][name]=prefix+version;changed=true;}
-              }
-            if(changed)fs.writeFileSync(file,JSON.stringify(doc,null,2)+"\n");
-          }
-          fs.mkdirSync(process.env.RUNNER_TEMP+"/release-preparation",{recursive:true});
-          const manifest={schemaVersion:1,packages:selected.map(p=>({name:p.name,directory:p.location,version:versions.get(p.name)}))};
-          fs.writeFileSync(process.env.RUNNER_TEMP+"/release-preparation/manifest.json",JSON.stringify(manifest,null,2)+"\n");
-          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,"## Release preparation\n\n"+manifest.packages.map(p=>"- "+p.name+"@"+p.version).join("\n")+"\n");
-          NODE
-          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          mkdir -p "$RUNNER_TEMP/release-preparation"
+          node .release-tools/packages/workspace-tools/dist/bin/workspace-prepare-release.mjs \
+            --package "$SELECTOR" \
+            --version-mode "$MODE" \
+            --version-bump "$BUMP" \
+            --initial-version "$INITIAL" \
+            --exact-version "$EXACT" \
+            --write \
+            --manifest "$RUNNER_TEMP/release-preparation/manifest.json"
           git diff --check
+          node --input-type=module <<'NODE'
+          import { readFileSync, appendFileSync } from "node:fs";
+          const { packages } = JSON.parse(readFileSync(process.env.RUNNER_TEMP + "/release-preparation/manifest.json", "utf8"));
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+            "## Release preparation\\n\\n| Package | Previous version | Prepared version |\\n| --- | --- | --- |\\n" +
+            packages.map(p => `| \`${p.name}\` | \`${p.currentVersion}\` | \`${p.version}\` |`).join("\\n") + "\\n");
+          NODE
       - name: Upload proposed release manifest
         uses: actions/upload-artifact@v7
         with:
