@@ -38,7 +38,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          args=(--upgrade --workspaces --root --dep prod,dev,optional,peer)
+          args=(--upgrade --dep prod,dev,optional,peer)
+          if node -e 'const w=require("./package.json").workspaces; process.exit((Array.isArray(w)?w.length:w?.packages?.length)?0:1)'; then
+            args+=(--workspaces --root)
+          fi
           if [[ -n "$REJECT" ]]; then
             args+=(--reject "$REJECT")
           fi
@@ -53,7 +56,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git add package.json package-lock.json packages/*/package.json apps/*/package.json
+          git add -- package.json
+          if [[ -f package-lock.json ]]; then git add -- package-lock.json; fi
+          while IFS= read -r manifest; do
+            git add -- "$manifest"
+          done < <(git ls-files --cached --others --exclude-standard -- 'packages/*/package.json' 'apps/*/package.json')
           if git diff --cached --quiet; then
             echo "Dependencies are already up to date."
             exit 0
