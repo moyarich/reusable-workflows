@@ -4,11 +4,6 @@ import { resolveWorkspaceManifests } from "./resolve-manifests.js";
 import { readFile, writeFile, mkdir, readdir } from "node:fs/promises";
 import path from "node:path";
 
-const fields: Field[] = [
-  "dependencies",
-  "optionalDependencies",
-  "peerDependencies",
-];
 const read = async (file: string): Promise<Manifest> =>
   JSON.parse(await readFile(file, "utf8")) as Manifest;
 const slash = (value: string) => value.split(path.sep).join("/");
