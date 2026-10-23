@@ -83,17 +83,7 @@ jobs:
             --write \
             --manifest "$RUNNER_TEMP/release-preparation/manifest.json"
           git diff --check
-          # Track package selection, not a frozen version snapshot. The PR branch
-          # remains editable; final versions come from merged package.json files.
-          mkdir -p .github
-          node --input-type=module <<'NODE'
-          import { readFileSync, writeFileSync } from "node:fs";
-          const prepared = JSON.parse(readFileSync(process.env.RUNNER_TEMP + "/release-preparation/manifest.json", "utf8"));
-          writeFileSync(".github/release-preparation.json", JSON.stringify({
-            schemaVersion: 1,
-            packages: prepared.packages.map(({name, directory}) => ({name, directory}))
-          }, null, 2) + "\n");
-          NODE
+          # Package selection lives in the PR description, not the repository.
           node --input-type=module <<'NODE'
           import { readFileSync, appendFileSync } from "node:fs";
           const { packages } = JSON.parse(readFileSync(process.env.RUNNER_TEMP + "/release-preparation/manifest.json", "utf8"));
@@ -124,9 +114,27 @@ jobs:
           # Release selection metadata is committed even when versions already match.
           # Subsequent commits on this branch are normal development changes.
           git add -u
-          git add .github/release-preparation.json
-          git commit -m "release: prepare selected workspace versions"
+          if ! git diff --cached --quiet; then git commit -m "release: prepare selected workspace versions"; fi
           git push "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git" "HEAD:refs/heads/$branch"
-          gh pr create --base "$BASE" --head "$branch" --title "release: prepare packages" --body "Review workspace versions, dependency ranges and lockfile. The release branch is editable: commit source changes, tests, fixes, changelog and version updates before merging. Final versions are read from the merged package.json files. Merge only after CI passes."
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from "node:fs";
+          const { packages } = JSON.parse(readFileSync(process.env.RUNNER_TEMP + "/release-preparation/manifest.json", "utf8"));
+          const selection = { schemaVersion: 1, packages: packages.map(({name, directory}) => ({name, directory})) };
+          const body = [
+            "Review workspace versions, dependency ranges and lockfile. The branch remains editable: code, tests, changelog and versions may change before merge.",
+            "",
+            "The following package selection can be edited during review. Final versions are read from merged package.json files.",
+            "",
+            "<!-- release-preparation:start -->",
+            "```json",
+            JSON.stringify(selection, null, 2),
+            "```",
+            "<!-- release-preparation:end -->",
+            "",
+            "Preparation details are attached to the initiating workflow run. Merge only after CI passes."
+          ].join("\n");
+          writeFileSync(process.env.RUNNER_TEMP + "/release-preparation/pr-body.md", body + "\n");
+          NODE
+          gh pr create --base "$BASE" --head "$branch" --title "release: prepare packages" --body-file "$RUNNER_TEMP/release-preparation/pr-body.md"
           pr="$(gh pr list --head "$branch" --base "$BASE" --state open --json number --jq '.[0].number')"
           echo "number=$pr" >> "$GITHUB_OUTPUT"
