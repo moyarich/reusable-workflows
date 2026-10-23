@@ -7,8 +7,13 @@ export function createBrowserCommand() {
     .allowExcessArguments()
     .argument("[args...]")
     .action(async (args: string[]) => {
-      const { runBrowserExtensionCli } = await import("../browser-extension-publish/browser-extension-publish-cli.js");
-      await runBrowserExtensionCli([process.argv[0] ?? "node", "browser-extension-publish", ...args]);
+      const { runBrowserExtensionCli } =
+        await import("../browser-extension-publish/browser-extension-publish-cli.js");
+      await runBrowserExtensionCli([
+        process.argv[0] ?? "node",
+        "browser-extension-publish",
+        ...args,
+      ]);
     });
 }
 if (process.argv[1] && /browser\.mjs$/.test(process.argv[1])) {
