@@ -1,17 +1,9 @@
 import { formatReleaseCommits } from "./commit-rules.js";
 import {
-  splitGeneratedRegion,
-  pullRequestMarkers,
-  generatedEntries,
-  appendCategoryEntries,
-  mergeGeneratedEntries,
-  generatedRegion,
-  ensureMetadata,
-} from "./reconcile-rules.js";
-import {
   changelogSection,
   hasMeaningfulGeneratedBody,
 } from "./release-note-rules.js";
+import { reconcileReleaseBody } from "./release-body-rules.js";
 /** Commander-powered CLI command and feature implementation. @module */
 import {
   existsSync,
@@ -28,87 +20,6 @@ function commitFallback(targetPath) {
   }
   const output = execFileSync("git", args, { encoding: "utf8" }).trim();
   return formatReleaseCommits(output);
-}
-function resolveInitialSeed(options) {
-  if (options.changelogPath && existsSync(options.changelogPath)) {
-    const changelog = readFileSync(options.changelogPath, "utf8");
-    const notes = changelogSection(changelog, options.version);
-    if (notes) return { source: "changelog", body: notes };
-  }
-  const generated = options.generatedBody.trim();
-  if (hasMeaningfulGeneratedBody(generated)) {
-    return { source: "release-drafter", body: generatedRegion(generated) };
-  }
-  const commits = commitFallback(options.targetPath);
-  if (commits) {
-    return {
-      source: "commits",
-      body: `## Release notes
-
-${commits}`,
-    };
-  }
-  return { source: "minimal", body: "## Release notes\n\nInitial release." };
-}
-function reconcileReleaseBody(options) {
-  const existing = options.existingBody.trim();
-  const generated = options.generatedBody.trim();
-
-  // A release-specific curated changelog is the source of truth for public
-  // notes. Do not reintroduce internal PR titles or stale install commands
-  // from persistent Release Drafter output on subsequent runs.
-  if (
-    options.version &&
-    options.changelogPath &&
-    existsSync(options.changelogPath)
-  ) {
-    const curated = changelogSection(
-      readFileSync(options.changelogPath, "utf8"),
-      options.version,
-    );
-    if (curated) {
-      const existingSeed = existing.match(
-        /<!--\\s*release-draft-sync:seed-sha=([^\\s]+)(?:\\s+source=[^>]+)?\\s*-->/,
-      );
-      const seedSha = existingSeed?.[1] || options.seedSha;
-      return ensureMetadata(curated, options.targetKey, seedSha, "changelog");
-    }
-  }
-  if (!existing) {
-    const seed = resolveInitialSeed(options);
-    return ensureMetadata(
-      seed.body,
-      options.targetKey,
-      options.seedSha,
-      seed.source,
-    );
-  }
-  let body = existing;
-  const split = splitGeneratedRegion(body);
-  if (hasMeaningfulGeneratedBody(generated)) {
-    if (split) {
-      const mergedGenerated = mergeGeneratedEntries(split.generated, generated);
-      body = [split.before, generatedRegion(mergedGenerated), split.after]
-        .filter(Boolean)
-        .join("\n\n");
-    } else {
-      const existingMarkers = pullRequestMarkers(body);
-      let managed = "";
-      for (const [category, entries] of generatedEntries(generated)) {
-        const missing = entries.filter((entry) => {
-          const match = entry.match(/release-draft-sync:pr=(\d+)/);
-          return match && !existingMarkers.has(match[1]);
-        });
-        managed = appendCategoryEntries(managed, category, missing);
-      }
-      if (managed) {
-        body = `${body.trim()}
-
-${generatedRegion(managed)}`;
-      }
-    }
-  }
-  return ensureMetadata(body, options.targetKey, options.seedSha, "existing");
 }
 function input(name, required = false) {
   const suffix = name.toUpperCase();
@@ -140,18 +51,29 @@ function runAction() {
   const targetKey = input("target-key") || "root";
   const seedSha = input("seed-sha");
   const targetPath = input("target-path");
+  const existingBody = existsSync(existingBodyFile)
+    ? readFileSync(existingBodyFile, "utf8")
+    : "";
+  const generatedBody = existsSync(generatedBodyFile)
+    ? readFileSync(generatedBodyFile, "utf8")
+    : "";
+  const curatedNotes =
+    version && existsSync(changelogPath)
+      ? changelogSection(readFileSync(changelogPath, "utf8"), version)
+      : "";
+  const commitNotes =
+    !curatedNotes &&
+    !existingBody.trim() &&
+    !hasMeaningfulGeneratedBody(generatedBody.trim())
+      ? commitFallback(targetPath)
+      : "";
   const result = reconcileReleaseBody({
-    existingBody: existsSync(existingBodyFile)
-      ? readFileSync(existingBodyFile, "utf8")
-      : "",
-    generatedBody: existsSync(generatedBodyFile)
-      ? readFileSync(generatedBodyFile, "utf8")
-      : "",
-    changelogPath,
-    version,
+    existingBody,
+    generatedBody,
+    curatedNotes,
+    commitNotes,
     targetKey,
     seedSha,
-    targetPath,
   });
   writeFileSync(
     outputFile,
