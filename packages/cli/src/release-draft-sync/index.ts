@@ -13,7 +13,7 @@ import {
 } from "node:fs";
 import process from "node:process";
 import { execFileSync } from "node:child_process";
-function commitFallback(targetPath) {
+function commitFallback(targetPath: string): string {
   const args = ["log", "--reverse", "--format=%s%x09%h", "HEAD"];
   if (targetPath && targetPath !== ".") {
     args.push("--", targetPath);
@@ -21,7 +21,7 @@ function commitFallback(targetPath) {
   const output = execFileSync("git", args, { encoding: "utf8" }).trim();
   return formatReleaseCommits(output);
 }
-function input(name, required = false) {
+function input(name: string, required = false): string {
   const suffix = name.toUpperCase();
   const value =
     process.env[`INPUT_${suffix}`] ??
@@ -32,7 +32,7 @@ function input(name, required = false) {
   }
   return value;
 }
-function setOutput(name, value) {
+function setOutput(name: string, value: string): void {
   const outputFile = process.env.GITHUB_OUTPUT;
   if (outputFile) {
     appendFileSync(
@@ -42,7 +42,7 @@ function setOutput(name, value) {
     );
   }
 }
-function runAction() {
+function runAction(): void {
   const existingBodyFile = input("existing-body-file", true);
   const generatedBodyFile = input("generated-body-file", true);
   const outputFile = input("output-file", true);

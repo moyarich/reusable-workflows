@@ -5,19 +5,9 @@
     "moduleResolution": "Bundler",
     "types": ["node"],
     "strict": true,
-    "noEmit": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "noEmit": true
   },
-  "include": [
-    "src/cli.ts",
-    "src/setup-workspace-tools/setup-workspace-tools.ts",
-    "src/release-draft-sync/identity.ts",
-    "src/browser-extension-publish/*.ts",
-    "scripts/**/*.ts",
-    "src/check-dist/**/*.ts",
-    "src/resolve-workspaces/**/*.ts",
-    "src/verify-workflow-runs/**/*.ts",
-    "src/workflow-dispatch/workflow-dispatch.ts",
-    "src/validate-release-identity/*.ts"
-  ]
+  "include": ["src/**/*.ts"],
+  "exclude": ["dist", "node_modules"]
 }
