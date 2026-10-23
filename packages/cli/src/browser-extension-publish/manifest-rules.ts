@@ -14,7 +14,8 @@ export function validateManifest(
   firefoxId = "",
 ) {
   if (
-    ![2, 3].includes(manifest.manifest_version) ||
+    (typeof manifest.manifest_version !== "number" ||
+      ![2, 3].includes(manifest.manifest_version)) ||
     typeof manifest.name !== "string" ||
     !manifest.name.trim() ||
     typeof manifest.version !== "string" ||
