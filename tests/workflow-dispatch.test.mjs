@@ -3,8 +3,10 @@ import {
   normalizeInputs,
   normalizeWorkflowInputs,
   assertRun,
-  dispatchAndWait,
   parseRequiredWorkflows,
+} from "../packages/cli/src/workflow-dispatch/dispatch-rules.ts";
+import {
+  dispatchAndWait,
   dispatchRequiredWorkflows,
 } from "../packages/cli/src/workflow-dispatch/workflow-dispatch.ts";
 
