@@ -124,7 +124,10 @@ test("times out without cancelling the dispatched run", async () => {
 
 test("accepts one or more required workflows", () => {
   assert.deepEqual(parseRequiredWorkflows("checks.yml"), ["checks.yml"]);
-  assert.deepEqual(parseRequiredWorkflows("alpha.yml, beta.yaml"), ["alpha.yml", "beta.yaml"]);
+  assert.deepEqual(parseRequiredWorkflows("alpha.yml, beta.yaml"), [
+    "alpha.yml",
+    "beta.yaml",
+  ]);
   assert.throws(() => parseRequiredWorkflows(""), /one or more/);
   assert.throws(() => parseRequiredWorkflows("a.yml,a.yml"), /Duplicate/);
 });
@@ -141,10 +144,20 @@ test("dispatches multiple workflows and verifies each run", async () => {
         return response({ workflow_run_id: index });
       }
       const id = Number(url.match(/runs\/(\d+)$/)?.[1]);
-      return response({ ...run, id, path: `.github/workflows/${expected[id - 1]}` });
+      return response({
+        ...run,
+        id,
+        path: `.github/workflows/${expected[id - 1]}`,
+      });
     },
     pause: async () => {},
   });
-  assert.deepEqual(results.map((r) => r.workflow), expected);
-  assert.deepEqual(results.map((r) => r.id), [1, 2]);
+  assert.deepEqual(
+    results.map((r) => r.workflow),
+    expected,
+  );
+  assert.deepEqual(
+    results.map((r) => r.id),
+    [1, 2],
+  );
 });
