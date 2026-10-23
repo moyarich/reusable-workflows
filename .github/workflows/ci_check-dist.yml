@@ -1,7 +1,7 @@
 name: CI / Check distribution
 
 run-name: >-
-  Check dist · ${{ github.event_name == 'push' && 'actions' || inputs.package }}
+  Check dist · ${{ github.event_name == 'push' && 'packages/actions' || inputs.package || 'all' }}
 
 on:
   push:
@@ -32,11 +32,11 @@ on:
         required: true
         default: all
       required_workflows:
-        description: Comma-separated workflow filenames to dispatch after a successful distribution repair commit
+        description: Comma-separated workflow filenames to run after a successful repair commit
         type: string
         default: ""
       config-path:
-        description: Repository-local distribution configuration file
+        description: Repository-local distribution configuration YAML
         type: string
         default: .github/check-dist-config.yml
       dist-path:
@@ -102,5 +102,5 @@ jobs:
       commit: ${{ github.event_name == 'push' || inputs.commit }}
       node-caching: ${{ github.event_name == 'push' && 'npm' || inputs.node-caching || 'npm' }}
       include-root-package: ${{ inputs.include-root-package }}
-      workspace-tools-source: ${{ github.event_name == 'push' && 'auto' || inputs.workspace-tools-source || 'auto' }}
+      workspace-tools-source: ${{ inputs.workspace-tools-source || 'auto' }}
       validation-command: ${{ github.event_name == 'push' && 'test -f actions/setup-workspace-tools/action.yml && test -f actions/setup-workspace-tools/index.mjs && test -f actions/release-draft-sync/action.yml && test -f actions/parse-typed-inputs/action.yml && test -f actions/validate-package-changelogs/action.yml' || '' }}
