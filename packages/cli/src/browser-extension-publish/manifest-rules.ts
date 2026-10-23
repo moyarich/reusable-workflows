@@ -8,7 +8,11 @@ export type ExtensionManifest = {
   applications?: { gecko?: { id?: string } };
 };
 /** Verify extension metadata without accessing the filesystem. */
-export function validateManifest(manifest: ExtensionManifest, registry: Store, firefoxId = "") {
+export function validateManifest(
+  manifest: ExtensionManifest,
+  registry: Store,
+  firefoxId = "",
+) {
   if (
     ![2, 3].includes(manifest.manifest_version) ||
     typeof manifest.name !== "string" ||
