@@ -9,6 +9,10 @@ on:
       dist-path:
         type: string
         default: ""
+      required_workflows:
+        description: Comma-separated workflows to dispatch after a repair commit; empty disables dispatch
+        type: string
+        default: ""
       config-path:
         type: string
         default: .github/check-dist-config.yml
@@ -103,6 +107,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: write
     outputs:
       changed: ${{ steps.compare.outputs.changed }}
       healed-sha: ${{ steps.head.outputs.sha }}
@@ -249,6 +254,17 @@ jobs:
             echo "Preview mode: distribution differs and was not committed."
           fi
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Run required workflows for healed commit
+        if: ${{ matrix.commitDist && inputs.commit && !inputs.dry-run && needs.select-packages.outputs.single-package == 'true' && steps.compare.outputs.changed == 'true' && steps.head.outcome == 'success' && inputs.required_workflows != '' }}
+        uses: $/actions/workflow-dispatch
+        with:
+          required_workflows: ${{ inputs.required_workflows }}
+          branch: ${{ inputs.target-branch || github.ref_name }}
+          sha: ${{ steps.head.outputs.sha }}
+          token: ${{ github.token }}
+          sha-input: ''
+          timeout-seconds: '900'
 
       - name: Upload rebuilt dist
         if: ${{ always() && steps.resolve.outputs.dist-path != '' && (!matrix.commitDist || !(inputs.commit && !inputs.dry-run && needs.select-packages.outputs.single-package == 'true') || (steps.compare.outputs.changed == 'true' && failure())) }}

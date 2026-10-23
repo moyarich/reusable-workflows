@@ -62,6 +62,23 @@ The caller workflow templates are maintained in [reusable-workflows-callers](htt
 
 The `commit` workflow input controls whether an eligible committed distribution is pushed back to Git. `dry-run: true` prevents commits even for `commitDist: true`. Packages with `commitDist: false` are never staged or committed by this check.
 
+## Rerun dependent workflows after a repair
+
+Set `required_workflows` to **one or more comma-separated workflow filenames** on `ci_check-dist.yml` or directly on `reusable_self-heal-check-dist.yml`. An empty string (the default) disables follow-up dispatch.
+
+```yaml
+with:
+  config-path: .github/check-dist-config.yml
+  required_workflows: >-
+    _self-test_typed-input-parser.yml,
+    _self-test_release-draft.yml,
+    smoke-test_action-dist-path.yml
+```
+
+The follow-up dispatch runs only when the selected committed distribution changed, the repair commit was pushed successfully, and `commit: true` with `dry-run: false` is active. The job requires `actions: write` and `contents: write`. Each target workflow must support `workflow_dispatch`.
+
+The dispatch action verifies each completed run against the **healed commit SHA**, waits for success, and fails if a required workflow fails. No follow-up dispatch occurs for unchanged distributions, previews, or CI-only distributions. The action uses explicit dispatch because pushes made with the default `GITHUB_TOKEN` do not create ordinary push-triggered workflow runs.
+
 ## Failure behavior
 
 - Invalid YAML or values that violate the schema: fail configuration validation.
