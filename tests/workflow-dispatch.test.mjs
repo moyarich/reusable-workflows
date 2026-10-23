@@ -3,7 +3,7 @@ import {
   normalizeInputs,
   assertRun,
   dispatchAndWait,
-  parseWorkflows,
+  parseRequiredWorkflows,
   dispatchRequiredWorkflows,
 } from "../packages/cli/src/workflow-dispatch/workflow-dispatch.ts";
 
@@ -123,10 +123,10 @@ test("times out without cancelling the dispatched run", async () => {
 });
 
 test("accepts one or more required workflows", () => {
-  assert.deepEqual(parseWorkflows("checks.yml"), ["checks.yml"]);
-  assert.deepEqual(parseWorkflows("", "alpha.yml, beta.yaml"), ["alpha.yml", "beta.yaml"]);
-  assert.throws(() => parseWorkflows("", ""), /one or more/);
-  assert.throws(() => parseWorkflows("", "a.yml,a.yml"), /Duplicate/);
+  assert.deepEqual(parseRequiredWorkflows("checks.yml"), ["checks.yml"]);
+  assert.deepEqual(parseRequiredWorkflows("alpha.yml, beta.yaml"), ["alpha.yml", "beta.yaml"]);
+  assert.throws(() => parseRequiredWorkflows(""), /one or more/);
+  assert.throws(() => parseRequiredWorkflows("a.yml,a.yml"), /Duplicate/);
 });
 
 test("dispatches multiple workflows and verifies each run", async () => {
@@ -134,8 +134,7 @@ test("dispatches multiple workflows and verifies each run", async () => {
   let index = 0;
   const results = await dispatchRequiredWorkflows({
     ...config,
-    workflow: "",
-    workflows: expected.join(","),
+    required_workflows: expected.join(","),
     request: async (url, init) => {
       if (init?.method === "POST") {
         index++;
