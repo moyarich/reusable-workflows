@@ -1,4 +1,7 @@
-import { changelogSection, hasMeaningfulGeneratedBody } from "./release-note-rules.js";
+import {
+  changelogSection,
+  hasMeaningfulGeneratedBody,
+} from "./release-note-rules.js";
 /** Commander-powered CLI command and feature implementation. @module */
 import {
   existsSync,
