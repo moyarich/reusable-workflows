@@ -2,7 +2,7 @@
 import { readdirSync, existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
-import { assertInteractive } from "./index.ts";
+import { assertInteractive, chooseOne } from "./index.js";
 
 /** Available root and direct-child workspace packages for interactive CLI selection. */
 export function packageChoices(
@@ -72,6 +72,5 @@ export async function selectOne(
       return choices[index].value;
     }
   }
-  const { select } = await import("@inquirer/prompts");
-  return select({ message, choices });
+  return chooseOne(choices, message);
 }
