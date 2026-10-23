@@ -13,8 +13,6 @@ type VerifyOptions = {
 };
 import { appendFileSync } from "node:fs";
 
-
-
 export async function verify({
   workflows,
   repository,
@@ -94,7 +92,9 @@ if (
 ) {
   try {
     const results = await verify({
-      workflows: (process.env.VERIFY_WORKFLOWS ?? "").split(",").map((s) => s.trim()),
+      workflows: (process.env.VERIFY_WORKFLOWS ?? "")
+        .split(",")
+        .map((s) => s.trim()),
       repository: (process.env.GITHUB_REPOSITORY ?? "").trim(),
       token: (process.env.GH_TOKEN ?? "").trim(),
       sha: (process.env.VERIFY_SHA ?? "").trim(),

@@ -11,7 +11,12 @@ export type WorkflowRun = {
   conclusion: string | null;
   html_url: string;
 };
-export type Selection = { path: string; sha: string; branch: string; event: string };
+export type Selection = {
+  path: string;
+  sha: string;
+  branch: string;
+  event: string;
+};
 export function selectRun(
   runs: WorkflowRun[],
   { path, sha, branch, event }: Selection,
@@ -41,4 +46,3 @@ export function validateRun(run: WorkflowRun | undefined, path: string) {
     );
   return run;
 }
-
