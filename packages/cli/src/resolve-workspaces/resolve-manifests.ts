@@ -7,7 +7,11 @@ import type {
   Change,
 } from "./workspace-rules.js";
 import { batchesFor } from "./workspace-rules.js";
-const fields: Field[] = ["dependencies", "optionalDependencies", "peerDependencies"];
+const fields: Field[] = [
+  "dependencies",
+  "optionalDependencies",
+  "peerDependencies",
+];
 
 export function resolveWorkspaceManifests(
   all: Workspace[],
