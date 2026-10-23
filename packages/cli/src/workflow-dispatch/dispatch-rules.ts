@@ -84,4 +84,3 @@ export function parseRequiredWorkflows(required_workflows: string): string[] {
     throw new Error("Duplicate workflow filenames are not allowed");
   return names;
 }
-

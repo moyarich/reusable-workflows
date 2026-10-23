@@ -1,5 +1,9 @@
 import type { WorkflowRun } from "./dispatch-rules.js";
-import { assertRun, normalizeWorkflowInputs, parseRequiredWorkflows } from "./dispatch-rules.js";
+import {
+  assertRun,
+  normalizeWorkflowInputs,
+  parseRequiredWorkflows,
+} from "./dispatch-rules.js";
 type DispatchOptions = {
   repository: string;
   workflow: string;
