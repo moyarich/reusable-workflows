@@ -72,7 +72,11 @@ export async function resolveWorkspaces({
       pkg: await read(path.join(item.absolute, "package.json")),
     })),
   );
-  const { result, graph, batches } = resolveWorkspaceManifests(all, packageSelector, range);
+  const { result, graph, batches } = resolveWorkspaceManifests(
+    all,
+    packageSelector,
+    range,
+  );
   if (write) {
     // Write only after validation completes.
     for (const item of result)
