@@ -63,7 +63,7 @@ export function normalizeWorkflowInputs(
     );
   const inputs: Record<string, Record<string, string>> = {};
   for (const [name, config] of Object.entries(value)) {
-    if (!/^[\\w.-]+\\.ya?ml$/.test(name))
+    if (!/^[\w.-]+\.ya?ml$/.test(name))
       throw new Error("Invalid workflow_inputs filename: " + name);
     inputs[name] = normalizeInputs(JSON.stringify(config), shaInput, sha);
   }
