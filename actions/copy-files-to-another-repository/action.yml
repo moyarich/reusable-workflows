@@ -1,0 +1,77 @@
+name: Copy files to another repository
+description: Copy a prepared directory tree into another GitHub repository and commit changed files.
+inputs:
+  token:
+    description: Token with contents write and workflow-file permissions in the destination.
+    required: true
+  source-directory:
+    description: Local directory tree whose relative paths are copied into destination root.
+    required: true
+  destination-repository:
+    description: Destination owner/repository.
+    required: true
+  destination-branch:
+    description: Existing destination branch.
+    required: false
+    default: main
+  dry-run:
+    description: Report changes without pushing.
+    required: false
+    default: "true"
+  commit-message:
+    description: Commit message for synchronized files.
+    required: false
+    default: "chore: synchronize repository files"
+outputs:
+  changed:
+    description: Whether any files differ.
+    value: ${{ steps.copy.outputs.changed }}
+  committed:
+    description: Whether a commit was pushed.
+    value: ${{ steps.copy.outputs.committed }}
+runs:
+  using: composite
+  steps:
+    - id: copy
+      shell: bash
+      env:
+        COPY_TOKEN: ${{ inputs.token }}
+        COPY_SOURCE: ${{ inputs.source-directory }}
+        COPY_DEST: ${{ inputs.destination-repository }}
+        COPY_BRANCH: ${{ inputs.destination-branch }}
+        COPY_DRY_RUN: ${{ inputs.dry-run }}
+        COPY_MESSAGE: ${{ inputs.commit-message }}
+      run: |
+        set -euo pipefail
+        [[ "$COPY_DEST" =~ ^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$ ]] || { echo "::error::Invalid repository"; exit 1; }
+        [[ "$COPY_BRANCH" =~ ^[a-zA-Z0-9][a-zA-Z0-9._/-]*$ && "$COPY_BRANCH" != *..* ]] || { echo "::error::Invalid branch"; exit 1; }
+        [[ "$COPY_DRY_RUN" == "true" || "$COPY_DRY_RUN" == "false" ]] || { echo "::error::dry-run must be true or false"; exit 1; }
+        [[ -d "$COPY_SOURCE" ]] || { echo "::error::Source directory not found"; exit 1; }
+        [[ -n "$(find "$COPY_SOURCE" -type f -print -quit)" ]] || { echo "::error::No source files"; exit 1; }
+        auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$COPY_TOKEN" | base64 -w0)"
+        workspace="$(mktemp -d)"
+        trap 'rm -rf "$workspace"' EXIT
+        git -c http.extraheader="$auth" clone --depth 1 --branch "$COPY_BRANCH" "https://github.com/$COPY_DEST.git" "$workspace/repo"
+        # Paths remain relative to COPY_SOURCE; do not remove unrelated destination files.
+        cp -a "$COPY_SOURCE/." "$workspace/repo/"
+        cd "$workspace/repo"
+        git add -A
+        if git diff --cached --quiet; then
+          echo "changed=false" >> "$GITHUB_OUTPUT"
+          echo "committed=false" >> "$GITHUB_OUTPUT"
+          echo "No changes: $COPY_DEST" >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+        fi
+        echo "changed=true" >> "$GITHUB_OUTPUT"
+        echo "### $COPY_DEST ($COPY_BRANCH)" >> "$GITHUB_STEP_SUMMARY"
+        git diff --cached --stat >> "$GITHUB_STEP_SUMMARY"
+        if [[ "$COPY_DRY_RUN" == "true" ]]; then
+          echo "committed=false" >> "$GITHUB_OUTPUT"
+          echo "Dry run; no files pushed." >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+        fi
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git commit -m "$COPY_MESSAGE"
+        git -c http.extraheader="$auth" push origin "HEAD:$COPY_BRANCH"
+        echo "committed=true" >> "$GITHUB_OUTPUT"
