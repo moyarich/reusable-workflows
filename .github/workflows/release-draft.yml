@@ -14,6 +14,22 @@ on:
         required: true
         default: all
         type: string
+      draft-target:
+        description: Repository release or an individual workspace package
+        required: true
+        default: repository
+        type: choice
+        options: [repository, package]
+      package-name:
+        description: Full npm package name (required for package drafts)
+        required: false
+        default: ""
+        type: string
+      package-directory:
+        description: Workspace directory (required for package drafts, e.g. packages/foo)
+        required: false
+        default: ""
+        type: string
       version-mode:
         description: Version mode
         required: true
@@ -62,15 +78,28 @@ jobs:
       - name: Validate repository release target
         env:
           PACKAGE: ${{ github.event_name == 'workflow_dispatch' && inputs.package || 'all' }}
+          PACKAGE_NAME: ${{ inputs.package-name }}
+          PACKAGE_DIRECTORY: ${{ inputs.package-directory }}
         shell: bash
         run: |
-          case "$PACKAGE" in
-            all|.|reusable-workflows-workspace) ;;
-            *)
-              echo "::error::This repository has a single release target. Use all, ., or reusable-workflows-workspace; received: $PACKAGE"
+          if [[ "${{ github.event_name == 'workflow_dispatch' && inputs.draft-target || 'repository' }}" == "package" ]]; then
+            [[ -n "$PACKAGE_NAME" && "$PACKAGE_DIRECTORY" =~ ^(packages|apps)/[a-zA-Z0-9_./-]+$ && "$PACKAGE_DIRECTORY" != *..* ]] || {
+              echo "::error::Package drafts require package-name and a valid package-directory."
               exit 1
-              ;;
-          esac
+            }
+            node -e 'const p=require("./"+process.argv[1]+"/package.json");if(p.private || p.name!==process.argv[2])process.exit(1)' "$PACKAGE_DIRECTORY" "$PACKAGE_NAME" || {
+              echo "::error::Selected package must exist, be public, and match package-name."
+              exit 1
+            }
+          else
+            case "$PACKAGE" in
+              all|.|reusable-workflows-workspace) ;;
+              *)
+                echo "::error::Repository drafts accept all, ., or reusable-workflows-workspace; received: $PACKAGE"
+                exit 1
+                ;;
+            esac
+          fi
 
   draft:
     needs: select-target
@@ -84,9 +113,11 @@ jobs:
       version-mode: ${{ github.event_name == 'workflow_dispatch' && inputs.version-mode || 'auto' }}
       version-bump: ${{ github.event_name == 'workflow_dispatch' && inputs.version-bump || '' }}
       exact-version: ${{ github.event_name == 'workflow_dispatch' && inputs.exact-version || '' }}
-      tag-prefix: "v"
-      release-name: "Reusable Workflows v$RESOLVED_VERSION"
-      changelog-path: CHANGELOG.md
+      tag-prefix: ${{ inputs.draft-target == 'package' && format('{0}@', inputs.package-name) || 'v' }}
+      package-name: ${{ inputs.draft-target == 'package' && inputs.package-name || '' }}
+      package-directory: ${{ inputs.draft-target == 'package' && inputs.package-directory || '' }}
+      release-name: ${{ inputs.draft-target == 'package' && format('{0} v{{{{VERSION}}}}', inputs.package-name) || 'Reusable Workflows v{{VERSION}}' }}
+      changelog-path: ${{ inputs.draft-target == 'package' && format('{0}/CHANGELOG.md', inputs.package-directory) || 'CHANGELOG.md' }}
       template-path: .github/release-drafter-template.yml
-      target-key: reusable-workflows
+      target-key: ${{ inputs.draft-target == 'package' && inputs.package-name || 'reusable-workflows' }}
       dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run == true }}
