@@ -20,5 +20,5 @@ jobs:
     uses: ./.github/workflows/reusable_approved-release.yml
     with:
       expected-base: main
-      required-workflows: .github/workflows/ci.yml
+      required-workflows: .github/workflows/ci_cli.yml,.github/workflows/ci_prettier.yml
       dry-run: false

@@ -347,12 +347,19 @@ jobs:
             else
               # GitHub permits title/notes edits on published releases, including immutable ones.
               # Drafts remain editable; draft=false explicitly finalizes one.
+              # Publishing an approved draft preserves reviewer-maintained notes.
+              # Only seed notes from the changelog when the draft body is empty.
+              BODY="$(cat "$NOTES_FILE")"
+              if [ "$(jq -r '.draft' <<< "$EXISTING")" = "true" ] && [ "${{ inputs.draft }}" = "false" ]; then
+                EXISTING_BODY="$(jq -r '.body // ""' <<< "$EXISTING")"
+                if [ -n "$EXISTING_BODY" ]; then BODY="$EXISTING_BODY"; fi
+              fi
               gh api \
                 --method PATCH \
                 "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" \
                 -f tag_name="$RELEASE_TAG" \
                 -f name="$RELEASE_NAME" \
-                -f body="$(cat "$NOTES_FILE")" \
+                -f body="$BODY" \
                 -F draft=${{ inputs.draft }} >/dev/null
 
               UPDATED="$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID")"
