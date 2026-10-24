@@ -39,7 +39,7 @@ jobs:
   prettier:
     uses: $/.github/workflows/reusable_self-heal-prettier.yml
     with:
-      mode: ${{ (github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && !inputs.repair)) && 'check' || 'fix' }}
-      commit: ${{ github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.repair) }}
+      mode: ${{ ((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) || (github.event_name == 'workflow_dispatch' && !inputs.repair)) && 'check' || 'fix' }}
+      commit: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && (github.event_name != 'workflow_dispatch' || inputs.repair) }}
       prettier-config: this-repository
 
