@@ -4,31 +4,29 @@ on:
   workflow_dispatch:
     inputs:
       package:
-        description: Publishable package name or directory, or all
-        required: true
+        description: Publishable workspace package or all
         type: string
+        required: true
         default: all
       version-mode:
-        description: Resolve each package version
+        description: Version calculation mode
         type: choice
+        options: [auto, bump, package-json, exact]
         required: true
         default: auto
-        options: [auto, bump, package-json, exact]
       initial-version:
-        description: Initial release version for auto mode
+        description: First release version in auto mode
         type: string
-        required: true
         default: "0.1.0"
       version-bump:
-        description: SemVer increment for bump and auto modes
+        description: SemVer increment for bump mode
         type: choice
+        options: [patch, minor, major, prepatch, preminor, premajor, prerelease]
         required: true
         default: patch
-        options: [patch, minor, major, prepatch, preminor, premajor, prerelease]
       exact-version:
-        description: Version for exact mode (all selected packages)
+        description: Exact version for exact mode
         type: string
-        required: false
         default: ""
       dry-run:
         description: Preview without opening a PR

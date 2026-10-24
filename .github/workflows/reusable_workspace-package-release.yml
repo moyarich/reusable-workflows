@@ -27,6 +27,9 @@ on:
         type: string
         required: false
         default: ""
+      commit-version-changes:
+        type: boolean
+        default: false
       update-major-tag:
         type: boolean
         required: false
@@ -70,181 +73,81 @@ jobs:
       package: ${{ inputs.package }}
       event-name: workflow_dispatch
       after-sha: ${{ github.sha }}
-      target-branch: main
+      target-branch: ${{ github.ref_name }}
       version-mode: ${{ inputs.version-mode }}
       version-bump: ${{ inputs.version-bump }}
       exact-version: ${{ inputs.exact-version }}
 
   select:
-    name: Resolve versions for selected packages
+    name: Resolve and prepare versions with Workspace Tools
     needs: select-packages
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     outputs:
       matrix: ${{ steps.versions.outputs.matrix }}
       count: ${{ steps.versions.outputs.count }}
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: main
+          ref: ${{ github.ref_name }}
           fetch-depth: 0
           fetch-tags: true
-          persist-credentials: false
+          persist-credentials: ${{ inputs.commit-version-changes && !inputs.dry-run }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
       - name: Resolve Workspace Tools CLI
         id: workspace-tools
         uses: $/actions/setup-workspace-tools
         with:
           workspace-tools-source: ${{ inputs.workspace-tools-source }}
-      - name: Resolve release versions
+      - name: Prepare versions, manifests and lockfile
         id: versions
-        env:
-          MATRIX: ${{ needs.select-packages.outputs.matrix }}
-          VERSION_MODE: ${{ inputs.version-mode }}
-          VERSION_BUMP: ${{ inputs.version-bump }}
-          EXACT_VERSION: ${{ inputs.exact-version }}
-          INITIAL_VERSION: ${{ inputs.initial-version }}
-          WORKSPACE_TOOLS_BIN: ${{ steps.workspace-tools.outputs.bin-dir }}
         shell: bash
+        env:
+          BIN: ${{ steps.workspace-tools.outputs.bin-dir }}
+          SELECTOR: ${{ inputs.package }}
+          MODE: ${{ inputs.version-mode }}
+          BUMP: ${{ inputs.version-bump }}
+          EXACT: ${{ inputs.exact-version }}
+          INITIAL: ${{ inputs.initial-version }}
+          COMMIT: ${{ inputs.commit-version-changes }}
+          DRY_RUN: ${{ inputs.dry-run }}
         run: |
           set -euo pipefail
-          selected="$(jq -c '.include' <<< "$MATRIX")"
-          resolved="$(node "$WORKSPACE_TOOLS_BIN/workspace-release-identity.mjs" resolve-versions \
-            --packages-json "$selected" \
-            --mode "$VERSION_MODE" \
-            --bump "$VERSION_BUMP" \
-            --exact-version "$EXACT_VERSION" \
-            --initial-version "$INITIAL_VERSION")"
-          count="$(jq 'length' <<< "$resolved")"
-          if [ "$count" -eq 0 ]; then
-            echo "::error::No publishable packages selected"
-            exit 1
-          fi
-          echo "matrix=$(jq -cn --argjson packages "$resolved" '{include: $packages}')" >> "$GITHUB_OUTPUT"
-          echo "count=$count" >> "$GITHUB_OUTPUT"
-          {
-            echo "# Package release selection"
-            echo
-            printf '**%s publishable packages selected**\n\n' "$count"
-            echo "| Setting | Value |"
-            echo "| --- | --- |"
-            printf '| Package selector | `%s` |\n' "${{ inputs.package }}"
-            printf '| Version mode | `%s` |\n' "$VERSION_MODE"
-            printf '| Dry run | **%s** |\n' "${{ inputs.dry-run }}"
-            echo
-            echo "## Packages"
-            echo
-            echo "| Package | Directory | Current version | Release version |"
-            echo "| --- | --- | --- | --- |"
-            jq -r '.[] | "| `" + .name + "` | `" + .directory + "` | `" + (.currentVersion // .current_version // "unknown") + "` | `" + .version + "` |"' <<< "$resolved"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-  prepare-versions:
-    name: Prepare package versions
-    needs: select
-    if: ${{ !inputs.dry-run && inputs.version-mode != 'package-json' }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: main
-          fetch-depth: 0
-      - uses: actions/setup-node@v7
-        with:
-          node-version: "24"
-      - name: Update selected manifests and lockfile
-        env:
-          PACKAGES: ${{ needs.select.outputs.matrix }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          PACKAGES="$PACKAGES" node --input-type=module <<'NODE'
-          import { readFileSync, writeFileSync } from "node:fs";
-          const selected = JSON.parse(process.env.PACKAGES).include;
-          const lockPath = "package-lock.json";
-          const lock = JSON.parse(readFileSync(lockPath, "utf8"));
-          const selectedByName = new Map(selected.map(pkg => [pkg.name, pkg]));
-          const rootManifest = JSON.parse(readFileSync("package.json", "utf8"));
-          const rootSelection = selected.find(pkg => pkg.directory === ".");
-          if (rootSelection) {
-            if (rootManifest.private === true || rootManifest.name !== rootSelection.name) throw Error("Selected root manifest mismatch");
-            rootManifest.version = rootSelection.version;
-            lock.version = rootSelection.version;
-            if (lock.packages?.[""]) lock.packages[""].version = rootSelection.version;
-          }
-          const workspaceEntries = Object.entries(lock.packages ?? {})
-            .filter(([directory, meta]) => directory && !directory.startsWith("node_modules/") && meta.name);
-          const files = [];
-          for (const [directory, meta] of workspaceEntries) {
-            const manifestPath = `${directory}/package.json`;
-            const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-            if (manifest.name !== meta.name) throw Error(`Workspace mismatch: ${directory}`);
-            const target = selectedByName.get(manifest.name);
-            if (target) {
-              if (target.directory !== directory) throw Error(`Selected directory mismatch: ${manifest.name}`);
-              manifest.version = target.version;
-              meta.version = target.version;
-            }
-            // Update only local dependencies whose declared range would reject
-            // the selected release version. Preserve compatible caret, tilde,
-            // wildcard, and other ranges to avoid unnecessary manifest churn.
-            const accepts = (range, version) => {
-              if (range === "*" || range === "latest") return true;
-              const parse = text => {
-                const m = text.match(/^([0-9]+)\\.([0-9]+)\\.([0-9]+)(?:-([0-9A-Za-z.-]+))?$/);
-                return m ? m.slice(1, 4).map(Number) : null;
-              };
-              const actual = parse(version);
-              if (!actual) return false;
-              const prefix = range.startsWith("^") || range.startsWith("~") ? range[0] : "";
-              const required = parse(prefix ? range.slice(1) : range);
-              if (!required) return false;
-              const compare = (a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
-              if (!prefix) return range === version;
-              if (compare(actual, required) < 0) return false;
-              if (prefix === "~") return actual[0] === required[0] && actual[1] === required[1];
-              if (required[0] > 0) return actual[0] === required[0];
-              if (required[1] > 0) return actual[0] === 0 && actual[1] === required[1];
-              return actual[0] === 0 && actual[1] === 0 && actual[2] === required[2];
-            };
-            for (const field of ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"]) {
-              if (!manifest[field]) continue;
-              for (const [name, range] of Object.entries(manifest[field])) {
-                const dependency = selectedByName.get(name);
-                if (!dependency || accepts(range, dependency.version)) continue;
-                const prefix = range.startsWith("^") || range.startsWith("~") ? range[0] : "";
-                manifest[field][name] = prefix + dependency.version;
-              }
-            }
-            for (const field of ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"]) {
-              if (manifest[field]) meta[field] = { ...manifest[field] };
-            }
-            files.push([manifestPath, manifest]);
-          }
-          for (const pkg of selected) {
-            if (pkg.directory !== "." && !workspaceEntries.some(([directory]) => directory === pkg.directory)) {
-              throw Error(`Selected workspace missing from lockfile: ${pkg.directory}`);
-            }
-          }
-          if (rootSelection) files.push(["package.json", rootManifest]);
-          for (const [path, value] of files) writeFileSync(path, JSON.stringify(value, null, 2) + "\n");
-          writeFileSync(lockPath, JSON.stringify(lock, null, 2) + "\n");
-          NODE
-          if ! git diff --quiet; then
+          args=(--package "$SELECTOR" --version-mode "$MODE" --version-bump "$BUMP" --exact-version "$EXACT" --initial-version "$INITIAL" --manifest "$RUNNER_TEMP/prepared.json")
+          if [[ "$DRY_RUN" != true ]]; then args+=(--write); fi
+          node "$BIN/workspace-prepare-release.mjs" "${args[@]}"
+          git diff --check
+          resolved="$(jq -ce '[.packages[] | . + {major: (.version | split(".")[0] | tonumber)}]' "$RUNNER_TEMP/prepared.json")"
+          [[ "$(jq length <<< "$resolved")" -gt 0 ]] || { echo "::error::No packages selected"; exit 1; }
+          echo "matrix=$(jq -cn --argjson packages "$resolved" '{include:$packages}')" >> "$GITHUB_OUTPUT"
+          echo "count=$(jq length <<< "$resolved")" >> "$GITHUB_OUTPUT"
+          if [[ "$DRY_RUN" != true ]] && [[ -n "$(git status --porcelain -- package.json package-lock.json packages apps)" ]]; then
+            if [[ "$COMMIT" != true ]]; then
+              echo "::error::Release has uncommitted version changes; enable commit-version-changes or use already committed package-json versions."
+              exit 1
+            fi
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add -u -- package.json package-lock.json
-            if [ -d packages ]; then git add -u -- packages; fi
-            git commit -m "release: prepare selected package versions"
-            git push origin HEAD:main
+            if [[ -d packages ]]; then git add -u -- packages; fi
+            if [[ -d apps ]]; then git add -u -- apps; fi
+            git commit -m "release: prepare selected workspace versions"
+            git push origin "HEAD:refs/heads/$GITHUB_REF_NAME"
           fi
+          {
+            echo "## Release preparation"
+            jq -r '.packages[] | "- " + .name + ": " + .currentVersion + " → " + .version' "$RUNNER_TEMP/prepared.json"
+            echo
+            echo "Mode: $MODE; dry-run: $DRY_RUN; commit: $COMMIT"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   gate:
     name: Validate package release
-    needs: [select, prepare-versions]
-    if: ${{ always() && needs.select.result == 'success' && (needs.prepare-versions.result == 'success' || needs.prepare-versions.result == 'skipped') && needs.select.outputs.count != '0' }}
+    needs: select
+    if: ${{ always() && needs.select.result == 'success' && needs.select.outputs.count != '0' }}
     runs-on: ubuntu-latest
     environment: release
     permissions:
@@ -252,7 +155,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: main
+          ref: ${{ github.ref_name }}
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
@@ -280,8 +183,8 @@ jobs:
 
   release:
     name: GitHub package release
-    needs: [select, prepare-versions, gate]
-    if: ${{ always() && needs.select.result == 'success' && (needs.prepare-versions.result == 'success' || needs.prepare-versions.result == 'skipped') && needs.gate.result == 'success' && needs.select.outputs.count != '0' }}
+    needs: [select, gate]
+    if: ${{ always() && needs.select.result == 'success' && needs.gate.result == 'success' && needs.select.outputs.count != '0' }}
     strategy:
       fail-fast: false
       max-parallel: 1 # Avoid concurrent release/tag mutations and GitHub release-index races.
@@ -294,7 +197,7 @@ jobs:
       release-tag: ${{ format('{0}@{1}', matrix.name, matrix.version) }}
       release-name: ${{ format('{0} v{1}', matrix.name, matrix.version) }}
       changelog-file: ${{ matrix.directory == '.' && 'CHANGELOG.md' || format('{0}/CHANGELOG.md', matrix.directory) }}
-      target-ref: main
+      target-ref: ${{ github.ref_name }}
       create-tag: true
       major-tag: ${{ format('{0}@v{1}', matrix.name, matrix.major) }}
       update-major-tag: ${{ inputs.update-major-tag }}
@@ -304,7 +207,7 @@ jobs:
   report:
     name: Workspace release · Summary
     if: ${{ always() }}
-    needs: [discover-packages, select-packages, select, prepare-versions, gate, release]
+    needs: [discover-packages, select-packages, select, gate, release]
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -319,7 +222,7 @@ jobs:
           SELECTION_STATUS: ${{ needs.select-packages.result }}
           SELECT_STATUS: ${{ needs.select.result }}
           PACKAGE_MATRIX: ${{ needs.select.outputs.matrix }}
-          PREPARE_STATUS: ${{ needs.prepare-versions.result }}
+          PREPARE_STATUS: ${{ needs.select.result }}
           VALIDATE_STATUS: ${{ needs.gate.result }}
           RELEASE_STATUS: ${{ needs.release.result }}
           REQUESTED_PACKAGE: ${{ inputs.package }}

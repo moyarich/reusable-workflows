@@ -1,244 +1,96 @@
-name: Release
+name: Release package
 
 run-name: >-
-  Release · ${{ inputs.version-mode }}${{ inputs.version-mode == 'bump' && format(':{0}', inputs.version-bump) || inputs.version-mode == 'exact' && format(':{0}', inputs.exact-version) || '' }} · dry-run=${{ inputs.dry-run }}
+  Release · ${{ inputs.package }} · ${{ inputs.version-mode }}${{ inputs.version-mode
+  == 'bump' && format(':{0}', inputs.version-bump) || inputs.version-mode == 'exact'
+  && format(':{0}', inputs.exact-version) || '' }} · ${{ inputs.draft && 'draft' ||
+  'published' }} · dry-run=${{ inputs.dry-run }}
 
 on:
   workflow_dispatch:
     inputs:
-      version-mode:
-        description: Version mode
+      workspace-tools-source:
+        description: Workspace Tools CLI source for package discovery
+        type: choice
         required: true
         default: auto
-        type: choice
         options:
           - auto
-          - bump
-          - package-json
-          - exact
+          - checkout:current
+          - checkout:upstream;branch:main
+          - registry:npm:latest
+      package:
+        description: Select a publishable workspace package
+        required: true
+        type: string
+        default: all
+      version-mode:
+        description: Resolve each package version
+        type: choice
+        required: true
+        default: auto
+        options: [auto, bump, package-json, exact]
       initial-version:
-        description: First auto release when no published release exists
+        description: Initial release version for auto mode
+        type: string
         required: true
         default: "0.1.0"
-        type: string
       version-bump:
-        description: Version bump
+        description: SemVer increment for bump mode
+        type: choice
         required: true
         default: patch
-        type: choice
-        options:
-          - patch
-          - minor
-          - major
-          - prepatch
-          - preminor
-          - premajor
-          - prerelease
+        options: [patch, minor, major, prepatch, preminor, premajor, prerelease]
       exact-version:
-        description: Exact semantic version when version mode is exact
+        description: Version for exact mode (all selected packages)
+        type: string
         required: false
         default: ""
-        type: string
-      dry-run:
-        description: Preview without mutating package.json, tags, or GitHub Releases
+      commit-version-changes:
+        description: Commit prepared versions and lockfile to the selected branch before release
+        type: boolean
+        required: true
+        default: false
+      update-major-tag:
+        description: Update package-scoped major compatibility alias
+        type: boolean
         required: true
         default: true
+      draft:
+        description: |
+          Prepare draft GitHub Releases
+          (disable only to explicitly finalize)
         type: boolean
-      update-major-tag:
-        description: Move the compatible major alias
+        required: true
+        default: true
+      dry-run:
+        description: Validate without creating a GitHub Release, tag, or package
         required: true
         default: true
         type: boolean
 
 permissions: {}
 
+concurrency:
+  group: release-package-${{ inputs.package }}
+  cancel-in-progress: false
+
 jobs:
-  resolve:
-    name: Resolve release version
-    permissions:
-      contents: write
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-      major-tag: ${{ steps.version.outputs.major-tag }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.ref_name }}
-          persist-credentials: false
-
-      - id: version
-        name: Resolve version
-        shell: bash
-        env:
-          VERSION_MODE: ${{ inputs.version-mode }}
-          VERSION_BUMP: ${{ inputs.version-bump }}
-          EXACT_VERSION: ${{ inputs.exact-version }}
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          INITIAL_VERSION: ${{ inputs.initial-version }}
-        run: |
-          set -euo pipefail
-
-          CURRENT_VERSION="$(node -p "require('./package.json').version")"
-
-          if ! [[ "$CURRENT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]; then
-            echo "::error::Root package.json version must be valid semantic versioning."
-            exit 1
-          fi
-
-          case "$VERSION_MODE" in
-            auto)
-              # Draft and release auto modes share the same baseline:
-              # the latest published release, ignoring drafts and package.json.
-              PREVIOUS="$(gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100" | jq -r '[.[][] | select(.draft == false and (.tag_name | test("^v[0-9]+[.][0-9]+[.][0-9]+$")))] | sort_by(.published_at // .created_at) | last | .tag_name // empty')"
-              if [ -z "$PREVIOUS" ]; then
-                VERSION="$INITIAL_VERSION"
-              else
-                VERSION="$(node -e 'const v=process.argv[1].slice(1).split(".").map(Number); console.log(`${v[0]}.${v[1]}.${v[2]+1}`)' "$PREVIOUS")"
-              fi
-              ;;
-            package-json)
-              VERSION="$CURRENT_VERSION"
-              ;;
-            exact)
-              VERSION="$EXACT_VERSION"
-              if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]; then
-                echo "::error::Exact version must be semantic versioning without a leading v."
-                exit 1
-              fi
-              ;;
-            bump)
-              VERSION="$(node - "$CURRENT_VERSION" "$VERSION_BUMP" <<'NODE'
-          const [currentVersion, bump] = process.argv.slice(2);
-          const match = currentVersion.match(/^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/);
-
-          if (!match) {
-            throw new Error(`Invalid current semantic version: ${currentVersion}`);
-          }
-
-          let [, major, minor, patch, prerelease = ""] = match;
-          major = Number(major);
-          minor = Number(minor);
-          patch = Number(patch);
-
-          switch (bump) {
-            case "major":
-              console.log(`${major + 1}.0.0`);
-              break;
-            case "minor":
-              console.log(`${major}.${minor + 1}.0`);
-              break;
-            case "patch":
-              console.log(`${major}.${minor}.${patch + 1}`);
-              break;
-            case "premajor":
-              console.log(`${major + 1}.0.0-0`);
-              break;
-            case "preminor":
-              console.log(`${major}.${minor + 1}.0-0`);
-              break;
-            case "prepatch":
-              console.log(`${major}.${minor}.${patch + 1}-0`);
-              break;
-            case "prerelease": {
-              if (!prerelease) {
-                console.log(`${major}.${minor}.${patch + 1}-0`);
-                break;
-              }
-
-              const parts = prerelease.split(".");
-              const last = parts.at(-1);
-
-              if (last && /^\d+$/.test(last)) {
-                parts[parts.length - 1] = String(Number(last) + 1);
-              } else {
-                parts.push("0");
-              }
-
-              console.log(`${major}.${minor}.${patch}-${parts.join(".")}`);
-              break;
-            }
-            default:
-              throw new Error(`Unsupported version bump: ${bump}`);
-          }
-          NODE
-              )"
-              ;;
-            *)
-              echo "::error::Version mode must be auto, bump, package-json, or exact."
-              exit 1
-              ;;
-          esac
-
-          {
-            echo "version=$VERSION"
-            echo "major-tag=v${VERSION%%.*}"
-            echo "current-version=$CURRENT_VERSION"
-          } >> "$GITHUB_OUTPUT"
-
-          {
-            echo "# Release version"
-            echo
-            echo "| Setting | Value |"
-            echo "| --- | --- |"
-            printf '| Version mode | `%s` |\n' "$VERSION_MODE"
-            printf '| Current version | `%s` |\n' "$CURRENT_VERSION"
-            if [ "$VERSION_MODE" = "bump" ]; then
-              printf '| Version bump | `%s` |\n' "$VERSION_BUMP"
-            fi
-            printf '| Resolved version | `%s` |\n' "$VERSION"
-            printf '| Release tag | `v%s` |\n' "$VERSION"
-            echo
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Update root package version
-        if: ${{ inputs.dry-run == false && inputs.version-mode != 'package-json' && steps.version.outputs.version != steps.version.outputs.current-version }}
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          TARGET_BRANCH: ${{ github.ref_name }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          npm pkg set "version=$VERSION"
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package.json
-          git commit -m "release: v$VERSION"
-
-          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git"
-          git push origin "HEAD:${TARGET_BRANCH}"
-
   release:
-    needs: resolve
+    name: Release selected packages
     permissions:
+      actions: read
       contents: write
-    uses: $/.github/workflows/reusable_release.yml
+      pull-requests: read
+    uses: ./.github/workflows/reusable_workspace-package-release.yml
     with:
-      version: ${{ needs.resolve.outputs.version }}
-      release-tag: ${{ format('v{0}', needs.resolve.outputs.version) }}
-      release-name: ${{ format('Reusable Workflows v{0}', needs.resolve.outputs.version) }}
-      changelog-file: CHANGELOG.md
-      target-ref: ${{ github.ref_name }}
+      workspace-tools-source: ${{ inputs.workspace-tools-source }}
+      package: ${{ inputs.package }}
+      version-mode: ${{ inputs.version-mode }}
+      initial-version: ${{ inputs.initial-version }}
+      version-bump: ${{ inputs.version-bump }}
+      exact-version: ${{ inputs.exact-version }}
+      commit-version-changes: ${{ inputs.commit-version-changes }}
+      update-major-tag: ${{ inputs.update-major-tag }}
+      draft: ${{ inputs.draft }}
       dry-run: ${{ inputs.dry-run }}
-      create-tag: true
-      major-tag: ${{ needs.resolve.outputs.major-tag }}
-      update-major-tag: false
-      draft: false
-
-  publish-action-version:
-    name: Publish major action version
-    needs:
-      - resolve
-      - release
-    if: ${{ !inputs.dry-run && inputs.update-major-tag }}
-    permissions:
-      contents: write
-    uses: $/.github/workflows/reusable_tag-update.yml
-    with:
-      source-tag: ${{ format('v{0}', needs.resolve.outputs.version) }}
