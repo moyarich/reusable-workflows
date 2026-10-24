@@ -20,6 +20,10 @@ const outputRoot = join(repositoryRoot, "actions");
 const bundledRoot = join(packageRoot, "dist/.bundles");
 const bundles = new Map([
   ["browser-extension-publish", "browser-extension-publish/index.mjs"],
+  [
+    "copy-files-to-another-repository",
+    "copy-files-to-another-repository/index.mjs",
+  ],
   ["release-draft-sync", "release-draft-sync/index.mjs"],
   ["setup-workspace-tools", "setup-workspace-tools/index.mjs"],
   ["validate-release-identity", "validate-release-identity/index.mjs"],
