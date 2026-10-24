@@ -3,9 +3,9 @@ import {
   existsSync,
   mkdtempSync,
   readdirSync,
-  readFileSync,
   rmSync,
   statSync,
+  lstatSync,
   appendFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -73,6 +73,7 @@ export function copyFiles(options: CopyOptions): {
     );
     for (const name of readdirSync(options.sourceDirectory)) {
       if (name === ".git") throw new Error("Refusing to copy .git");
+      if (lstatSync(resolve(options.sourceDirectory, name)).isSymbolicLink()) throw new Error("Refusing symbolic-link source: " + name);
       cpSync(resolve(options.sourceDirectory, name), join(destination, name), {
         recursive: true,
         force: true,
