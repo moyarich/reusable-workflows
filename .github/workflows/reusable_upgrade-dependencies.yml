@@ -12,6 +12,10 @@ on:
         description: Comma-separated package names to exclude from upgrades (optional)
         type: string
         default: ""
+concurrency:
+  group: dependency-upgrades-${{ github.repository }}-${{ github.ref_name }}
+  cancel-in-progress: false
+
 permissions:
   contents: write
   packages: read
