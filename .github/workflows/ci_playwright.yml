@@ -7,11 +7,6 @@ on:
       - "**/*.specs.*"
       - "**/playwright.config.*"
       - "playwright.config.*"
-      - "tests/**"
-      - "packages/**"
-      - "apps/**"
-      - "package.json"
-      - "package-lock.json"
       - ".github/workflows/ci_playwright.yml"
   pull_request:
     paths:
@@ -19,11 +14,6 @@ on:
       - "**/*.specs.*"
       - "**/playwright.config.*"
       - "playwright.config.*"
-      - "tests/**"
-      - "packages/**"
-      - "apps/**"
-      - "package.json"
-      - "package-lock.json"
       - ".github/workflows/ci_playwright.yml"
   workflow_call:
     inputs:
