@@ -40,12 +40,30 @@ jobs:
           appendFileSync(process.env.GITHUB_OUTPUT,`enabled=${Boolean(runnable)}\n`);
           console.log(runnable?'Playwright configured':'No root Playwright configuration; skipping');
           NODE
-      - name: Install Chromium
+      - name: Discover Playwright tests
+        id: tests
         if: steps.discover.outputs.enabled == 'true'
+        shell: bash
+        run: |
+          set +e
+          output="$(npx --no-install playwright test --list 2>&1)"
+          status=$?
+          set -e
+          printf '%s\n' "$output"
+          if grep -Eq 'No tests found|Total: 0 tests' <<< "$output"; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "No Playwright tests found; skipping Chromium installation and test execution."
+          elif [[ "$status" -ne 0 ]]; then
+            exit "$status"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install Chromium
+        if: steps.tests.outputs.enabled == 'true'
         run: npx --no-install playwright install --with-deps chromium
       - name: Run Playwright
         id: test
-        if: steps.discover.outputs.enabled == 'true'
+        if: steps.tests.outputs.enabled == 'true'
         run: npx --no-install playwright test
       - name: Upload failure traces
         if: failure() && steps.test.outcome == 'failure'
