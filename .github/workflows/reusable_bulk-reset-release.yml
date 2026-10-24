@@ -31,6 +31,10 @@ on:
         default: true
         type: boolean
 
+concurrency:
+  group: bulk-release-mutations-${{ github.repository }}
+  cancel-in-progress: false
+
 permissions: {}
 jobs:
   select:
