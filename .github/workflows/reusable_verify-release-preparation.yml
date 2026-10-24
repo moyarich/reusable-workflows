@@ -6,7 +6,7 @@ on:
         type: string
         default: main
       required-workflows:
-        description: Comma-separated paths to CI workflows required to succeed on the PR head SHA
+        description: Comma-separated paths to ALL CI workflows required to succeed on the PR head SHA
         type: string
         default: ''
     outputs:
