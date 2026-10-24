@@ -73,7 +73,7 @@ jobs:
               throw Error("Invalid release package directory: "+dir);
             const file=dir+"/package.json";
             const final=JSON.parse(fs.readFileSync(file,"utf8"));
-            if(final.private===true || typeof final.name!=="string" || !/^\d+\\.\d+\\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(final.version))
+            if(final.private===true || typeof final.name!=="string" || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(final.version))
               throw Error("Invalid final publishable version in "+file);
             if(pkg.name && pkg.name!==final.name) throw Error("Package identity changed: "+file);
             if(names.has(final.name)) throw Error("Duplicate release package: "+final.name);
