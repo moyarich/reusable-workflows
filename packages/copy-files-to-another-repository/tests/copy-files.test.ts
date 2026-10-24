@@ -9,11 +9,24 @@ describe("copy repository options", () => {
     const source = mkdtempSync(join(tmpdir(), "copy-action-test-"));
     try {
       mkdirSync(join(source, "files"));
-      const options = { sourceDirectory: source, repository: "moyarich/console", branch: "main", token: "test", dryRun: true, message: "sync" };
+      const options = {
+        sourceDirectory: source,
+        repository: "moyarich/console",
+        branch: "main",
+        token: "test",
+        dryRun: true,
+        message: "sync",
+      };
       expect(() => validateOptions(options)).not.toThrow();
-      expect(() => validateOptions({ ...options, repository: "../bad" })).toThrow("Invalid repository");
-      expect(() => validateOptions({ ...options, branch: "../main" })).toThrow("Invalid branch");
+      expect(() =>
+        validateOptions({ ...options, repository: "../bad" }),
+      ).toThrow("Invalid repository");
+      expect(() => validateOptions({ ...options, branch: "../main" })).toThrow(
+        "Invalid branch",
+      );
       expect(() => validateOptions({ ...options, token: "" })).toThrow("token");
-    } finally { rmSync(source, { recursive: true, force: true }); }
+    } finally {
+      rmSync(source, { recursive: true, force: true });
+    }
   });
 });
