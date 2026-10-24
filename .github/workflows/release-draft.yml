@@ -118,7 +118,7 @@ jobs:
       tag-prefix: ${{ inputs.draft-target == 'package' && format('{0}@', inputs.package-name) || 'v' }}
       package-name: ${{ inputs.draft-target == 'package' && inputs.package-name || '' }}
       package-directory: ${{ inputs.draft-target == 'package' && inputs.package-directory || '' }}
-      release-name: ${{ inputs.draft-target == 'package' && format('{0} v{{VERSION}}', inputs.package-name) || 'Reusable Workflows v{{VERSION}}' }}
+      release-name: ${{ inputs.draft-target == 'package' && format('{0} v{1}', inputs.package-name, '{{VERSION}}') || 'Reusable Workflows v{{VERSION}}' }}
       changelog-path: ${{ inputs.draft-target == 'package' && format('{0}/CHANGELOG.md', inputs.package-directory) || 'CHANGELOG.md' }}
       template-path: .github/release-drafter-template.yml
       target-key: ${{ inputs.draft-target == 'package' && inputs.package-name || 'reusable-workflows' }}
