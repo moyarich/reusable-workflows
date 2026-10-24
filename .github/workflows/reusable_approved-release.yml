@@ -68,7 +68,7 @@ jobs:
             echo "name=$name"
             echo "directory=$directory"
             echo "version=$version"
-            echo "release-tag=$directory@$version"
+            echo "release-tag=$name@$version"
           } >> "$GITHUB_OUTPUT"
           printf '## Approved release preparation\n\nPackage: `%s`\nVersion: `%s`\nMerged SHA: `%s`\n' "$name" "$version" "$APPROVED_SHA" >> "$GITHUB_STEP_SUMMARY"
 
