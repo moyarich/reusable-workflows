@@ -23,9 +23,16 @@ export interface CopyOptions {
   message: string;
 }
 export function validateOptions(o: CopyOptions): void {
-  if (!/^[\\w.-]+\/[\\w.-]+$/.test(o.sourceRepository) || o.sourceRepository.split("/").some((part) => part === "." || part === ".."))
+  if (
+    !/^[\\w.-]+\/[\\w.-]+$/.test(o.sourceRepository) ||
+    o.sourceRepository.split("/").some((part) => part === "." || part === "..")
+  )
     throw new Error("Invalid source repository");
-  if (!/^[\\w.-][\\w./-]*$/.test(o.sourceRef) || o.sourceRef.includes("..") || o.sourceRef.includes("//"))
+  if (
+    !/^[\\w.-][\\w./-]*$/.test(o.sourceRef) ||
+    o.sourceRef.includes("..") ||
+    o.sourceRef.includes("//")
+  )
     throw new Error("Invalid source ref");
   const parts = o.repository.split("/");
   if (
