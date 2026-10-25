@@ -86,17 +86,18 @@ jobs:
       max-parallel: 2
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@v7
-        with:
-          repository: ${{ needs.plan.outputs.source-repository }}
-          ref: main
-          persist-credentials: false
-      - name: Checkout upstream copier implementation
+      - name: Checkout copier and local action
         uses: actions/checkout@v7
         with:
           repository: moyarich/reusable-workflows
+          ref: refactor/copier-into-cli
+          persist-credentials: false
+      - name: Checkout canonical source workflows
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ needs.plan.outputs.source-repository }}
           ref: main
-          path: upstream-copier
+          path: source-workflows
           persist-credentials: false
       - name: Checkout caller configuration
         uses: actions/checkout@v7
@@ -107,7 +108,7 @@ jobs:
       - name: Install YAML parser
         run: python3 -m pip install --quiet 'ruamel.yaml>=0.18,<0.20'
       - name: Test workflow generation
-        run: python3 -m unittest discover -s upstream-copier/packages/cli/tests -p 'test_copy_workflows.py' -v
+        run: python3 -m unittest discover -s packages/cli/tests -p 'test_copy_workflows.py' -v
       - name: Read destination workflow inventory
         env:
           GH_TOKEN: ${{ secrets.workflow-token }}
@@ -129,9 +130,10 @@ jobs:
         env:
           DEST_REPO: ${{ matrix.name }}
         run: |
-          python3 upstream-copier/packages/cli/scripts/copy-workflows.py --config caller-config/.github/copy-files-config.yml --repository "$DEST_REPO" --output "$RUNNER_TEMP/generated" --existing-files "$RUNNER_TEMP/existing-workflows.json" $(test ! -f "$RUNNER_TEMP/destination-publish.yml" || printf -- "--destination-publish-file %s" "$RUNNER_TEMP/destination-publish.yml")
+          cd source-workflows
+          python3 ../packages/cli/scripts/copy-workflows.py --config ../caller-config/.github/copy-files-config.yml --repository "$DEST_REPO" --output "$RUNNER_TEMP/generated" --existing-files "$RUNNER_TEMP/existing-workflows.json" $(test ! -f "$RUNNER_TEMP/destination-publish.yml" || printf -- "--destination-publish-file %s" "$RUNNER_TEMP/destination-publish.yml")
       - name: Copy generated workflows to destination
-        uses: moyarich/reusable-workflows/actions/copy-files-to-another-repository@main
+        uses: ./actions/copy-files-to-another-repository
         with:
           token: ${{ secrets.workflow-token }}
           source-repository: ${{ needs.plan.outputs.source-repository }}
