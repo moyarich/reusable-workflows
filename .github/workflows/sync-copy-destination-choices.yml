@@ -29,12 +29,12 @@ concurrency:
 
 jobs:
   sync:
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: main
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
@@ -82,11 +82,12 @@ jobs:
       - name: Commit synchronization
         env:
           WORKFLOW_TOKEN: ${{ secrets._WORKFLOW_TOKEN }}
+          TARGET_BRANCH: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}
         shell: bash
         run: |
           set -euo pipefail
           if git diff --quiet -- .github/workflows/copy.yml; then
-            echo "Workflow choices already match destination inventory"
+            echo "Workflow choices already match canonical source and destination inventory"
             exit 0
           fi
           if [[ -z "$WORKFLOW_TOKEN" ]]; then
@@ -98,10 +99,10 @@ jobs:
           git add .github/workflows/copy.yml
           git commit -m 'chore(actions): sync copy destination choices'
           auth="$(printf 'x-access-token:%s' "$WORKFLOW_TOKEN" | base64 -w0)"
-          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" push origin HEAD:main
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" push origin "HEAD:refs/heads/$TARGET_BRANCH"
 
   validate:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
