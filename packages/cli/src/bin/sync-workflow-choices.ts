@@ -9,17 +9,26 @@ const option = (name: string): string => {
   return args[index + 1];
 };
 const sourceFile = option("--source");
-if (!/^[\\w./-]+\\.ya?ml$/.test(sourceFile) && !/^[\\w./-]+\\.json$/.test(sourceFile))
+if (
+  !/^[\\w./-]+\\.ya?ml$/.test(sourceFile) &&
+  !/^[\\w./-]+\\.json$/.test(sourceFile)
+)
   throw new Error("Source must be a YAML or JSON file");
 const data: unknown = parse(readFileSync(sourceFile, "utf8"));
 const path = option("--values-path").split(".");
 let values: unknown = data;
 for (const key of path) {
-  if (!key || values === null || typeof values !== "object" || Array.isArray(values))
+  if (
+    !key ||
+    values === null ||
+    typeof values !== "object" ||
+    Array.isArray(values)
+  )
     throw new Error("Missing values path: " + path.join("."));
   values = (values as Record<string, unknown>)[key];
 }
-if (!Array.isArray(values)) throw new Error("Values path must resolve to an array");
+if (!Array.isArray(values))
+  throw new Error("Values path must resolve to an array");
 const fieldIndex = args.indexOf("--value-field");
 const field = fieldIndex < 0 ? "" : option("--value-field");
 const extracted = values.map((item: unknown): unknown => {
@@ -39,4 +48,8 @@ const changed = syncWorkflowChoice({
   defaultValue: option("--default"),
   check: args.includes("--check"),
 });
-console.log(changed ? "Updated workflow dispatch choices" : "Workflow dispatch choices already current");
+console.log(
+  changed
+    ? "Updated workflow dispatch choices"
+    : "Workflow dispatch choices already current",
+);
