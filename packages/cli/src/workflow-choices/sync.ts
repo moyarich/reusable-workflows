@@ -33,8 +33,26 @@ export function syncYamlValues({
       throw new Error("Invalid YAML property path");
     if (!document.hasIn(update.path))
       throw new Error("Missing YAML property: " + update.path.join("."));
-    document.setIn(update.path, update.value);
+    const existing = document.getIn(update.path, true);
+    const currentValue = existing && typeof existing === "object" && "toJSON" in existing
+      ? (existing as { toJSON(): unknown }).toJSON()
+      : existing;
+    if (JSON.stringify(currentValue) !== JSON.stringify(update.value))
+      document.setIn(update.path, update.value);
   }
+  if (updates.every(({ path, value }) => {
+    const existing = document.getIn(path, true);
+    const currentValue = existing && typeof existing === "object" && "toJSON" in existing
+      ? (existing as { toJSON(): unknown }).toJSON()
+      : existing;
+    return JSON.stringify(currentValue) === JSON.stringify(value);
+  }) && !updates.some(({path,value}) => {
+    const source = parseDocument(original);
+    const originalValue = source.getIn(path, true);
+    const resolved = originalValue && typeof originalValue === "object" && "toJSON" in originalValue
+      ? (originalValue as {toJSON(): unknown}).toJSON() : originalValue;
+    return JSON.stringify(resolved) !== JSON.stringify(value);
+  })) return false;
   const next = String(document);
   if (next === original) return false;
   if (check) throw new Error("YAML settings are out of sync: " + file);
