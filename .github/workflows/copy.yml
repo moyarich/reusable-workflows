@@ -1,6 +1,6 @@
 name: Copy canonical workflow callers
 run-name: >-
-  Copy callers · ${{ inputs.repository == 'all' && 'all destinations' || inputs.repository }} · ${{ inputs.create-pr && 'open PRs' || 'preview' }}
+  Copy callers · ${{ inputs.repository == 'all' && 'all destinations' || inputs.repository }} · ${{ inputs.dry-run && 'preview' || (inputs.create-pr && 'open PRs' || 'update branches') }}
 
 on:
   workflow_dispatch:
@@ -62,8 +62,13 @@ on:
           - restore-release.yml
           - sync-release-package-choices.yml
           - upgrade-dependencies.yml
+      dry-run:
+        description: Preview changes without writing to destination repositories
+        type: boolean
+        required: true
+        default: true
       create-pr:
-        description: Create or update destination pull requests (unchecked means preview only)
+        description: Create or update pull requests; otherwise update destination branches directly
         type: boolean
         required: true
         default: false
@@ -83,6 +88,7 @@ jobs:
     with:
       repository: ${{ inputs.repository == 'all' && '' || inputs.repository }}
       workflow: ${{ inputs.workflow == 'all' && '' || inputs.workflow }}
-      dry-run: ${{ !inputs.create-pr }}
+      dry-run: ${{ inputs.dry-run }}
+      create-pr: ${{ inputs.create-pr }}
     secrets:
       workflow-token: ${{ secrets._WORKFLOW_TOKEN }}
