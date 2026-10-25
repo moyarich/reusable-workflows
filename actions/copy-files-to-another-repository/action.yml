@@ -70,7 +70,11 @@ runs:
           source_tmp="$(mktemp -d)"
           trap 'rm -rf "$source_tmp"' EXIT
           auth_source="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
-          git -c http.extraheader="AUTHORIZATION: basic $auth_source" clone --quiet --depth 1 --branch "$SOURCE_REF" "https://github.com/$SOURCE_REPO.git" "$source_tmp/checkout"
+          mkdir -p "$source_tmp/checkout"
+          git -C "$source_tmp/checkout" init --quiet
+          git -C "$source_tmp/checkout" remote add origin "https://github.com/$SOURCE_REPO.git"
+          git -C "$source_tmp/checkout" -c http.extraheader="AUTHORIZATION: basic $auth_source" fetch --quiet --depth 1 origin "$SOURCE_REF"
+          git -C "$source_tmp/checkout" checkout --quiet --detach FETCH_HEAD
           mkdir -p "$source_tmp/prepared/.github/workflows"
           find "$source_tmp/checkout/.github/workflows" -maxdepth 1 -type f -name "*.yml" -exec cp -t "$source_tmp/prepared/.github/workflows" -- {} +
           SOURCE="$source_tmp/prepared"
