@@ -60,6 +60,59 @@ describe("TypeScript copier generation", () => {
     }
   });
 
+  it("combines YAML anchors, aliases, merges and named profiles", () => {
+    const root = mkdtempSync(join(tmpdir(), "copier-merged-"));
+    const sourceRoot = join(root, "source");
+    const output = join(root, "output");
+    const directory = join(sourceRoot, ".github/workflows");
+    mkdirSync(directory, { recursive: true });
+    try {
+      for (const name of ["ci_cli.yml", "publish-vscode-vsx.yml", "publish-browser-extension.yml"]) {
+        writeFileSync(join(directory, name), "name: Sample\n");
+      }
+      const config = parse(`
+defaults:
+  branch: main
+profiles:
+  vscode:
+    include: [publish-vscode-vsx.yml]
+    create-files: [publish-vscode-vsx.yml]
+  browser:
+    include: [publish-browser-extension.yml]
+    create-files: [publish-browser-extension.yml]
+shared: &common
+  branch: develop
+  exclude: [ci_cli.yml]
+source:
+  directory: .github/workflows
+  include: ["*.yml"]
+repositories:
+  - name: moyarich/editor
+    profile: vscode
+    <<: *common
+    branch: release
+  - name: moyarich/browser
+    profile: browser
+    exclude: [publish-browser-extension.yml]
+`, { merge: true });
+      const run = (repository: string) => generateWorkflows({
+        config, repository, sourceRoot, output, existingFiles: [],
+      });
+      expect(config.repositories[0].branch).toBe("release");
+      expect(config.repositories[0].exclude).toEqual(["ci_cli.yml"]);
+      expect(run("moyarich/editor")).toEqual([
+        ".github/workflows/publish-vscode-vsx.yml",
+      ]);
+      expect(run("moyarich/browser")).toEqual([]);
+      expect(() => generateWorkflows({
+        config: { ...config, repositories: [{ name: "moyarich/bad", profile: "missing" }] },
+        repository: "moyarich/bad", sourceRoot, output,
+      })).toThrow("Unknown copier profile");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("preserves unmodified bytes, applies nested overrides and enforces opt-in", () => {
     const root = mkdtempSync(join(tmpdir(), "copier-ts-"));
     const source = join(root, "canonical");
