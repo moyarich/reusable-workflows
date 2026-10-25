@@ -1,19 +1,39 @@
-import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+} from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { parseDocument, isMap } from "yaml";
 
 type RecordValue = Record<string, unknown>;
-const object = (v: unknown): v is RecordValue => v !== null && typeof v === "object" && !Array.isArray(v);
+const object = (v: unknown): v is RecordValue =>
+  v !== null && typeof v === "object" && !Array.isArray(v);
 function patterns(v: unknown, label: string): string[] {
-  if (!Array.isArray(v) || v.some(x => typeof x !== "string" || !x || /[/\\]/.test(x) || x.includes("..")))
+  if (
+    !Array.isArray(v) ||
+    v.some(
+      (x) => typeof x !== "string" || !x || /[/\\]/.test(x) || x.includes(".."),
+    )
+  )
     throw Error(label + " must contain safe workflow filename patterns");
   return v as string[];
 }
 function match(name: string, globs: string[]): boolean {
-  return globs.some(glob => {
-    const escaped = glob.split("*").map(part =>
-      [...part].map(ch => /^[a-zA-Z0-9_-]$/.test(ch) ? ch : String.fromCharCode(92) + ch).join("")
-    ).join(".*");
+  return globs.some((glob) => {
+    const escaped = glob
+      .split("*")
+      .map((part) =>
+        [...part]
+          .map((ch) =>
+            /^[a-zA-Z0-9_-]$/.test(ch) ? ch : String.fromCharCode(92) + ch,
+          )
+          .join(""),
+      )
+      .join(".*");
     return new RegExp("^" + escaped + "$").test(name);
   });
 }
@@ -28,19 +48,35 @@ function safeSource(root: string, path: string): string {
   if (!/^\.github\/workflows\/[^/\\]+\.yml$/.test(path) || path.includes(".."))
     throw Error("Unsafe source path: " + path);
   const absolute = resolve(root, path);
-  if (!existsSync(absolute) || !lstatSync(absolute).isFile() || lstatSync(absolute).isSymbolicLink())
+  if (
+    !existsSync(absolute) ||
+    !lstatSync(absolute).isFile() ||
+    lstatSync(absolute).isSymbolicLink()
+  )
     throw Error("Missing or unsafe source workflow: " + path);
   return absolute;
 }
-function applyOverride(document: ReturnType<typeof parseDocument>, patch: RecordValue, source: string): void {
+function applyOverride(
+  document: ReturnType<typeof parseDocument>,
+  patch: RecordValue,
+  source: string,
+): void {
   const allowed = ["on", "jobs", "env", "defaults", "name", "run-name"];
-  if (Object.keys(patch).some(k => !allowed.includes(k))) throw Error("Unsafe workflow override: " + source);
+  if (Object.keys(patch).some((k) => !allowed.includes(k)))
+    throw Error("Unsafe workflow override: " + source);
   function walk(target: unknown, value: unknown, location: string): void {
-    if (!isMap(target) || !object(value)) throw Error("Override targets missing key: " + location);
+    if (!isMap(target) || !object(value))
+      throw Error("Override targets missing key: " + location);
     for (const [key, next] of Object.entries(value)) {
-      if (!target.has(key)) throw Error("Override targets missing key: " + (location ? location + "." : "") + key);
+      if (!target.has(key))
+        throw Error(
+          "Override targets missing key: " +
+            (location ? location + "." : "") +
+            key,
+        );
       const current = target.get(key, true);
-      if (object(next) && isMap(current)) walk(current, next, location ? location + "." + key : key);
+      if (object(next) && isMap(current))
+        walk(current, next, location ? location + "." + key : key);
       else target.set(key, next);
     }
   }
@@ -60,52 +96,114 @@ export function generateWorkflows(opts: GenerateOptions): string[] {
   const source = config.source;
   let files: string[];
   if (object(source)) {
-    if (source.directory !== ".github/workflows") throw Error("Only .github/workflows source directory is allowed");
+    if (source.directory !== ".github/workflows")
+      throw Error("Only .github/workflows source directory is allowed");
     const include = patterns(source.include, "source.include");
     const exclude = patterns(source.exclude ?? [], "source.exclude");
     if (!include.length) throw Error("source.include must not be empty");
     files = readdirSync(join(sourceRoot, ".github/workflows"))
-      .filter(name => name.endsWith(".yml") && match(name, include) && !match(name, exclude))
-      .sort().map(name => ".github/workflows/" + name);
+      .filter(
+        (name) =>
+          name.endsWith(".yml") &&
+          match(name, include) &&
+          !match(name, exclude),
+      )
+      .sort()
+      .map((name) => ".github/workflows/" + name);
   } else {
     const raw = config["source-files"];
     if (!Array.isArray(raw) || !raw.length || new Set(raw).size !== raw.length)
       throw Error("source-files must be a nonempty list without duplicates");
     files = raw as string[];
   }
-  files.forEach(file => safeSource(sourceRoot, file));
-  if ((config["destination-directory"] ?? ".github/workflows") !== ".github/workflows")
+  files.forEach((file) => safeSource(sourceRoot, file));
+  if (
+    (config["destination-directory"] ?? ".github/workflows") !==
+    ".github/workflows"
+  )
     throw Error("Only .github/workflows destination is allowed");
   const repositories = config.repositories;
-  if (!Array.isArray(repositories)) throw Error("repositories must be a nonempty list");
-  const targets = repositories.filter(x => object(x) && x.name === repository);
-  if (targets.length !== 1) throw Error("Expected exactly one repository config for " + repository);
+  if (!Array.isArray(repositories))
+    throw Error("repositories must be a nonempty list");
+  const targets = repositories.filter(
+    (x) => object(x) && x.name === repository,
+  );
+  if (targets.length !== 1)
+    throw Error("Expected exactly one repository config for " + repository);
   const target = targets[0] as RecordValue;
   const include = patterns(target.include ?? ["*.yml"], "include");
   const exclude = patterns(target.exclude ?? [], "exclude");
   const create = patterns(target["create-files"] ?? [], "create-files");
   const overrides = target.overrides ?? {};
   if (!object(overrides)) throw Error("overrides must be a mapping");
-  if (Object.keys(overrides).some(k => !files.includes(k))) throw Error("overrides must reference available canonical source-files");
-  const eligible = files.filter(f => match(basename(f), include) && !match(basename(f), exclude));
-  if (Object.keys(overrides).some(k => !eligible.includes(k))) throw Error("overrides cannot target excluded files");
+  if (Object.keys(overrides).some((k) => !files.includes(k)))
+    throw Error("overrides must reference available canonical source-files");
+  const eligible = files.filter(
+    (f) => match(basename(f), include) && !match(basename(f), exclude),
+  );
+  if (Object.keys(overrides).some((k) => !eligible.includes(k)))
+    throw Error("overrides cannot target excluded files");
   let selected = eligible;
   if (opts.workflow) {
-    if (!/^[^/\\]+\.yml$/.test(opts.workflow) || opts.workflow.includes("..")) throw Error("Invalid canonical workflow filename");
-    if (!files.some(f => basename(f) === opts.workflow)) throw Error("Workflow not included in canonical source selection: " + opts.workflow);
-    if (!eligible.some(f => basename(f) === opts.workflow)) throw Error("Workflow excluded by destination configuration: " + opts.workflow);
-    selected = eligible.filter(f => basename(f) === opts.workflow);
+    if (!/^[^/\\]+\.yml$/.test(opts.workflow) || opts.workflow.includes(".."))
+      throw Error("Invalid canonical workflow filename");
+    if (!files.some((f) => basename(f) === opts.workflow))
+      throw Error(
+        "Workflow not included in canonical source selection: " + opts.workflow,
+      );
+    if (!eligible.some((f) => basename(f) === opts.workflow))
+      throw Error(
+        "Workflow excluded by destination configuration: " + opts.workflow,
+      );
+    selected = eligible.filter((f) => basename(f) === opts.workflow);
   }
-  if (opts.existingFiles) selected = selected.filter(f => opts.existingFiles!.includes(basename(f)) || match(basename(f), create));
+  if (opts.existingFiles)
+    selected = selected.filter(
+      (f) =>
+        opts.existingFiles!.includes(basename(f)) || match(basename(f), create),
+    );
   if (selected.includes(".github/workflows/publish.yml")) {
-    if (opts.destinationPublish === undefined) throw Error("Destination publish.yml content required for compatibility validation");
-    const canonical = kind(readFileSync(safeSource(sourceRoot, ".github/workflows/publish.yml"), "utf8"));
+    if (opts.destinationPublish === undefined)
+      throw Error(
+        "Destination publish.yml content required for compatibility validation",
+      );
+    const canonical = kind(
+      readFileSync(
+        safeSource(sourceRoot, ".github/workflows/publish.yml"),
+        "utf8",
+      ),
+    );
     const destination = kind(opts.destinationPublish);
-    if (canonical !== destination) throw Error("Incompatible publish.yml for " + repository + ": destination=" + destination + ", canonical=" + canonical);
+    if (canonical !== destination)
+      throw Error(
+        "Incompatible publish.yml for " +
+          repository +
+          ": destination=" +
+          destination +
+          ", canonical=" +
+          canonical,
+      );
   }
-  const selectors = selected.filter(f => ["publish.yml", "release.yml", "release-draft.yml", "restore-release.yml", "reset-release.yml", "check-dist.yml"].includes(basename(f)) && readFileSync(safeSource(sourceRoot, f), "utf8").includes("packages/example"));
-  if (selectors.length && opts.existingFiles && !selected.some(f => basename(f) === "sync-release-package-choices.yml")) {
-    selected = selected.filter(f => !selectors.includes(f));
+  const selectors = selected.filter(
+    (f) =>
+      [
+        "publish.yml",
+        "release.yml",
+        "release-draft.yml",
+        "restore-release.yml",
+        "reset-release.yml",
+        "check-dist.yml",
+      ].includes(basename(f)) &&
+      readFileSync(safeSource(sourceRoot, f), "utf8").includes(
+        "packages/example",
+      ),
+  );
+  if (
+    selectors.length &&
+    opts.existingFiles &&
+    !selected.some((f) => basename(f) === "sync-release-package-choices.yml")
+  ) {
+    selected = selected.filter((f) => !selectors.includes(f));
   }
   for (const file of selected) {
     const sourceFile = safeSource(sourceRoot, file);

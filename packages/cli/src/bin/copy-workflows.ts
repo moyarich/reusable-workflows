@@ -7,38 +7,73 @@ import { generateWorkflows } from "../copy-files-to-another-repository/generate.
 const argv = process.argv.slice(2);
 function arg(name: string, fallback = ""): string {
   const index = argv.indexOf(name);
-  return index < 0 ? fallback : argv[index + 1] ?? fallback;
+  return index < 0 ? fallback : (argv[index + 1] ?? fallback);
 }
 const configPath = arg("--config", ".github/copy-files-config.yml");
-const schemaPath = arg("--schema", "packages/cli/src/copy-files-to-another-repository/config.schema.json");
+const schemaPath = arg(
+  "--schema",
+  "packages/cli/src/copy-files-to-another-repository/config.schema.json",
+);
 const config = parse(readFileSync(configPath, "utf8"));
 const schema = JSON.parse(readFileSync(schemaPath, "utf8"));
 const ajv = new Ajv2020({ allErrors: true, strict: false });
 const validate = ajv.compile(schema);
-if (!validate(config)) throw Error("Invalid copier configuration: " + ajv.errorsText(validate.errors));
-const repositories = config.repositories as Array<{ name: string; branch: string }>;
-const names = repositories.map(r => r.name);
-if (new Set(names).size !== names.length) throw Error("Duplicate copier destination");
+if (!validate(config))
+  throw Error(
+    "Invalid copier configuration: " + ajv.errorsText(validate.errors),
+  );
+const repositories = config.repositories as Array<{
+  name: string;
+  branch: string;
+}>;
+const names = repositories.map((r) => r.name);
+if (new Set(names).size !== names.length)
+  throw Error("Duplicate copier destination");
 const requested = arg("--repository");
-if (requested && !names.includes(requested)) throw Error("Requested repository is not in the allowlist");
+if (requested && !names.includes(requested))
+  throw Error("Requested repository is not in the allowlist");
 if (argv.includes("--plan")) {
-  const targets = repositories.filter(r => !requested || r.name === requested);
-  const matrix = { include: targets.map(r => ({ name: r.name, branch: r.branch })) };
-  const output = "matrix=" + JSON.stringify(matrix) + "\nsource_repository=" + config.source.repository + "\n";
-  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, output);
+  const targets = repositories.filter(
+    (r) => !requested || r.name === requested,
+  );
+  const matrix = {
+    include: targets.map((r) => ({ name: r.name, branch: r.branch })),
+  };
+  const output =
+    "matrix=" +
+    JSON.stringify(matrix) +
+    "\nsource_repository=" +
+    config.source.repository +
+    "\n";
+  if (process.env.GITHUB_OUTPUT)
+    appendFileSync(process.env.GITHUB_OUTPUT, output);
   else process.stdout.write(output);
 } else {
   const output = arg("--output");
-  if (!requested || !output) throw Error("--repository and --output are required");
+  if (!requested || !output)
+    throw Error("--repository and --output are required");
   const existingPath = arg("--existing-files");
-  const existingFiles = existingPath ? JSON.parse(readFileSync(existingPath, "utf8")) : undefined;
-  if (existingFiles && (!Array.isArray(existingFiles) || existingFiles.some((x: unknown) => typeof x !== "string")))
+  const existingFiles = existingPath
+    ? JSON.parse(readFileSync(existingPath, "utf8"))
+    : undefined;
+  if (
+    existingFiles &&
+    (!Array.isArray(existingFiles) ||
+      existingFiles.some((x: unknown) => typeof x !== "string"))
+  )
     throw Error("--existing-files must contain a JSON array of filenames");
   const publisherPath = arg("--destination-publish-file");
   const files = generateWorkflows({
-    config, repository: requested, sourceRoot: resolve(arg("--source-root", ".")),
-    output: resolve(output), workflow: arg("--workflow"),
-    existingFiles, destinationPublish: publisherPath && existsSync(publisherPath) ? readFileSync(publisherPath, "utf8") : undefined,
+    config,
+    repository: requested,
+    sourceRoot: resolve(arg("--source-root", ".")),
+    output: resolve(output),
+    workflow: arg("--workflow"),
+    existingFiles,
+    destinationPublish:
+      publisherPath && existsSync(publisherPath)
+        ? readFileSync(publisherPath, "utf8")
+        : undefined,
   });
   process.stdout.write(JSON.stringify({ repository: requested, files }) + "\n");
 }
