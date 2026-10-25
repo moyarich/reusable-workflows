@@ -81,10 +81,8 @@ defaults:
 profiles:
   vscode:
     include: [publish-vscode-vsx.yml]
-    create-files: [publish-vscode-vsx.yml]
   browser:
     include: [publish-browser-extension.yml]
-    create-files: [publish-browser-extension.yml]
 shared: &common
   branch: develop
   exclude: [ci_cli.yml]
@@ -156,7 +154,6 @@ repositories:
           {
             name: "moyarich/console",
             branch: "main",
-            "create-files": ["ci_alpha.yml"],
           },
         ],
       };
