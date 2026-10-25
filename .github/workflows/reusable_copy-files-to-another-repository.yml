@@ -39,8 +39,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          repository: moyarich/reusable-workflows
-          ref: feat/copy-workflow-planner-upstream
           persist-credentials: false
       - name: Install YAML parser
         run: python3 -m pip install --quiet 'ruamel.yaml>=0.18,<0.20'
@@ -53,10 +51,14 @@ jobs:
           python3 - <<'PY'
           import json, os, re
           from ruamel.yaml import YAML
-          config = YAML(typ="safe").load(open(".github/copy-files-config.yml"))
+          from pathlib import Path
+          config_path = Path(".github/copy-files-config.yml")
+          if not config_path.is_file():
+              raise SystemExit("Missing required caller configuration: .github/copy-files-config.yml")
+          config = YAML(typ="safe").load(config_path)
           source = config["source"]
           assert source["directory"] == ".github/workflows"
-          assert source["repository"] == "moyarich/reusable-workflows-callers"
+          assert re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", source["repository"])
           assert isinstance(source["include"], list) and source["include"]
           targets = config["repositories"]
           assert isinstance(targets, list) and targets
@@ -86,7 +88,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          repository: moyarich/reusable-workflows-callers
+          repository: ${{ needs.plan.outputs.source-repository }}
           ref: main
           persist-credentials: false
       - name: Checkout upstream copier implementation
@@ -95,6 +97,11 @@ jobs:
           repository: moyarich/reusable-workflows
           ref: feat/copy-workflow-planner-upstream
           path: upstream-copier
+          persist-credentials: false
+      - name: Checkout caller configuration
+        uses: actions/checkout@v7
+        with:
+          path: caller-config
           persist-credentials: false
       - name: Install YAML parser
         run: python3 -m pip install --quiet 'ruamel.yaml>=0.18,<0.20'
@@ -121,7 +128,7 @@ jobs:
         env:
           DEST_REPO: ${{ matrix.name }}
         run: |
-          python3 upstream-copier/packages/copy-files-to-another-repository/scripts/copy-workflows.py --config upstream-copier/.github/copy-files-config.yml --repository "$DEST_REPO" --output "$RUNNER_TEMP/generated" --existing-files "$RUNNER_TEMP/existing-workflows.json" $(test ! -f "$RUNNER_TEMP/destination-publish.yml" || printf -- "--destination-publish-file %s" "$RUNNER_TEMP/destination-publish.yml")
+          python3 upstream-copier/packages/copy-files-to-another-repository/scripts/copy-workflows.py --config caller-config/.github/copy-files-config.yml --repository "$DEST_REPO" --output "$RUNNER_TEMP/generated" --existing-files "$RUNNER_TEMP/existing-workflows.json" $(test ! -f "$RUNNER_TEMP/destination-publish.yml" || printf -- "--destination-publish-file %s" "$RUNNER_TEMP/destination-publish.yml")
       - name: Copy generated workflows to destination
         uses: moyarich/reusable-workflows/actions/copy-files-to-another-repository@feat/copy-workflow-planner-upstream
         with:
