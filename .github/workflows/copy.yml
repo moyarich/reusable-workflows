@@ -1,22 +1,59 @@
 name: Copy canonical workflow callers
+run-name: >-
+  Copy callers · ${{ inputs.repository || 'all destinations' }} · ${{ inputs.dry-run && 'preview' || 'open PRs' }}
 
 on:
   workflow_dispatch:
     inputs:
       repository:
-        description: Optional single destination repository
+        description: 'Destination owner/repo (empty = every configured destination)'
         type: string
+        required: false
         default: ''
       dry-run:
-        description: Preview changes without opening destination PRs
+        description: Preview changes; do not create destination pull requests
         type: boolean
+        required: true
         default: true
+      confirm-all:
+        description: 'Required to open PRs in ALL destinations (ignored for previews or one repository)'
+        type: boolean
+        required: true
+        default: false
 
 permissions:
   contents: read
 
+# Never cancel an in-flight propagation, even if a second dispatch starts.
+concurrency:
+  group: copy-canonical-workflow-callers
+  cancel-in-progress: false
+
 jobs:
+  validate:
+    name: Validate copy scope
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require confirmation for all-destination writes
+        env:
+          REPOSITORY: ${{ inputs.repository }}
+          DRY_RUN: ${{ inputs.dry-run }}
+          CONFIRM_ALL: ${{ inputs.confirm-all }}
+        shell: bash
+        run: |
+          if [[ "$DRY_RUN" != "true" && -z "$REPOSITORY" && "$CONFIRM_ALL" != "true" ]]; then
+            echo "::error::To open PRs for every configured destination, rerun with confirm-all enabled. Otherwise specify one repository or use dry-run."
+            exit 1
+          fi
+          {
+            echo "### Workflow caller synchronization"
+            echo "- Destination: ${REPOSITORY:-all configured repositories}"
+            echo "- Mode: $([[ "$DRY_RUN" == "true" ]] && echo 'preview only' || echo 'create/update pull requests')"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   copy:
+    name: Synchronize selected destinations
+    needs: validate
     uses: ./.github/workflows/reusable_copy-files-to-another-repository.yml
     with:
       repository: ${{ inputs.repository }}
