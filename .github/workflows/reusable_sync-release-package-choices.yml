@@ -100,8 +100,16 @@ jobs:
           ref: main
           persist-credentials: false
 
-      - name: Install YAML parser
-        run: python3 -m pip install --quiet 'ruamel.yaml>=0.18,<0.20'
+      - name: Checkout reusable workflow CLI sources
+        uses: actions/checkout@v7
+        with:
+          repository: moyarich/reusable-workflows
+          ref: main
+          path: .workflow-cli
+          persist-credentials: false
+
+      - name: Install YAML tooling
+        run: npm ci --prefix .workflow-cli --no-audit --no-fund
 
       - name: Sync selected workflow choices
         id: choices
@@ -111,96 +119,7 @@ jobs:
           PUBLISH_PACKAGES_JSON: ${{ needs.discover-publish.outputs.packages }}
           WORKFLOW_FILE: ${{ inputs.workflow-file }}
           WORKFLOW_FILES: ${{ inputs.workflow-files }}
-        run: |
-          python3 - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-          from ruamel.yaml import YAML
-          from ruamel.yaml.scalarstring import DoubleQuotedScalarString
-
-          files = json.loads(os.environ["WORKFLOW_FILES"]) or [os.environ["WORKFLOW_FILE"]]
-          release_packages = json.loads(os.environ["RELEASE_PACKAGES_JSON"])["included"]
-          publish_packages = json.loads(os.environ["PUBLISH_PACKAGES_JSON"])["included"]
-          # VS Code extension metadata, not npm publishability, determines these choices.
-          vscode_directories = []
-          for directory in [Path("."), *sorted(Path("packages").glob("*/")), *sorted(Path("apps").glob("*/"))]:
-              manifest = directory / "package.json"
-              if not manifest.is_file():
-                  continue
-              try:
-                  metadata = json.loads(manifest.read_text(encoding="utf-8"))
-              except (ValueError, OSError):
-                  continue
-              if metadata.get("engines", {}).get("vscode") or (directory / "extension.manifest.json").is_file():
-                  vscode_directories.append(directory.as_posix() or ".")
-          vscode_directories = sorted(set(vscode_directories))
-          yaml = YAML()
-          yaml.preserve_quotes = True
-          yaml.indent(mapping=2, sequence=4, offset=2)
-
-          for filename in files:
-              if not isinstance(filename, str):
-                  raise SystemExit(f"Invalid workflow path: {filename}")
-              path = Path(filename)
-              is_vscode = path.name == "publish-vscode-vsx.yml"
-              packages = publish_packages if path.name == "publish.yml" else release_packages
-              if is_vscode and not vscode_directories:
-                  print(f"Preserved {filename}: no VS Code extensions discovered")
-                  continue
-              if not is_vscode and not packages:
-                  print(f"Preserved {filename}: no packages matched the selection policy")
-                  continue
-              directories = (vscode_directories if is_vscode
-                             else sorted({package["directory"] for package in packages}))
-              options = directories if is_vscode else ["all", *directories]
-              default = directories[0] if is_vscode else "all"
-              description = ("Select a VS Code extension workspace" if is_vscode
-                             else "Select a publishable workspace package")
-              if (path.is_absolute()
-                      or ".." in path.parts or path.suffix not in (".yml", ".yaml")
-                      or path.parts[:2] != (".github", "workflows")):
-                  raise SystemExit(f"Invalid workflow path: {filename}")
-              if not path.is_file():
-                  print(f"::notice title=Workflow skipped::{filename} does not exist")
-                  continue
-              original = path.read_text(encoding="utf-8")
-              workflow = yaml.load(original)
-              try:
-                  dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
-                  package_input = dispatch_inputs.get("package")
-              except (KeyError, TypeError, AttributeError):
-                  package_input = None
-              if package_input is None:
-                  print(f"::notice title=Selector preserved::{filename} has no workflow_dispatch.inputs.package; leaving its input interface unchanged")
-                  continue
-              if not isinstance(package_input, dict):
-                  raise SystemExit(f"Invalid package input: {filename}")
-              if (package_input.get("description") == description
-                      and package_input.get("required") is True
-                      and package_input.get("type") == "choice"
-                      and package_input.get("default") == default
-                      and list(package_input.get("options", [])) == options):
-                  print(f"Already current: {filename}")
-                  continue
-              package_input["description"] = description
-              package_input["required"] = True
-              package_input["type"] = "choice"
-              package_input["default"] = DoubleQuotedScalarString(default)
-              package_input["options"] = [DoubleQuotedScalarString(option) for option in options]
-
-              from io import StringIO
-              stream = StringIO()
-              yaml.dump(workflow, stream)
-              updated = stream.getvalue()
-              # Validate the generated document before allowing a workflow-file commit.
-              yaml.load(updated)
-              if updated != original:
-                  path.write_text(updated, encoding="utf-8")
-                  print(f"Updated {filename}: {', '.join(options)}")
-              else:
-                  print(f"Already current: {filename}")
-          PY
+        run: node --experimental-strip-types .workflow-cli/packages/cli/src/bin/sync-release-choices.ts
 
       - name: Format updated workflow selectors
         if: steps.choices.outcome == 'success'
