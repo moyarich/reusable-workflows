@@ -14,14 +14,18 @@ const schemaPath = arg(
   "--schema",
   "packages/cli/src/copy-files-to-another-repository/config.schema.json",
 );
-const config = parse(readFileSync(configPath, "utf8"));
+const parsedConfig: unknown = parse(readFileSync(configPath, "utf8"));
 const schema = JSON.parse(readFileSync(schemaPath, "utf8"));
 const ajv = new Ajv2020({ allErrors: true, strict: false });
 const validate = ajv.compile(schema);
-if (!validate(config))
+if (!validate(parsedConfig))
   throw Error(
     "Invalid copier configuration: " + ajv.errorsText(validate.errors),
   );
+const config = parsedConfig as Record<string, unknown> & {
+  source: { repository: string };
+  repositories: Array<{ name: string; branch: string }>;
+};
 const repositories = config.repositories as Array<{
   name: string;
   branch: string;
