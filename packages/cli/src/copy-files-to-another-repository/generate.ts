@@ -98,9 +98,9 @@ export function generateWorkflows(opts: GenerateOptions): string[] {
   if (object(source)) {
     if (source.directory !== ".github/workflows")
       throw Error("Only .github/workflows source directory is allowed");
-    const include = patterns(source.allow, "source.include");
-    const exclude = patterns(source.ignore ?? [], "source.exclude");
-    if (!include.length) throw Error("source.include must not be empty");
+    const include = patterns(source.allow, "source.allow");
+    const exclude = patterns(source.ignore ?? [], "source.ignore");
+    if (!include.length) throw Error("source.allow must not be empty");
     files = readdirSync(join(sourceRoot, ".github/workflows"))
       .filter(
         (name) =>
