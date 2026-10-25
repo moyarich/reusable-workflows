@@ -4,19 +4,12 @@
   "title": "Canonical workflow copy configuration",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "source",
-    "repositories"
-  ],
+  "required": ["source", "repositories"],
   "properties": {
     "source": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "repository",
-        "directory",
-        "include"
-      ],
+      "required": ["repository", "directory", "include"],
       "properties": {
         "repository": {
           "$ref": "#/$defs/repository"
@@ -61,10 +54,7 @@
     "destination": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "name",
-        "branch"
-      ],
+      "required": ["name", "branch"],
       "properties": {
         "name": {
           "$ref": "#/$defs/repository"
@@ -91,14 +81,7 @@
           "additionalProperties": {
             "type": "object",
             "propertyNames": {
-              "enum": [
-                "on",
-                "jobs",
-                "env",
-                "defaults",
-                "name",
-                "run-name"
-              ]
+              "enum": ["on", "jobs", "env", "defaults", "name", "run-name"]
             }
           }
         }
