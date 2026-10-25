@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/moyarich/reusable-workflows/main/actions/copy-files-to-another-repository/config.schema.json
 # Destination repositories must explicitly opt in. Files must already exist in each
 # destination unless listed in its create-files allowlist. No deletions are propagated.
 source:
