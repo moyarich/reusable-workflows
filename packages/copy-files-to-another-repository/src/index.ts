@@ -21,7 +21,12 @@ export interface CopyOptions {
   message: string;
 }
 export function validateOptions(o: CopyOptions): void {
-  if (!/^[\w.-]+\/[\w.-]+$/.test(o.repository))
+  const parts = o.repository.split("/");
+  if (
+    parts.length !== 2 ||
+    parts.some((part) => !part || part === "." || part === "..") ||
+    !/^[\w.-]+\/[\w.-]+$/.test(o.repository)
+  )
     throw new Error("Invalid repository");
   if (
     !/^[\w.-][\w./-]*$/.test(o.branch) ||
