@@ -20,12 +20,13 @@
     "check:pack": "npm pack --dry-run",
     "lint": "eslint .",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
-    "test:copy-workflows": "python3 -m unittest discover -s tests -p 'test_copy_workflows.py' -v",
+    "test:copy-workflows": "vitest run ../../tests/copy-workflow-generation.test.ts",
     "sync:workflow-choices": "node --experimental-strip-types src/bin/sync-workflow-choices.ts"
   },
   "dependencies": {
     "commander": "^14.0.0",
-    "yaml": "^2.9.1"
+    "yaml": "^2.9.1",
+    "ajv": "^8.17.1"
   },
   "engines": {
     "node": ">=24"
