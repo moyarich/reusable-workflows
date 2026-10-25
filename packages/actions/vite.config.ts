@@ -31,7 +31,8 @@ export default defineConfig({
             "packages/cli/src/check-dist/config.schema.json",
         },
         "copy-files-to-another-repository": {
-          "config.schema.json": "packages/cli/src/copy-files-to-another-repository/config.schema.json",
+          "config.schema.json":
+            "packages/cli/src/copy-files-to-another-repository/config.schema.json",
         },
         "resolve-workspaces": {
           "index.mjs": "packages/cli/src/resolve-workspaces/index.ts",
