@@ -13,6 +13,9 @@ on:
       dry-run:
         type: boolean
         default: true
+      create-pr:
+        type: boolean
+        default: true
     secrets:
       workflow-token:
         required: true
@@ -27,7 +30,11 @@ on:
         type: string
         default: ''
       dry-run:
-        description: Preview without creating PRs
+        description: Preview changes without writing to destinations
+        type: boolean
+        default: true
+      create-pr:
+        description: Create PRs instead of pushing directly to destination branches
         type: boolean
         default: true
 
@@ -139,6 +146,6 @@ jobs:
           source-directory: ${{ runner.temp }}/generated
           destination-repository: ${{ matrix.name }}
           destination-branch: ${{ matrix.branch }}
-          mode: pr
+          mode: ${{ inputs.create-pr && 'pr' || 'direct' }}
           dry-run: ${{ inputs.dry-run }}
           commit-message: "chore(ci): sync shared workflow callers from ${{ needs.plan.outputs.source-repository }}"
