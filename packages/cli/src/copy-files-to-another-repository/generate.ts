@@ -11,7 +11,9 @@ function patterns(v: unknown, label: string): string[] {
 }
 function match(name: string, globs: string[]): boolean {
   return globs.some(glob => {
-    const escaped = glob.split("*").map(part => part.replace(/[.*+?^\${}()|[\]\\]/g, "\\part.replace(/[|\\{}()[\]^$+?.]/g, "\\$&")")).join(".*");
+    const escaped = glob.split("*").map(part =>
+      [...part].map(ch => /^[a-zA-Z0-9_-]$/.test(ch) ? ch : String.fromCharCode(92) + ch).join("")
+    ).join(".*");
     return new RegExp("^" + escaped + "$").test(name);
   });
 }
