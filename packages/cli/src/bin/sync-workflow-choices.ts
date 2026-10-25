@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { parse } from "yaml";
-import { syncWorkflowChoice } from "../workflow-choices/sync.ts";
+import { syncYamlValues } from "../workflow-choices/sync.ts";
 
 const args = process.argv.slice(2);
 const option = (name: string): string => {
@@ -41,11 +41,20 @@ if (extracted.some((item) => typeof item !== "string" || !item))
   throw new Error("Choice values must be nonempty strings");
 const prefixIndex = args.indexOf("--prepend");
 const prefix = prefixIndex < 0 ? [] : [option("--prepend")];
-const changed = syncWorkflowChoice({
-  workflowFile: option("--workflow"),
-  input: option("--input"),
-  options: [...prefix, ...(extracted as string[])],
-  defaultValue: option("--default"),
+const input = option("--input");
+const options = [...prefix, ...(extracted as string[])];
+if (new Set(options).size !== options.length || options.length > 100)
+  throw new Error("Invalid or duplicate choice options");
+const defaultValue = option("--default");
+if (!options.includes(defaultValue)) throw new Error("Default must be an available option");
+const changed = syncYamlValues({
+  file: option("--workflow"),
+  updates: [
+    { path: ["on", "workflow_dispatch", "inputs", input, "type"], value: "choice" },
+    { path: ["on", "workflow_dispatch", "inputs", input, "required"], value: true },
+    { path: ["on", "workflow_dispatch", "inputs", input, "default"], value: defaultValue },
+    { path: ["on", "workflow_dispatch", "inputs", input, "options"], value: options },
+  ],
   check: args.includes("--check"),
 });
 console.log(
