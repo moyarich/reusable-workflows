@@ -38,6 +38,10 @@ repositories:
     branch: main
   - name: moyarich/colorshower
     branch: main
+    include: &vscode_config
+      - publish-vscode-vsx.yml
+    create-files:
+      - publish-vscode-vsx.yml
   - name: moyarich/workspace-tools
     branch: main
     include: *npm_config
@@ -70,12 +74,14 @@ repositories:
       - publish-browser-extension.yml
   - name: moyarich/vscode-act-runner-local
     branch: main
+    include: *vscode_config
+    create-files:
+      - publish-vscode-vsx.yml
   - name: moyarich/dev-toolkit
     branch: main
   - name: moyarich/vscode-dev-toolkit
     branch: main
-    include: &vscode_config
-      - publish-vscode-vsx.yml
+    include: *vscode_config
     create-files:
       - publish-vscode-vsx.yml
   - name: moyarich/css-color-parser
@@ -96,8 +102,13 @@ repositories:
   - name: moyarich/vite-package-bin
     branch: main
     include: *npm_config
+  - name: moyarich/element-inspector
+    branch: main
+    include: *browser_config
+    create-files:
+      - publish-browser-extension.yml
   - name: moyarich/zsh-glow
     branch: main
 # Per repository: include, exclude, create-files, and overrides are optional.
-# include is additive: non-publishing workflows are selected by default; publish*\n# workflows require explicit inclusion. Exclude always wins.
+# include is additive: non-publishing workflows are selected by default; publish* workflows require explicit inclusion. Exclude always wins.
 # create-files explicitly allows creation of workflows not already in a destination.
