@@ -30,6 +30,7 @@ describe("TypeScript copier generation", () => {
       }
       const config = {
         source: { directory: ".github/workflows", include: ["*.yml"] },
+        defaults: { exclude: ["publish*.yml"] },
         repositories: [
           { name: "moyarich/none", branch: "main" },
           {
@@ -78,6 +79,7 @@ describe("TypeScript copier generation", () => {
         `
 defaults:
   branch: main
+  exclude: [publish*.yml]
 profiles:
   vscode:
     include: [publish-vscode-vsx.yml]
@@ -130,7 +132,7 @@ repositories:
     }
   });
 
-  it("preserves unmodified bytes, applies nested overrides and enforces opt-in", () => {
+  it("preserves unmodified bytes, applies nested overrides and copies new files", () => {
     const root = mkdtempSync(join(tmpdir(), "copier-ts-"));
     const source = join(root, "canonical");
     const output = join(root, "generated");
