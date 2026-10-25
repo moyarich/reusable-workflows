@@ -28,6 +28,8 @@ destination-directory: .github/workflows
 repositories:
   - name: moyarich/snippet-canvas
     branch: main
+    exclude:
+      - publish.yml
   - name: moyarich/github_emulator
     branch: main
   - name: moyarich/moyaforge
