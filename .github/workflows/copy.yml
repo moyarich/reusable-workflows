@@ -1,6 +1,6 @@
 name: Copy canonical workflow callers
 run-name: >-
-  Copy callers · ${{ inputs.repository == 'all' && 'all destinations' || inputs.repository }} · ${{ inputs.dry-run && 'preview' || 'open PRs' }}
+  Copy callers · ${{ inputs.repository == 'all' && 'all destinations' || inputs.repository }} · ${{ inputs.dry-run && 'preview' || (inputs.mode == 'pull-request' && 'open PRs' || 'update branches') }}
 
 on:
   workflow_dispatch:
@@ -63,15 +63,16 @@ on:
           - sync-release-package-choices.yml
           - upgrade-dependencies.yml
       dry-run:
-        description: Preview changes; do not create destination pull requests
+        description: Preview changes without writing to destination repositories
         type: boolean
         required: true
         default: true
-      confirm-all:
-        description: 'Required to open PRs in ALL destinations (ignored for previews or one repository)'
-        type: boolean
+      mode:
+        description: How to apply changes in selected repositories
+        type: choice
         required: true
-        default: false
+        default: pull-request
+        options: [pull-request, update-branch]
 
 permissions:
   contents: read
@@ -82,34 +83,13 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  validate:
-    name: Validate copy scope
-    runs-on: ubuntu-latest
-    steps:
-      - name: Validate destination and require confirmation for bulk writes
-        env:
-          REPOSITORY: ${{ inputs.repository }}
-          DRY_RUN: ${{ inputs.dry-run }}
-          CONFIRM_ALL: ${{ inputs.confirm-all }}
-        shell: bash
-        run: |
-          if [[ "$DRY_RUN" != "true" && "$REPOSITORY" == "all" && "$CONFIRM_ALL" != "true" ]]; then
-            echo "::error::To open PRs for every configured destination, rerun with confirm-all enabled. Otherwise select a single repository or use dry-run."
-            exit 1
-          fi
-          {
-            echo "### Workflow caller synchronization"
-            echo "- Destination: $([[ "$REPOSITORY" == all ]] && echo 'all configured repositories' || echo "$REPOSITORY")"
-            echo "- Mode: $([[ "$DRY_RUN" == "true" ]] && echo 'preview only' || echo 'create/update pull requests')"
-          } >> "$GITHUB_STEP_SUMMARY"
-
   copy:
     name: Synchronize selected destinations
-    needs: validate
     uses: ./.github/workflows/reusable_copy-files-to-another-repository.yml
     with:
       repository: ${{ inputs.repository == 'all' && '' || inputs.repository }}
       workflow: ${{ inputs.workflow == 'all' && '' || inputs.workflow }}
       dry-run: ${{ inputs.dry-run }}
+      mode: ${{ inputs.mode }}
     secrets:
       workflow-token: ${{ secrets._WORKFLOW_TOKEN }}
