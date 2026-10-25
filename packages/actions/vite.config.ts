@@ -10,7 +10,8 @@ export default defineConfig({
           "packages/cli/src/browser-extension-publish/entry.ts",
         "copy-files-to-another-repository":
           "packages/cli/src/copy-files-to-another-repository/index.ts",
-        "release-draft-sync": "packages/cli/src/release-draft-sync/action-entry.ts",
+        "release-draft-sync":
+          "packages/cli/src/release-draft-sync/action-entry.ts",
         "setup-workspace-tools":
           "packages/cli/src/setup-workspace-tools/action-entry.ts",
         "validate-release-identity":
@@ -36,12 +37,15 @@ export default defineConfig({
             "packages/cli/src/resolve-workspaces/resolve-manifests.ts",
         },
         "workflow-dispatch": {
-          "index.mjs": "packages/cli/src/workflow-dispatch/workflow-dispatch.ts",
-          "dispatch-rules.js": "packages/cli/src/workflow-dispatch/dispatch-rules.ts",
+          "index.mjs":
+            "packages/cli/src/workflow-dispatch/workflow-dispatch.ts",
+          "dispatch-rules.js":
+            "packages/cli/src/workflow-dispatch/dispatch-rules.ts",
         },
         "verify-workflow-runs": {
           "index.mjs": "packages/cli/src/verify-workflow-runs/index.ts",
-          "select-run.js": "packages/cli/src/verify-workflow-runs/select-run.ts",
+          "select-run.js":
+            "packages/cli/src/verify-workflow-runs/select-run.ts",
         },
       },
     }),
