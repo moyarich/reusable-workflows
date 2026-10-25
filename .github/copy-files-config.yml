@@ -13,7 +13,7 @@ source:
     - "issue-dependencies_*.yml"
     - "pages.yml"
     - "prepare-release-pr.yml"
-    - "publish*.yml" # Available to explicit repository opt-ins only
+    - "publish*.yml"
     - "release*.yml"
     - "reset-release.yml"
     - "restore-release.yml"
@@ -27,6 +27,7 @@ source:
 destination-directory: .github/workflows
 defaults:
   branch: main
+  exclude: ["publish*.yml"]
 profiles:
   npm:
     include: [publish.yml]
@@ -83,5 +84,5 @@ repositories:
     profile: browser
   - name: moyarich/zsh-glow
 # Per repository: include, exclude, and overrides are optional.
-# include is additive: non-publishing workflows are selected by default; publish* workflows require explicit inclusion. Exclude always wins.
-# create-files explicitly allows creation of workflows not already in a destination.
+# Each layer adjusts the source selection: defaults, then profile, then repository.
+# Includes add files and excludes remove them; later layers take precedence.
