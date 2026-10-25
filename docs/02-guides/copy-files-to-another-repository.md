@@ -29,6 +29,7 @@ source:
 destination-directory: .github/workflows
 defaults:
   branch: main
+  include: ["*.yml"]
   exclude: ["publish*.yml"]
 profiles:
   vscode:
