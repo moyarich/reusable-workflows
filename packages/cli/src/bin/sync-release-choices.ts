@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { basename } from "node:path";
 import { parseDocument, isMap } from "yaml";
-import { syncYamlValues, type YamlUpdate } from "../workflow-choices/sync";
+import { syncYamlValues, type YamlUpdate } from "../workflow-choices/sync.ts";
 
 const env = process.env;
 const files = JSON.parse(env.WORKFLOW_FILES || "[]") as string[];
