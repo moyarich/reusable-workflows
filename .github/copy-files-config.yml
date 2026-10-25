@@ -13,7 +13,7 @@ source:
     - "issue-dependencies_*.yml"
     - "pages.yml"
     - "prepare-release-pr.yml"
-    - "publish*.yml"
+    - "publish*.yml" # Available to explicit repository opt-ins only
     - "release*.yml"
     - "reset-release.yml"
     - "restore-release.yml"
@@ -28,10 +28,10 @@ destination-directory: .github/workflows
 repositories:
   - name: moyarich/snippet-canvas
     branch: main
-    exclude:
-      - publish.yml
   - name: moyarich/github_emulator
     branch: main
+    include: &npm_config
+      - publish.yml
   - name: moyarich/moyaforge
     branch: main
   - name: moyarich/autofilename
@@ -40,6 +40,7 @@ repositories:
     branch: main
   - name: moyarich/workspace-tools
     branch: main
+    include: *npm_config
     # Package options are maintained by sync-release-package-choices.yml.
     # Retain local workspace/app manifest triggers when copying this caller.
     overrides:
@@ -63,25 +64,21 @@ repositories:
     branch: main
   - name: moyarich/JotebookSync
     branch: main
-    # Existing publish.yml has a different publishing contract from the npm monorepo caller.
-    exclude:
-      - publish.yml
+    include: &browser_config
+      - publish-browser-extension.yml
   - name: moyarich/vscode-act-runner-local
     branch: main
   - name: moyarich/dev-toolkit
     branch: main
   - name: moyarich/vscode-dev-toolkit
     branch: main
-    # Existing publish.yml has a different publishing contract from the npm monorepo caller.
-    exclude:
-      - publish.yml
+    include: &vscode_config
+      - publish-vscode-vsx.yml
   - name: moyarich/css-color-parser
     branch: main
-    # Existing publish.yml has a different publishing contract from the npm monorepo caller.
-    exclude:
-      - publish.yml
   - name: moyarich/vscode-dependency-links
     branch: main
+    include: *vscode_config
   - name: moyarich/vue-webview-vite
     branch: main
   - name: moyarich/pointer-bubble
@@ -92,8 +89,9 @@ repositories:
     branch: main
   - name: moyarich/vite-package-bin
     branch: main
+    include: *npm_config
   - name: moyarich/zsh-glow
     branch: main
 # Per repository: include, exclude, create-files, and overrides are optional.
-# include/exclude accept workflow filename globs. Exclude always wins.
+# include is additive: non-publishing workflows are selected by default; publish*\n# workflows require explicit inclusion. Exclude always wins.
 # create-files explicitly allows creation of workflows not already in a destination.
