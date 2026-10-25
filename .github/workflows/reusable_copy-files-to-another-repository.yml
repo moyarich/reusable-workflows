@@ -147,6 +147,6 @@ jobs:
           source-directory: ${{ runner.temp }}/generated
           destination-repository: ${{ matrix.name }}
           destination-branch: ${{ matrix.branch }}
-          mode: ${{ inputs.mode == 'pull-request' && 'pr' || 'direct' }}
+          mode: ${{ inputs.mode }}
           dry-run: ${{ inputs.dry-run }}
           commit-message: "chore(ci): sync shared workflow callers from ${{ needs.plan.outputs.source-repository }}"
