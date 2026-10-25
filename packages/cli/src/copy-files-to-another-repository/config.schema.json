@@ -4,12 +4,19 @@
   "title": "Canonical workflow copy configuration",
   "type": "object",
   "additionalProperties": false,
-  "required": ["source", "repositories"],
+  "required": [
+    "source",
+    "repositories"
+  ],
   "properties": {
     "source": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["repository", "directory", "include"],
+      "required": [
+        "repository",
+        "directory",
+        "include"
+      ],
       "properties": {
         "repository": {
           "$ref": "#/$defs/repository"
@@ -34,7 +41,8 @@
       "minItems": 1,
       "items": {
         "$ref": "#/$defs/destination"
-      }
+      },
+      "description": "Destination-specific workflow selection; YAML anchors and aliases may share include lists between destinations."
     }
   },
   "$defs": {
@@ -54,7 +62,10 @@
     "destination": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "branch"],
+      "required": [
+        "name",
+        "branch"
+      ],
       "properties": {
         "name": {
           "$ref": "#/$defs/repository"
@@ -65,13 +76,16 @@
           "pattern": "^(?!.*\\\\.\\\\.)[A-Za-z0-9][A-Za-z0-9._/-]*$"
         },
         "include": {
-          "$ref": "#/$defs/patterns"
+          "$ref": "#/$defs/patterns",
+          "description": "Additive workflow filename patterns. Publishing workflows (publish*.yml) require explicit repository inclusion; YAML anchors and aliases are supported when parsed."
         },
         "exclude": {
-          "$ref": "#/$defs/patterns"
+          "$ref": "#/$defs/patterns",
+          "description": "Excluded workflows always take precedence over included workflows."
         },
         "create-files": {
-          "$ref": "#/$defs/patterns"
+          "$ref": "#/$defs/patterns",
+          "description": "Allow listed selected workflows to be created if absent at the destination; does not override publish opt-in."
         },
         "overrides": {
           "type": "object",
@@ -81,7 +95,14 @@
           "additionalProperties": {
             "type": "object",
             "propertyNames": {
-              "enum": ["on", "jobs", "env", "defaults", "name", "run-name"]
+              "enum": [
+                "on",
+                "jobs",
+                "env",
+                "defaults",
+                "name",
+                "run-name"
+              ]
             }
           }
         }
