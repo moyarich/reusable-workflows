@@ -11,7 +11,6 @@ inputs:
     description: Canonical source branch, tag or commit SHA
     default: main
   source-directory:
-    description: Prepared source tree whose relative paths will be copied
     description: Prepared local tree (when generated per destination); optional if copying directly from source repo
     required: false
   destination-repository:
@@ -72,7 +71,9 @@ runs:
           trap 'rm -rf "$source_tmp"' EXIT
           auth_source="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
           git -c http.extraheader="AUTHORIZATION: basic $auth_source" clone --quiet --depth 1 --branch "$SOURCE_REF" "https://github.com/$SOURCE_REPO.git" "$source_tmp/checkout"
-          SOURCE="$source_tmp/checkout"
+          mkdir -p "$source_tmp/prepared/.github/workflows"
+          find "$source_tmp/checkout/.github/workflows" -maxdepth 1 -type f -name "*.yml" -exec cp -t "$source_tmp/prepared/.github/workflows" -- {} +
+          SOURCE="$source_tmp/prepared"
         fi
         [[ -d "$SOURCE" ]] || { echo "::error::Source directory missing"; exit 1; }
         SOURCE="$(realpath "$SOURCE")"
