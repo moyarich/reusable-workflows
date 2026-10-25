@@ -6,6 +6,10 @@ on:
       repository:
         type: string
         default: ''
+      workflow:
+        description: Optional canonical workflow filename (empty means all)
+        type: string
+        default: ''
       dry-run:
         type: boolean
         default: true
@@ -16,6 +20,10 @@ on:
     inputs:
       repository:
         description: Optional destination repository
+        type: string
+        default: ''
+      workflow:
+        description: Optional canonical workflow filename
         type: string
         default: ''
       dry-run:
@@ -129,9 +137,10 @@ jobs:
       - name: Generate repository-specific workflows
         env:
           DEST_REPO: ${{ matrix.name }}
+          SELECTED_WORKFLOW: ${{ inputs.workflow }}
         run: |
           cd source-workflows
-          python3 ../packages/cli/scripts/copy-workflows.py --config ../caller-config/.github/copy-files-config.yml --repository "$DEST_REPO" --output "$RUNNER_TEMP/generated" --existing-files "$RUNNER_TEMP/existing-workflows.json" $(test ! -f "$RUNNER_TEMP/destination-publish.yml" || printf -- "--destination-publish-file %s" "$RUNNER_TEMP/destination-publish.yml")
+          python3 ../packages/cli/scripts/copy-workflows.py --config ../caller-config/.github/copy-files-config.yml --repository "$DEST_REPO" --workflow "$SELECTED_WORKFLOW" --output "$RUNNER_TEMP/generated" --existing-files "$RUNNER_TEMP/existing-workflows.json" $(test ! -f "$RUNNER_TEMP/destination-publish.yml" || printf -- "--destination-publish-file %s" "$RUNNER_TEMP/destination-publish.yml")
       - name: Copy generated workflows to destination
         uses: ./actions/copy-files-to-another-repository
         with:
