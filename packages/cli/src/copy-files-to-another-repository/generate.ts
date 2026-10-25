@@ -130,7 +130,18 @@ export function generateWorkflows(opts: GenerateOptions): string[] {
   );
   if (targets.length !== 1)
     throw Error("Expected exactly one repository config for " + repository);
-  const target = targets[0] as RecordValue;
+  const repositoryConfig = targets[0] as RecordValue;
+  const defaults = config.defaults ?? {};
+  const profiles = config.profiles ?? {};
+  if (!object(defaults) || !object(profiles))
+    throw Error("defaults and profiles must be mappings");
+  const profileName = repositoryConfig.profile;
+  if (profileName !== undefined && (typeof profileName !== "string" || !Object.hasOwn(profiles, profileName)))
+    throw Error("Unknown copier profile: " + String(profileName));
+  const profile = profileName === undefined ? {} : profiles[profileName];
+  if (!object(profile)) throw Error("Copier profile must be a mapping");
+  // Repository settings override profiles, which override shared defaults.
+  const target = { ...defaults, ...profile, ...repositoryConfig };
   const include = patterns(target.include ?? [], "include");
   const exclude = patterns(target.exclude ?? [], "exclude");
   // Publishing workflows are opt-in per repository. A broad default
