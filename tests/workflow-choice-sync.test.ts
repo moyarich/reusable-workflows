@@ -9,7 +9,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parse } from "yaml";
-import { syncWorkflowChoice } from "../packages/cli/src/workflow-choices/sync";
+import { syncYamlValues } from "../packages/cli/src/workflow-choices/sync";
 
 describe("workflow choice synchronization", () => {
   it("updates dispatch options, preserves other settings, and is idempotent", () => {
@@ -24,10 +24,10 @@ describe("workflow choice synchronization", () => {
         "name: Copy\non:\n  workflow_dispatch:\n    inputs:\n      repository:\n        description: Choose target\n        type: choice\n        default: all\n        options: [all, old]\n      dry-run:\n        type: boolean\n        default: true\n",
       );
       const options = {
-        workflowFile: file,
-        input: "repository",
-        options: ["all", "moyarich/console"],
-        defaultValue: "all",
+        file,
+        updates: [
+          {path: ["on","workflow_dispatch","inputs","repository","options"], value: ["all", "moyarich/console"]},
+        ],
       };
       expect(() => syncWorkflowChoice({ ...options, check: true })).toThrow(
         "out of sync",
@@ -46,8 +46,8 @@ describe("workflow choice synchronization", () => {
         syncWorkflowChoice({ ...options, options: ["all", "all"] }),
       ).toThrow("Invalid");
       expect(() =>
-        syncWorkflowChoice({ ...options, workflowFile: "../outside.yml" }),
-      ).toThrow("inside");
+        syncWorkflowChoice({ ...options, file: "../outside.yml" }),
+      ).toThrow("Invalid YAML file path");
     } finally {
       process.chdir(old);
       rmSync(root, { recursive: true, force: true });
