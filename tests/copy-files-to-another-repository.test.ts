@@ -20,8 +20,12 @@ describe("copy repository options", () => {
         message: "sync",
       };
       expect(() => validateOptions(options)).not.toThrow();
-      expect(() => validateOptions({ ...options, sourceRepository: "../bad" })).toThrow("Invalid source repository");
-      expect(() => validateOptions({ ...options, sourceRef: "../bad" })).toThrow("Invalid source ref");
+      expect(() =>
+        validateOptions({ ...options, sourceRepository: "../bad" }),
+      ).toThrow("Invalid source repository");
+      expect(() =>
+        validateOptions({ ...options, sourceRef: "../bad" }),
+      ).toThrow("Invalid source ref");
       expect(() =>
         validateOptions({ ...options, repository: "../bad" }),
       ).toThrow("Invalid repository");
