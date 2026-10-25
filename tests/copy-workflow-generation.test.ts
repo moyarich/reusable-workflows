@@ -115,7 +115,7 @@ repositories:
       expect(run("moyarich/editor")).toEqual([
         ".github/workflows/publish-vscode-vsx.yml",
       ]);
-      expect(run("moyarich/browser")).toEqual([]);
+      expect(run("moyarich/browser")).toEqual([".github/workflows/ci_cli.yml"]);
       expect(() =>
         generateWorkflows({
           config: {
