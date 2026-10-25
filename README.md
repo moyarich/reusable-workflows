@@ -12,6 +12,7 @@ Reusable GitHub Actions workflows for building, testing, releasing, publishing, 
 - **Package Publishing** — Publish packages to supported npm registries, including multi-package workspaces.
 - **CI Recovery** — Detect eligible workflow failures and support guarded, automated remediation.
 - **Repository Automation** — Reuse common maintenance and development workflows across projects.
+- **Workflow Caller Synchronization** — Distribute reviewed caller YAML from a source repository to allowlisted destinations using per-repository configuration and destination pull requests.
 
 ## Quick Start
 
@@ -53,6 +54,12 @@ For additional configuration, permissions, and workflow inputs, see the [Getting
 | [Examples](examples/)                                         | Browse practical, copyable workflow configurations.          |
 | [Release Drafter](docs/release-drafter-dispatch/page.mdx)     | Configure release drafting and synchronization.              |
 | [CI Self-Healing](examples/ci-self-heal/page.mdx)             | Explore automated CI recovery and safeguards.                |
+
+## Copy workflow callers
+
+This repository **owns the copier**: [`.github/copy-files-config.yml`](.github/copy-files-config.yml) identifies `moyarich/reusable-workflows-callers` as the canonical workflow source and lists each authorized destination and its overrides. [`.github/workflows/copy.yml`](.github/workflows/copy.yml) is the manually dispatched caller for [`reusable_copy-files-to-another-repository.yml`](.github/workflows/reusable_copy-files-to-another-repository.yml). The implementation and tests live under [`packages/cli/`](packages/cli/).
+
+Dispatch **Copy canonical workflow callers** with `dry-run: true` first. Set `repository` to an `owner/repo` from the local allowlist to test one destination; leave it empty for all. With `dry-run: false`, changes are proposed as destination PRs, not pushed directly to their base branch. The central configuration **is not distributed** to destinations. Every other repository that invokes the reusable workflow must provide its own `.github/copy-files-config.yml`. See the [copy files guide](docs/02-guides/copy-files-to-another-repository.md) for inputs, overrides, safety rules, tokens, and troubleshooting.
 
 ## Releases
 
