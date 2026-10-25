@@ -1,10 +1,11 @@
 import { defineConfig } from "vite";
 import { githubActions } from "@moyarich/vite-github-actions";
 
-// Run Vite from the repository root: the plugin validates paths against process.cwd().
+// Run Vite locally in packages/actions; resolve distribution paths from the repository root.
 export default defineConfig({
   plugins: [
     githubActions({
+      projectRoot: "../..",
       entries: {
         "browser-extension-publish":
           "packages/cli/src/browser-extension-publish/entry.ts",
