@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { parse } from "yaml";
-import { syncYamlValues } from "../workflow-choices/sync";
+import { syncYamlValues } from "../workflow-choices/sync.ts";
 
 const args = process.argv.slice(2);
 function option(key: string): string {
