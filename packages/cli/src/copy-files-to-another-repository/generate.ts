@@ -131,15 +131,25 @@ export function generateWorkflows(opts: GenerateOptions): string[] {
   if (targets.length !== 1)
     throw Error("Expected exactly one repository config for " + repository);
   const target = targets[0] as RecordValue;
-  const include = patterns(target.include ?? ["*.yml"], "include");
+  const include = patterns(target.include ?? [], "include");
   const exclude = patterns(target.exclude ?? [], "exclude");
+  // Publishing workflows are opt-in per repository. A broad default
+  // selection must never import a publisher for the wrong distribution target.
+  const isPublish = (name: string): boolean => /^publish(?:[-_].*)?\.yml$/.test(name);
+  const explicitlyIncluded = (name: string): boolean =>
+    include.some((pattern) =>
+      pattern !== "*.yml" && pattern !== "publish*.yml" && match(name, [pattern]),
+    );
   const create = patterns(target["create-files"] ?? [], "create-files");
   const overrides = target.overrides ?? {};
   if (!object(overrides)) throw Error("overrides must be a mapping");
   if (Object.keys(overrides).some((k) => !files.includes(k)))
     throw Error("overrides must reference available canonical source-files");
   const eligible = files.filter(
-    (f) => match(basename(f), include) && !match(basename(f), exclude),
+    (f) =>
+      (!isPublish(basename(f)) || explicitlyIncluded(basename(f))) &&
+      (include.length === 0 || match(basename(f), include) || !isPublish(basename(f))) &&
+      !match(basename(f), exclude),
   );
   if (Object.keys(overrides).some((k) => !eligible.includes(k)))
     throw Error("overrides cannot target excluded files");
