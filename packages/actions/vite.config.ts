@@ -1,4 +1,3 @@
-import { actionDistributions } from "./plugins/action-distributions";
 import { existsSync, lstatSync, realpathSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -56,7 +55,6 @@ if (
 }
 
 export default defineConfig({
-  plugins: [actionDistributions()],
   ssr: { noExternal: true },
   build: {
     ssr: true,
