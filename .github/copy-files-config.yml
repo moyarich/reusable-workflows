@@ -84,6 +84,12 @@ repositories:
     branch: main
   - name: moyarich/css-modules-kit
     branch: main
+  - name: moyarich/vite-github-actions
+    branch: main
+  - name: moyarich/vite-package-bin
+    branch: main
+  - name: moyarich/zsh-glow
+    branch: main
 # Per repository: include, exclude, create-files, and overrides are optional.
 # include/exclude accept workflow filename globs. Exclude always wins.
 # create-files explicitly allows creation of workflows not already in a destination.
