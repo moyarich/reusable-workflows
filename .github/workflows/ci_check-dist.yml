@@ -101,6 +101,6 @@ jobs:
       dry-run: ${{ github.event_name != 'push' && inputs.dry-run }}
       commit: ${{ github.event_name == 'push' || inputs.commit }}
       node-caching: ${{ github.event_name == 'push' && 'npm' || inputs.node-caching || 'npm' }}
-      include-root-package: ${{ inputs.include-root-package }}
+      include-root-package: ${{ inputs.include-root-package || false }}
       workspace-tools-source: ${{ inputs.workspace-tools-source || 'auto' }}
       validation-command: ${{ github.event_name == 'push' && 'test -f actions/setup-workspace-tools/action.yml && test -f actions/setup-workspace-tools/index.mjs && test -f actions/release-draft-sync/action.yml && test -f actions/parse-typed-inputs/action.yml && test -f actions/validate-package-changelogs/action.yml' || '' }}
