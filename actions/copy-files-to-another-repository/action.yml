@@ -1,0 +1,82 @@
+name: Copy files to another repository
+description: Synchronize a prepared tree to an allowlisted repository branch, with dry-run and no-op detection
+inputs:
+  token:
+    description: Token authorized to write workflow files in the destination
+    required: true
+  source-directory:
+    description: Prepared source tree whose relative paths will be copied
+    required: true
+  destination-repository:
+    description: Owner/repository destination
+    required: true
+  destination-branch:
+    description: Existing branch to update
+    required: true
+  dry-run:
+    description: Preview changes without committing
+    default: 'true'
+  commit-message:
+    description: Commit message for changed files
+    default: 'chore: sync shared files'
+outputs:
+  changed:
+    description: Whether files differ
+    value: ${{ steps.copy.outputs.changed }}
+  committed:
+    description: Whether a commit was pushed
+    value: ${{ steps.copy.outputs.committed }}
+runs:
+  using: composite
+  steps:
+    - id: copy
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        SOURCE: ${{ inputs.source-directory }}
+        DESTINATION: ${{ inputs.destination-repository }}
+        BRANCH: ${{ inputs.destination-branch }}
+        DRY_RUN: ${{ inputs.dry-run }}
+        COMMIT_MESSAGE: ${{ inputs.commit-message }}
+      run: |
+        set -euo pipefail
+        [[ "$DESTINATION" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo "::error::Invalid destination repository"; exit 1; }
+        [[ "$BRANCH" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ && "$BRANCH" != *..* && "$BRANCH" != */*/*/* ]] || { echo "::error::Invalid destination branch"; exit 1; }
+        [[ "$DRY_RUN" == true || "$DRY_RUN" == false ]] || { echo "::error::dry-run must be true or false"; exit 1; }
+        [[ -d "$SOURCE" ]] || { echo "::error::Source directory missing"; exit 1; }
+        SOURCE="$(realpath "$SOURCE")"
+        mapfile -d '' files < <(find "$SOURCE" -type f -print0)
+        (( ${#files[@]} )) || { echo "::error::No source files to copy"; exit 1; }
+        for f in "${files[@]}"; do
+          rel="${f#"$SOURCE"/}"
+          [[ "$rel" == .github/workflows/*.yml && "$rel" != *../* ]] || { echo "::error::Unsafe file: $rel"; exit 1; }
+        done
+        tmp="$(mktemp -d)"
+        trap 'rm -rf "$tmp"' EXIT
+        auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+        git -c http.extraheader="AUTHORIZATION: basic $auth" clone --quiet --single-branch --branch "$BRANCH" "https://github.com/$DESTINATION.git" "$tmp/dest"
+        cd "$tmp/dest"
+        for f in "${files[@]}"; do
+          rel="${f#"$SOURCE"/}"
+          mkdir -p "$(dirname "$rel")"
+          cp "$f" "$rel"
+          git add -- "$rel"
+        done
+        if git diff --cached --quiet; then
+          echo "changed=false" >> "$GITHUB_OUTPUT"
+          echo "committed=false" >> "$GITHUB_OUTPUT"
+          echo "No changes for $DESTINATION@$BRANCH" >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+        fi
+        echo "changed=true" >> "$GITHUB_OUTPUT"
+        git diff --cached --stat
+        git diff --cached --stat >> "$GITHUB_STEP_SUMMARY"
+        if [[ "$DRY_RUN" == true ]]; then
+          echo "committed=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        git config user.name 'github-actions[bot]'
+        git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+        git commit -m "$COMMIT_MESSAGE"
+        git -c http.extraheader="AUTHORIZATION: basic $auth" push origin "HEAD:refs/heads/$BRANCH"
+        echo "committed=true" >> "$GITHUB_OUTPUT"
