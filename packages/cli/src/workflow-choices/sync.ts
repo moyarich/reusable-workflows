@@ -18,7 +18,7 @@ export function syncYamlValues({
   updates,
   check = false,
 }: YamlUpdateOptions): boolean {
-  if (!/^[\\w./-]+\\.ya?ml$/.test(file) || file.split("/").includes(".."))
+  if (!/\.ya?ml$/.test(file) || file.startsWith("/") || file.includes("\\") || file.split("/").includes(".."))
     throw new Error("Invalid YAML file path");
   if (!updates.length) throw new Error("At least one YAML update is required");
   const original = readFileSync(file, "utf8");
