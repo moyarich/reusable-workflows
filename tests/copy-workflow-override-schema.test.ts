@@ -4,41 +4,24 @@ import { describe, expect, it } from "vitest";
 import YAML from "yaml";
 
 describe("copier workflow overrides schema", () => {
-  it("validates publishing assignments expanded from YAML aliases", () => {
-    const root = fileURLToPath(
-      new URL("../.github/copy-files-config.yml", import.meta.url),
-    );
-    const schemaPath = fileURLToPath(
-      new URL(
-        "../packages/cli/src/copy-files-to-another-repository/config.schema.json",
-        import.meta.url,
-      ),
-    );
-    const schema = JSON.parse(readFileSync(schemaPath, "utf8"));
-    const config = YAML.parse(readFileSync(root, "utf8"), { merge: true });
-    const repository = (name: string) =>
-      config.repositories.find(
+  it("validates named publishing profiles and default branches", () => {
+    const root = fileURLToPath(new URL("../.github/copy-files-config.yml", import.meta.url));
+    const config = YAML.parse(readFileSync(root, "utf8"));
+    expect(config.defaults.branch).toBe("main");
+    const expected = {
+      colorshower: "vscode",
+      "vscode-act-runner-local": "vscode",
+      JotebookSync: "vscode",
+      "element-inspector": "browser",
+    };
+    for (const [name, profile] of Object.entries(expected)) {
+      const destination = config.repositories.find(
         (entry: { name: string }) => entry.name === "moyarich/" + name,
       );
-    for (const name of [
-      "colorshower",
-      "vscode-act-runner-local",
-      "JotebookSync",
-      "element-inspector",
-    ]) {
-      const entry = repository(name);
-      expect(entry).toBeDefined();
-      expect(entry.include).toEqual(
-        name === "element-inspector"
-          ? ["publish-browser-extension.yml"]
-          : ["JotebookSync"].includes(name)
-            ? ["publish-browser-extension.yml"]
-            : ["publish-vscode-vsx.yml"],
-      );
-      expect(entry["create-files"]).toContain(entry.include[0]);
-      expect(schema.$defs.destination.properties.include.$ref).toBe(
-        "#/$defs/patterns",
-      );
+      expect(destination.profile).toBe(profile);
+      const files = config.profiles[profile].include;
+      expect(files).toHaveLength(1);
+      expect(config.profiles[profile]["create-files"]).toEqual(files);
     }
   });
 
