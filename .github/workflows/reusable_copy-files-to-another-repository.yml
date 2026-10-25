@@ -8,7 +8,7 @@ on:
         default: ''
       dry-run:
         type: boolean
-        default: false
+        default: true
     secrets:
       workflow-token:
         required: true
@@ -101,6 +101,7 @@ jobs:
       - name: Checkout caller configuration
         uses: actions/checkout@v7
         with:
+          repository: ${{ github.repository }}
           path: caller-config
           persist-credentials: false
       - name: Install YAML parser
@@ -140,4 +141,4 @@ jobs:
           destination-branch: ${{ matrix.branch }}
           mode: pr
           dry-run: ${{ inputs.dry-run }}
-          commit-message: "chore(ci): sync shared workflow callers from ${{ github.repository }}@${{ github.sha }}"
+          commit-message: "chore(ci): sync shared workflow callers from ${{ needs.plan.outputs.source-repository }}"
