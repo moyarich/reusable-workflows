@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { validateOptions } from "../packages/copy-files-to-another-repository/src/index";
+import { validateOptions } from "../packages/cli/src/copy-files-to-another-repository/index";
 
 describe("copy repository options", () => {
   it("validates destination and source before a copy", () => {

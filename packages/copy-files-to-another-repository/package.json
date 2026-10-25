@@ -1,9 +1,0 @@
-{
-  "name": "@moyarich/copy-files-to-another-repository",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "typecheck": "tsc --noEmit -p tsconfig.json"
-  }
-}
