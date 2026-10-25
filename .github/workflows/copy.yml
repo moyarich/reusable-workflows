@@ -30,6 +30,9 @@ on:
           - moyarich/vue-webview-vite
           - moyarich/pointer-bubble
           - moyarich/css-modules-kit
+          - moyarich/vite-github-actions
+          - moyarich/vite-package-bin
+          - moyarich/zsh-glow
       workflow:
         description: Copy all eligible workflows or one canonical caller
         type: choice
