@@ -20,11 +20,11 @@ The reusable workflow **requires the calling repository** to have a `.github/cop
 source:
   repository: moyarich/reusable-workflows-callers
   directory: .github/workflows
-  include:
+  allow:
     - "ci_*.yml"
     - "publish*.yml"
     - "release*.yml"
-  exclude:
+  ignore:
     - "reusable_*.yml"
 destination-directory: .github/workflows
 defaults:
@@ -38,7 +38,7 @@ repositories:
     profile: vscode
 ```
 
-The central configuration currently keeps other repositories, including `github_emulator`, on its explicit allowlist. Do not remove them simply because a smaller subset is documented elsewhere. Each repository can use `include`, `exclude`, and `overrides`; override keys must already exist in the canonical source file. The source include/exclude defines the hard candidate boundary. Starting with that set, defaults, profile and repository each add matching includes and remove matching excludes in order, so the most specific layer wins. Common workflows do not need to be repeated in every profile. Selected workflow files are copied whether they already exist or not. Deletions are not propagated.
+The central configuration currently keeps other repositories, including `github_emulator`, on its explicit allowlist. Do not remove them simply because a smaller subset is documented elsewhere. Each repository can use `include`, `exclude`, and `overrides`; override keys must already exist in the canonical source file. The source allow/ignore defines the hard candidate boundary. Starting with that set, defaults, profile and repository each add matching includes and remove matching excludes in order, so the most specific layer wins. Common workflows do not need to be repeated in every profile. Selected workflow files are copied whether they already exist or not. Deletions are not propagated.
 
 ## Running a sync
 
