@@ -38,10 +38,10 @@ describe("workflow choice synchronization", () => {
           },
         ],
       };
-      expect(() => syncWorkflowChoice({ ...options, check: true })).toThrow(
+      expect(() => syncYamlValues({ ...options, check: true })).toThrow(
         "out of sync",
       );
-      expect(syncWorkflowChoice(options)).toBe(true);
+      expect(syncYamlValues(options)).toBe(true);
       const document = parse(readFileSync(file, "utf8"));
       expect(document.on.workflow_dispatch.inputs.repository.options).toEqual([
         "all",
@@ -50,12 +50,12 @@ describe("workflow choice synchronization", () => {
       expect(document.on.workflow_dispatch.inputs["dry-run"].default).toBe(
         true,
       );
-      expect(syncWorkflowChoice(options)).toBe(false);
+      expect(syncYamlValues(options)).toBe(false);
       expect(() =>
-        syncWorkflowChoice({ ...options, options: ["all", "all"] }),
-      ).toThrow("Invalid");
+        syncYamlValues({ ...options, updates: [] }),
+      ).toThrow("At least one YAML update is required");
       expect(() =>
-        syncWorkflowChoice({ ...options, file: "../outside.yml" }),
+        syncYamlValues({ ...options, file: "../outside.yml" }),
       ).toThrow("Invalid YAML file path");
     } finally {
       process.chdir(old);
