@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync } from "node:fs";
-import { parseDocument, isMap, isSeq, YAMLMap, YAMLSeq } from "yaml";
+import { parseDocument, isMap, YAMLMap, YAMLSeq } from "yaml";
 
 export interface WorkflowChoiceOptions {
   workflowFile: string;
