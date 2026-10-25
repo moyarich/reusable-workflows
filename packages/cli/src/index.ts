@@ -15,5 +15,5 @@ export {
   validateOptions as validateCopyFilesOptions,
 } from "./copy-files-to-another-repository/index";
 export type { CopyOptions } from "./copy-files-to-another-repository/index";
-export { syncWorkflowChoice } from "./workflow-choices/sync";
-export type { WorkflowChoiceOptions } from "./workflow-choices/sync";
+export { syncYamlValues } from "./workflow-choices/sync";
+export type { YamlUpdate, YamlUpdateOptions } from "./workflow-choices/sync";
