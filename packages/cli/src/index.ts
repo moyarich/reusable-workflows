@@ -10,3 +10,5 @@ export {
   safeDir as safeBrowserDirectory,
 } from "./browser-extension-publish/manifest";
 export type { Store } from "./browser-extension-publish/manifest";
+export { copyFiles, validateOptions as validateCopyFilesOptions } from "./copy-files-to-another-repository/index";
+export type { CopyOptions } from "./copy-files-to-another-repository/index";
