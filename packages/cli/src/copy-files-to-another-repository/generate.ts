@@ -141,7 +141,8 @@ export function generateWorkflows(opts: GenerateOptions): string[] {
     (typeof profileName !== "string" || !Object.hasOwn(profiles, profileName))
   )
     throw Error("Unknown copier profile: " + String(profileName));
-  const profile = profileName === undefined ? {} : profiles[profileName];
+  const profile =
+    typeof profileName === "string" ? profiles[profileName] : {};
   if (!object(profile)) throw Error("Copier profile must be a mapping");
   // Repository settings override profiles, which override shared defaults.
   const target = { ...defaults, ...profile, ...repositoryConfig };
