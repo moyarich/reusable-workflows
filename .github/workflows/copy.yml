@@ -37,6 +37,31 @@ on:
         default: all
         options:
           - all
+          - check-dist.yml
+          - ci_actionlint.yml
+          - ci_cli.yml
+          - ci_package-lock.yml
+          - ci_playwright.yml
+          - ci_prettier.yml
+          - ci_storybook.yml
+          - delete-release-tag.yml
+          - history-cleanup.yml
+          - issue-dependencies_manage.yml
+          - issue-dependencies_set.yml
+          - issue-dependencies_show-tree.yml
+          - pages.yml
+          - prepare-release-pr.yml
+          - publish-browser-extension.yml
+          - publish-vscode-vsx.yml
+          - publish.yml
+          - release-approved-pr.yml
+          - release-draft.yml
+          - release-tag.yml
+          - release.yml
+          - reset-release.yml
+          - restore-release.yml
+          - sync-release-package-choices.yml
+          - upgrade-dependencies.yml
       dry-run:
         description: Preview changes; do not create destination pull requests
         type: boolean
