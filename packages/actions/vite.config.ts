@@ -28,7 +28,10 @@ export default defineConfig({
           "select.mjs": "packages/cli/src/check-dist/select.ts",
           "select-targets.js": "packages/cli/src/check-dist/select-targets.ts",
           "config.schema.json":
-            ".github/reusable-configurations/check-dist-config.schema.json",
+            "packages/cli/src/check-dist/config.schema.json",
+        },
+        "copy-files-to-another-repository": {
+          "config.schema.json": "packages/cli/src/copy-files-to-another-repository/config.schema.json",
         },
         "resolve-workspaces": {
           "index.mjs": "packages/cli/src/resolve-workspaces/index.ts",
