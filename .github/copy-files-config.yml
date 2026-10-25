@@ -26,6 +26,8 @@ source:
     - "smoke-test_*.yml"
 destination-directory: .github/workflows
 repositories:
+  - name: moyarich/snippet-canvas
+    branch: main
   - name: moyarich/github_emulator
     branch: main
   - name: moyarich/moyaforge
