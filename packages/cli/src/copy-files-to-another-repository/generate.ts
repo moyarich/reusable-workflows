@@ -135,10 +135,14 @@ export function generateWorkflows(opts: GenerateOptions): string[] {
   const exclude = patterns(target.exclude ?? [], "exclude");
   // Publishing workflows are opt-in per repository. A broad default
   // selection must never import a publisher for the wrong distribution target.
-  const isPublish = (name: string): boolean => /^publish(?:[-_].*)?\.yml$/.test(name);
+  const isPublish = (name: string): boolean =>
+    /^publish(?:[-_].*)?\.yml$/.test(name);
   const explicitlyIncluded = (name: string): boolean =>
-    include.some((pattern) =>
-      pattern !== "*.yml" && pattern !== "publish*.yml" && match(name, [pattern]),
+    include.some(
+      (pattern) =>
+        pattern !== "*.yml" &&
+        pattern !== "publish*.yml" &&
+        match(name, [pattern]),
     );
   const create = patterns(target["create-files"] ?? [], "create-files");
   const overrides = target.overrides ?? {};
@@ -148,7 +152,9 @@ export function generateWorkflows(opts: GenerateOptions): string[] {
   const eligible = files.filter(
     (f) =>
       (!isPublish(basename(f)) || explicitlyIncluded(basename(f))) &&
-      (include.length === 0 || match(basename(f), include) || !isPublish(basename(f))) &&
+      (include.length === 0 ||
+        match(basename(f), include) ||
+        !isPublish(basename(f))) &&
       !match(basename(f), exclude),
   );
   if (Object.keys(overrides).some((k) => !eligible.includes(k)))
