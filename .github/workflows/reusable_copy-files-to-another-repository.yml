@@ -90,7 +90,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: moyarich/reusable-workflows
-          ref: refactor/copier-into-cli
+          ref: ${{ github.repository == 'moyarich/reusable-workflows' && github.ref_name || 'main' }}
           persist-credentials: false
       - name: Checkout canonical source workflows
         uses: actions/checkout@v7
