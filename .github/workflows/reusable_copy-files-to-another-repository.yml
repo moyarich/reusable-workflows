@@ -49,7 +49,9 @@ jobs:
         with:
           persist-credentials: false
       - name: Install YAML parser
-        run: python3 -m pip install --quiet 'ruamel.yaml>=0.18,<0.20'
+        run: python3 -m pip install --quiet 'ruamel.yaml>=0.18,<0.20' check-jsonschema
+      - name: Validate copier configuration schema
+        run: check-jsonschema --schemafile packages/cli/src/copy-files-to-another-repository/config.schema.json .github/copy-files-config.yml
       - id: config
         name: Validate destinations and build matrix
         shell: bash
