@@ -67,10 +67,15 @@ describe("TypeScript copier generation", () => {
     const directory = join(sourceRoot, ".github/workflows");
     mkdirSync(directory, { recursive: true });
     try {
-      for (const name of ["ci_cli.yml", "publish-vscode-vsx.yml", "publish-browser-extension.yml"]) {
+      for (const name of [
+        "ci_cli.yml",
+        "publish-vscode-vsx.yml",
+        "publish-browser-extension.yml",
+      ]) {
         writeFileSync(join(directory, name), "name: Sample\n");
       }
-      const config = parse(`
+      const config = parse(
+        `
 defaults:
   branch: main
 profiles:
@@ -94,20 +99,34 @@ repositories:
   - name: moyarich/browser
     profile: browser
     exclude: [publish-browser-extension.yml]
-`, { merge: true });
-      const run = (repository: string) => generateWorkflows({
-        config, repository, sourceRoot, output, existingFiles: [],
-      });
+`,
+        { merge: true },
+      );
+      const run = (repository: string) =>
+        generateWorkflows({
+          config,
+          repository,
+          sourceRoot,
+          output,
+          existingFiles: [],
+        });
       expect(config.repositories[0].branch).toBe("release");
       expect(config.repositories[0].exclude).toEqual(["ci_cli.yml"]);
       expect(run("moyarich/editor")).toEqual([
         ".github/workflows/publish-vscode-vsx.yml",
       ]);
       expect(run("moyarich/browser")).toEqual([]);
-      expect(() => generateWorkflows({
-        config: { ...config, repositories: [{ name: "moyarich/bad", profile: "missing" }] },
-        repository: "moyarich/bad", sourceRoot, output,
-      })).toThrow("Unknown copier profile");
+      expect(() =>
+        generateWorkflows({
+          config: {
+            ...config,
+            repositories: [{ name: "moyarich/bad", profile: "missing" }],
+          },
+          repository: "moyarich/bad",
+          sourceRoot,
+          output,
+        }),
+      ).toThrow("Unknown copier profile");
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
