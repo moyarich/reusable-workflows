@@ -15,7 +15,13 @@ inputs:
     required: true
   dry-run:
     description: Preview changes without committing
-    default: "true"
+    default: "false"
+  mode:
+    description: pr (default) or direct (explicit opt-in)
+    default: pr
+  pull-request-title:
+    description: Title of destination PR
+    default: "chore(ci): sync shared workflow callers"
   commit-message:
     description: Commit message for changed files
     default: "chore: sync shared files"
@@ -26,6 +32,9 @@ outputs:
   committed:
     description: Whether a commit was pushed
     value: ${{ steps.copy.outputs.committed }}
+  pull-request-url:
+    description: Created or updated pull request URL
+    value: ${{ steps.copy.outputs.pull-request-url }}
 runs:
   using: composite
   steps:
@@ -38,10 +47,13 @@ runs:
         BRANCH: ${{ inputs.destination-branch }}
         DRY_RUN: ${{ inputs.dry-run }}
         COMMIT_MESSAGE: ${{ inputs.commit-message }}
+        MODE: ${{ inputs.mode }}
+        PR_TITLE: ${{ inputs.pull-request-title }}
       run: |
         set -euo pipefail
         [[ "$DESTINATION" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo "::error::Invalid destination repository"; exit 1; }
         [[ "$BRANCH" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ && "$BRANCH" != *..* && "$BRANCH" != */*/*/* ]] || { echo "::error::Invalid destination branch"; exit 1; }
+        [[ "$MODE" == pr || "$MODE" == direct ]] || { echo "::error::Invalid mode"; exit 1; }
         [[ "$DRY_RUN" == true || "$DRY_RUN" == false ]] || { echo "::error::dry-run must be true or false"; exit 1; }
         [[ -d "$SOURCE" ]] || { echo "::error::Source directory missing"; exit 1; }
         SOURCE="$(realpath "$SOURCE")"
@@ -78,5 +90,22 @@ runs:
         git config user.name 'github-actions[bot]'
         git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
         git commit -m "$COMMIT_MESSAGE"
-        git -c http.extraheader="AUTHORIZATION: basic $auth" push origin "HEAD:refs/heads/$BRANCH"
+        if [[ "$MODE" == direct ]]; then
+          git -c http.extraheader="AUTHORIZATION: basic $auth" push origin "HEAD:refs/heads/$BRANCH"
+        else
+          SYNC_BRANCH="automation/sync-workflow-callers"
+          # Overwrite only the dedicated automation branch, never the default branch.
+          git -c http.extraheader="AUTHORIZATION: basic $auth" fetch origin "refs/heads/$SYNC_BRANCH:refs/remotes/origin/$SYNC_BRANCH" || true
+          if git show-ref --verify --quiet "refs/remotes/origin/$SYNC_BRANCH"; then
+            git -c http.extraheader="AUTHORIZATION: basic $auth" push --force-with-lease="refs/heads/$SYNC_BRANCH:$(git rev-parse "refs/remotes/origin/$SYNC_BRANCH")" origin "HEAD:refs/heads/$SYNC_BRANCH"
+          else
+            git -c http.extraheader="AUTHORIZATION: basic $auth" push origin "HEAD:refs/heads/$SYNC_BRANCH"
+          fi
+          existing="$(gh api -H "Accept: application/vnd.github+json" "repos/$DESTINATION/pulls?state=open&head=${DESTINATION%%/*}:$SYNC_BRANCH&base=$BRANCH" --jq '.[0].html_url // empty')"
+          if [[ -z "$existing" ]]; then
+            existing="$(gh api -X POST "repos/$DESTINATION/pulls" -f title="$PR_TITLE" -f head="$SYNC_BRANCH" -f base="$BRANCH" -f body="Automated synchronization of canonical workflow callers. Review the changes before merging." --jq '.html_url')"
+          fi
+          echo "pull-request-url=$existing" >> "$GITHUB_OUTPUT"
+          echo "Destination PR: $existing" >> "$GITHUB_STEP_SUMMARY"
+        fi
         echo "committed=true" >> "$GITHUB_OUTPUT"
