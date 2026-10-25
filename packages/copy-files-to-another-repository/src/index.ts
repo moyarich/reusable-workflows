@@ -13,6 +13,8 @@ import { join, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 
 export interface CopyOptions {
+  sourceRepository: string;
+  sourceRef: string;
   sourceDirectory: string;
   repository: string;
   branch: string;
@@ -21,6 +23,17 @@ export interface CopyOptions {
   message: string;
 }
 export function validateOptions(o: CopyOptions): void {
+  if (
+    !/^[\w.-]+\/[\w.-]+$/.test(o.sourceRepository) ||
+    o.sourceRepository.split("/").some((part) => part === "." || part === "..")
+  )
+    throw new Error("Invalid source repository");
+  if (
+    !/^[\w.-][\w./-]*$/.test(o.sourceRef) ||
+    o.sourceRef.includes("..") ||
+    o.sourceRef.includes("//")
+  )
+    throw new Error("Invalid source ref");
   const parts = o.repository.split("/");
   if (
     parts.length !== 2 ||
@@ -115,6 +128,8 @@ function main(): void {
   if (dryRun !== "true" && dryRun !== "false")
     throw new Error("dry-run must be true or false");
   const result = copyFiles({
+    sourceRepository: process.env.COPY_SOURCE_REPO ?? "",
+    sourceRef: process.env.COPY_SOURCE_REF ?? "main",
     sourceDirectory: process.env.COPY_SOURCE ?? "",
     repository: process.env.COPY_DEST ?? "",
     branch: process.env.COPY_BRANCH ?? "main",

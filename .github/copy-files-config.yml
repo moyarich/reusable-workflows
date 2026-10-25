@@ -1,0 +1,88 @@
+# Destination repositories must explicitly opt in. Files must already exist in each
+# destination unless listed in its create-files allowlist. No deletions are propagated.
+source:
+  repository: moyarich/reusable-workflows-callers
+  directory: .github/workflows
+  include:
+    - "ci_*.yml"
+    - "ci.yml"
+    - "check-dist.yml"
+    - "delete-release-tag.yml"
+    - "history-cleanup.yml"
+    - "issue-dependencies_*.yml"
+    - "pages.yml"
+    - "prepare-release-pr.yml"
+    - "publish*.yml"
+    - "release*.yml"
+    - "reset-release.yml"
+    - "restore-release.yml"
+    - "sync-release-package-choices.yml"
+    - "upgrade-dependencies.yml"
+  exclude:
+    - copy.yml
+    - "_self-test_*.yml"
+    - "reusable_*.yml"
+    - "smoke-test_*.yml"
+destination-directory: .github/workflows
+repositories:
+  - name: moyarich/github_emulator
+    branch: main
+  - name: moyarich/moyaforge
+    branch: main
+  - name: moyarich/autofilename
+    branch: main
+  - name: moyarich/colorshower
+    branch: main
+  - name: moyarich/workspace-tools
+    branch: main
+    # Package options are maintained by sync-release-package-choices.yml.
+    # Retain local workspace/app manifest triggers when copying this caller.
+    overrides:
+      .github/workflows/sync-release-package-choices.yml:
+        on:
+          push:
+            paths:
+              - package.json
+              - packages/**/package.json
+              - apps/**/package.json
+              - .github/workflows/check-dist.yml
+              - .github/workflows/release.yml
+              - .github/workflows/release-draft.yml
+              - .github/workflows/publish.yml
+              - .github/workflows/restore-release.yml
+              - .github/workflows/reset-release.yml
+              - .github/workflows/sync-release-package-choices.yml
+  - name: moyarich/css-expand-collapse
+    branch: main
+  - name: moyarich/console
+    branch: main
+  - name: moyarich/JotebookSync
+    branch: main
+    # Existing publish.yml has a different publishing contract from the npm monorepo caller.
+    exclude:
+      - publish.yml
+  - name: moyarich/vscode-act-runner-local
+    branch: main
+  - name: moyarich/dev-toolkit
+    branch: main
+  - name: moyarich/vscode-dev-toolkit
+    branch: main
+    # Existing publish.yml has a different publishing contract from the npm monorepo caller.
+    exclude:
+      - publish.yml
+  - name: moyarich/css-color-parser
+    branch: main
+    # Existing publish.yml has a different publishing contract from the npm monorepo caller.
+    exclude:
+      - publish.yml
+  - name: moyarich/vscode-dependency-links
+    branch: main
+  - name: moyarich/vue-webview-vite
+    branch: main
+  - name: moyarich/pointer-bubble
+    branch: main
+  - name: moyarich/css-modules-kit
+    branch: main
+# Per repository: include, exclude, create-files, and overrides are optional.
+# include/exclude accept workflow filename globs. Exclude always wins.
+# create-files explicitly allows creation of workflows not already in a destination.
