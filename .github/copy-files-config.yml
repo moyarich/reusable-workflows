@@ -30,7 +30,6 @@ defaults:
 profiles:
   npm:
     include: [publish.yml]
-    create-files: [publish.yml]
   vscode:
     include: [publish-vscode-vsx.yml]
     create-files: [publish-vscode-vsx.yml]
