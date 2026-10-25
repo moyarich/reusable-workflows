@@ -8,6 +8,7 @@ on:
       - .github/workflows/copy.yml
       - packages/cli/src/workflow-choices/**
       - packages/cli/src/bin/sync-workflow-choices.ts
+      - packages/cli/src/bin/sync-copy-workflow-choices.ts
       - .github/workflows/sync-copy-destination-choices.yml
   pull_request:
     paths:
@@ -15,6 +16,7 @@ on:
       - .github/workflows/copy.yml
       - packages/cli/src/workflow-choices/**
       - packages/cli/src/bin/sync-workflow-choices.ts
+      - packages/cli/src/bin/sync-copy-workflow-choices.ts
       - .github/workflows/sync-copy-destination-choices.yml
   workflow_dispatch:
 
@@ -39,6 +41,24 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - name: Resolve canonical source
+        id: canonical
+        shell: bash
+        run: |
+          node - <<'NODE' >> "$GITHUB_OUTPUT"
+          const fs = require('node:fs');
+          const yaml = require('yaml');
+          const source = yaml.parse(fs.readFileSync('.github/copy-files-config.yml', 'utf8')).source;
+          if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(source.repository)) throw Error('Invalid source repository');
+          console.log('repository=' + source.repository);
+          NODE
+      - name: Checkout canonical workflows
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ steps.canonical.outputs.repository }}
+          ref: main
+          path: canonical-source
+          persist-credentials: false
       - name: Update workflow choices from destination inventory
         run: >-
           node --experimental-strip-types
@@ -50,6 +70,13 @@ jobs:
           --default all
           --workflow .github/workflows/copy.yml
           --input repository
+      - name: Generate workflow choices from canonical source
+        run: >-
+          node --experimental-strip-types
+          packages/cli/src/bin/sync-copy-workflow-choices.ts
+          --config .github/copy-files-config.yml
+          --source-directory canonical-source/.github/workflows
+          --workflow .github/workflows/copy.yml
       - name: Format workflow
         run: npx --no-install prettier --write .github/workflows/copy.yml
       - name: Commit synchronization
@@ -85,6 +112,32 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - name: Resolve canonical source
+        id: canonical
+        shell: bash
+        run: |
+          node - <<'NODE' >> "$GITHUB_OUTPUT"
+          const fs = require('node:fs');
+          const yaml = require('yaml');
+          const source = yaml.parse(fs.readFileSync('.github/copy-files-config.yml', 'utf8')).source;
+          if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(source.repository)) throw Error('Invalid source repository');
+          console.log('repository=' + source.repository);
+          NODE
+      - name: Checkout canonical workflows
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ steps.canonical.outputs.repository }}
+          ref: main
+          path: canonical-source
+          persist-credentials: false
+      - name: Verify canonical workflow choices
+        run: >-
+          node --experimental-strip-types
+          packages/cli/src/bin/sync-copy-workflow-choices.ts
+          --config .github/copy-files-config.yml
+          --source-directory canonical-source/.github/workflows
+          --workflow .github/workflows/copy.yml
+          --check
       - name: Verify generated choices match configuration
         run: >-
           node --experimental-strip-types
