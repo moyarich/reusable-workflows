@@ -143,33 +143,25 @@ export function generateWorkflows(opts: GenerateOptions): string[] {
     throw Error("Unknown copier profile: " + String(profileName));
   const profile = typeof profileName === "string" ? profiles[profileName] : {};
   if (!object(profile)) throw Error("Copier profile must be a mapping");
-  // Repository settings override profiles, which override shared defaults.
+  // Source selection is the hard boundary. Each subsequent layer adjusts that
+  // selection; later includes can restore files excluded by an earlier layer.
+  const layers = [defaults, profile, repositoryConfig];
   const target = { ...defaults, ...profile, ...repositoryConfig };
-  const include = patterns(target.include ?? [], "include");
-  const exclude = patterns(target.exclude ?? [], "exclude");
-  // Publishing workflows are opt-in per repository. A broad default
-  // selection must never import a publisher for the wrong distribution target.
-  const isPublish = (name: string): boolean =>
-    /^publish(?:[-_].*)?\.yml$/.test(name);
-  const explicitlyIncluded = (name: string): boolean =>
-    include.some(
-      (pattern) =>
-        pattern !== "*.yml" &&
-        pattern !== "publish*.yml" &&
-        match(name, [pattern]),
-    );
   const overrides = target.overrides ?? {};
   if (!object(overrides)) throw Error("overrides must be a mapping");
   if (Object.keys(overrides).some((k) => !files.includes(k)))
     throw Error("overrides must reference available canonical source-files");
-  const eligible = files.filter(
-    (f) =>
-      (!isPublish(basename(f)) || explicitlyIncluded(basename(f))) &&
-      (include.length === 0 ||
-        match(basename(f), include) ||
-        !isPublish(basename(f))) &&
-      !match(basename(f), exclude),
-  );
+  const selectedNames = new Set(files);
+  for (const layer of layers) {
+    const included = patterns(layer.include ?? [], "include");
+    const excluded = patterns(layer.exclude ?? [], "exclude");
+    for (const f of files) {
+      const name = basename(f);
+      if (match(name, included)) selectedNames.add(f);
+      if (match(name, excluded)) selectedNames.delete(f);
+    }
+  }
+  const eligible = files.filter((f) => selectedNames.has(f));
   if (Object.keys(overrides).some((k) => !eligible.includes(k)))
     throw Error("overrides cannot target excluded files");
   let selected = eligible;
