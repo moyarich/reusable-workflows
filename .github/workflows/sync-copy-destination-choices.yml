@@ -35,7 +35,11 @@ jobs:
         run: >-
           node --experimental-strip-types
           packages/cli/src/bin/sync-workflow-choices.ts
-          --config .github/copy-files-config.yml
+          --source .github/copy-files-config.yml
+          --values-path repositories
+          --value-field name
+          --prepend all
+          --default all
           --workflow .github/workflows/copy.yml
           --input repository
       - name: Format workflow
