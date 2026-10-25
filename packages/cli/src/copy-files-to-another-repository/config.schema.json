@@ -4,12 +4,19 @@
   "title": "Canonical workflow copy configuration",
   "type": "object",
   "additionalProperties": false,
-  "required": ["source", "repositories"],
+  "required": [
+    "source",
+    "repositories"
+  ],
   "properties": {
     "source": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["repository", "directory", "include"],
+      "required": [
+        "repository",
+        "directory",
+        "include"
+      ],
       "properties": {
         "repository": {
           "$ref": "#/$defs/repository"
@@ -66,7 +73,9 @@
     "destination": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name"],
+      "required": [
+        "name"
+      ],
       "properties": {
         "name": {
           "$ref": "#/$defs/repository"
@@ -84,10 +93,6 @@
           "$ref": "#/$defs/patterns",
           "description": "Excluded workflows always take precedence over included workflows."
         },
-        "create-files": {
-          "$ref": "#/$defs/patterns",
-          "description": "Allow listed selected workflows to be created if absent at the destination; does not override publish opt-in."
-        },
         "overrides": {
           "type": "object",
           "propertyNames": {
@@ -96,7 +101,14 @@
           "additionalProperties": {
             "type": "object",
             "propertyNames": {
-              "enum": ["on", "jobs", "env", "defaults", "name", "run-name"]
+              "enum": [
+                "on",
+                "jobs",
+                "env",
+                "defaults",
+                "name",
+                "run-name"
+              ]
             }
           }
         },
@@ -120,9 +132,6 @@
           "$ref": "#/$defs/patterns"
         },
         "exclude": {
-          "$ref": "#/$defs/patterns"
-        },
-        "create-files": {
           "$ref": "#/$defs/patterns"
         }
       }
