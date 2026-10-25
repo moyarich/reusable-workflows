@@ -1,6 +1,6 @@
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import Ajv from "ajv";
+import Ajv2020 from "ajv/dist/2020.js";
 import { parse } from "yaml";
 import { generateWorkflows } from "../copy-files-to-another-repository/generate.ts";
 
@@ -13,7 +13,7 @@ const configPath = arg("--config", ".github/copy-files-config.yml");
 const schemaPath = arg("--schema", "packages/cli/src/copy-files-to-another-repository/config.schema.json");
 const config = parse(readFileSync(configPath, "utf8"));
 const schema = JSON.parse(readFileSync(schemaPath, "utf8"));
-const ajv = new Ajv({ allErrors: true, strict: false });
+const ajv = new Ajv2020({ allErrors: true, strict: false });
 const validate = ajv.compile(schema);
 if (!validate(config)) throw Error("Invalid copier configuration: " + ajv.errorsText(validate.errors));
 const repositories = config.repositories as Array<{ name: string; branch: string }>;
