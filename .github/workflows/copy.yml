@@ -30,6 +30,13 @@ on:
           - moyarich/vue-webview-vite
           - moyarich/pointer-bubble
           - moyarich/css-modules-kit
+      workflow:
+        description: Copy all eligible workflows or one canonical caller
+        type: choice
+        required: true
+        default: all
+        options:
+          - all
       dry-run:
         description: Preview changes; do not create destination pull requests
         type: boolean
@@ -77,6 +84,7 @@ jobs:
     uses: ./.github/workflows/reusable_copy-files-to-another-repository.yml
     with:
       repository: ${{ inputs.repository == 'all' && '' || inputs.repository }}
+      workflow: ${{ inputs.workflow == 'all' && '' || inputs.workflow }}
       dry-run: ${{ inputs.dry-run }}
     secrets:
       workflow-token: ${{ secrets._WORKFLOW_TOKEN }}
