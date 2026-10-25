@@ -1,6 +1,6 @@
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
-import { parseDocument, isMap, isSeq, type YAMLMap } from "yaml";
+import { parseDocument, isMap } from "yaml";
 
 type RecordValue = Record<string, unknown>;
 const object = (v: unknown): v is RecordValue => v !== null && typeof v === "object" && !Array.isArray(v);
@@ -10,7 +10,10 @@ function patterns(v: unknown, label: string): string[] {
   return v as string[];
 }
 function match(name: string, globs: string[]): boolean {
-  return globs.some(glob => new RegExp("^" + glob.split("*").map(s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\?/g, "." )).join(".*") + "$").test(name));
+  return globs.some(glob => {
+    const escaped = glob.split("*").map(part => part.replace(/[|\\{}()[\]^$+?.]/g, "\\$&")).join(".*");
+    return new RegExp("^" + escaped + "$").test(name);
+  });
 }
 function kind(s: string): string {
   if (s.includes("reusable_bulk-npm-publish.yml")) return "npm-monorepo";
