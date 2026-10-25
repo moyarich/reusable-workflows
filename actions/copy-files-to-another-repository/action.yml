@@ -15,10 +15,10 @@ inputs:
     required: true
   dry-run:
     description: Preview changes without committing
-    default: 'true'
+    default: "true"
   commit-message:
     description: Commit message for changed files
-    default: 'chore: sync shared files'
+    default: "chore: sync shared files"
 outputs:
   changed:
     description: Whether files differ
