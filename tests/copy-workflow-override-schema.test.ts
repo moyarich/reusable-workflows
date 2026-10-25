@@ -5,17 +5,40 @@ import YAML from "yaml";
 
 describe("copier workflow overrides schema", () => {
   it("validates publishing assignments expanded from YAML aliases", () => {
-    const root = fileURLToPath(new URL("../.github/copy-files-config.yml", import.meta.url));
-    const schemaPath = fileURLToPath(new URL("../packages/cli/src/copy-files-to-another-repository/config.schema.json", import.meta.url));
+    const root = fileURLToPath(
+      new URL("../.github/copy-files-config.yml", import.meta.url),
+    );
+    const schemaPath = fileURLToPath(
+      new URL(
+        "../packages/cli/src/copy-files-to-another-repository/config.schema.json",
+        import.meta.url,
+      ),
+    );
     const schema = JSON.parse(readFileSync(schemaPath, "utf8"));
     const config = YAML.parse(readFileSync(root, "utf8"), { merge: true });
-    const repository = (name: string) => config.repositories.find((entry: {name: string}) => entry.name === "moyarich/" + name);
-    for (const name of ["colorshower", "vscode-act-runner-local", "JotebookSync", "element-inspector"]) {
+    const repository = (name: string) =>
+      config.repositories.find(
+        (entry: { name: string }) => entry.name === "moyarich/" + name,
+      );
+    for (const name of [
+      "colorshower",
+      "vscode-act-runner-local",
+      "JotebookSync",
+      "element-inspector",
+    ]) {
       const entry = repository(name);
       expect(entry).toBeDefined();
-      expect(entry.include).toEqual(name === "element-inspector" ? ["publish-browser-extension.yml"] : ["JotebookSync"].includes(name) ? ["publish-browser-extension.yml"] : ["publish-vscode-vsx.yml"]);
+      expect(entry.include).toEqual(
+        name === "element-inspector"
+          ? ["publish-browser-extension.yml"]
+          : ["JotebookSync"].includes(name)
+            ? ["publish-browser-extension.yml"]
+            : ["publish-vscode-vsx.yml"],
+      );
       expect(entry["create-files"]).toContain(entry.include[0]);
-      expect(schema.$defs.destination.properties.include.$ref).toBe("#/$defs/patterns");
+      expect(schema.$defs.destination.properties.include.$ref).toBe(
+        "#/$defs/patterns",
+      );
     }
   });
 
