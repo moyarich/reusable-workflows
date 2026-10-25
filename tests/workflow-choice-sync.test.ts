@@ -51,9 +51,9 @@ describe("workflow choice synchronization", () => {
         true,
       );
       expect(syncYamlValues(options)).toBe(false);
-      expect(() =>
-        syncYamlValues({ ...options, updates: [] }),
-      ).toThrow("At least one YAML update is required");
+      expect(() => syncYamlValues({ ...options, updates: [] })).toThrow(
+        "At least one YAML update is required",
+      );
       expect(() =>
         syncYamlValues({ ...options, file: "../outside.yml" }),
       ).toThrow("Invalid YAML file path");
