@@ -1,48 +1,35 @@
 import { readFileSync, writeFileSync } from "node:fs";
-import { parseDocument, isMap, YAMLMap, YAMLSeq } from "yaml";
+import { parseDocument } from "yaml";
 
-export interface WorkflowChoiceOptions {
-  workflowFile: string;
-  input: string;
-  options: string[];
-  defaultValue: string;
+export interface YamlUpdate {
+  path: string[];
+  value: unknown;
+}
+
+export interface YamlUpdateOptions {
+  file: string;
+  updates: YamlUpdate[];
   check?: boolean;
 }
 
-/** Synchronize an existing workflow_dispatch choice input, preserving other YAML fields. */
-export function syncWorkflowChoice(options: WorkflowChoiceOptions): boolean {
-  const { workflowFile, input, defaultValue } = options;
-  if (!/^\.github\/workflows\/[\w.-]+\.ya?ml$/.test(workflowFile)) {
-    throw new Error("Workflow must be inside .github/workflows");
-  }
-  const unique = [...new Set(options.options)];
-  if (
-    !unique.length ||
-    unique.length !== options.options.length ||
-    unique.some((value) => !value || typeof value !== "string") ||
-    !unique.includes(defaultValue) ||
-    unique.length > 100
-  ) {
-    throw new Error("Invalid workflow choice options or default");
-  }
-  const original = readFileSync(workflowFile, "utf8");
+/** Apply declarative updates to existing YAML keys while retaining unrelated content. */
+export function syncYamlValues({ file, updates, check = false }: YamlUpdateOptions): boolean {
+  if (!/^[\\w./-]+\\.ya?ml$/.test(file) || file.split("/").includes(".."))
+    throw new Error("Invalid YAML file path");
+  if (!updates.length) throw new Error("At least one YAML update is required");
+  const original = readFileSync(file, "utf8");
   const document = parseDocument(original, { keepSourceTokens: true });
   if (document.errors.length) throw new Error(document.errors.join("; "));
-  const inputs = document.getIn(["on", "workflow_dispatch", "inputs"], true);
-  if (!isMap(inputs) || !isMap(inputs.get(input, true))) {
-    throw new Error("Workflow dispatch input not found: " + input);
+  for (const update of updates) {
+    if (!Array.isArray(update.path) || !update.path.length || update.path.some(p => !p))
+      throw new Error("Invalid YAML property path");
+    if (!document.hasIn(update.path))
+      throw new Error("Missing YAML property: " + update.path.join("."));
+    document.setIn(update.path, update.value);
   }
-  const choice = inputs.get(input, true) as YAMLMap;
-  choice.set("type", "choice");
-  choice.set("required", true);
-  choice.set("default", defaultValue);
-  const sequence = new YAMLSeq();
-  sequence.items = unique.map((value) => document.createNode(value));
-  choice.set("options", sequence);
-  const updated = String(document);
-  if (updated === original) return false;
-  if (options.check)
-    throw new Error("Workflow choices are out of sync: " + workflowFile);
-  writeFileSync(workflowFile, updated);
+  const next = String(document);
+  if (next === original) return false;
+  if (check) throw new Error("YAML settings are out of sync: " + file);
+  writeFileSync(file, next);
   return true;
 }
