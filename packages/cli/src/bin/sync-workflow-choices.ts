@@ -9,7 +9,10 @@ const option = (name: string): string => {
   return args[index + 1];
 };
 const sourceFile = option("--source");
-if (sourceFile.split("/").includes("..") || !/\.(?:ya?ml|json)$/.test(sourceFile))
+if (
+  sourceFile.split("/").includes("..") ||
+  !/\.(?:ya?ml|json)$/.test(sourceFile)
+)
   throw new Error("Source must be a safe YAML or JSON file");
 const data: unknown = parse(readFileSync(sourceFile, "utf8"));
 const path = option("--values-path").split(".");
