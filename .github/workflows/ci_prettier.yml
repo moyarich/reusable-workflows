@@ -20,22 +20,7 @@ on:
       - ".github/workflows/ci_prettier.yml"
       - ".github/workflows/reusable_self-heal-prettier.yml"
   pull_request:
-    paths:
-      - "**/*.js"
-      - "**/*.jsx"
-      - "**/*.ts"
-      - "**/*.tsx"
-      - "**/*.mjs"
-      - "**/*.json"
-      - "**/*.yml"
-      - "**/*.yaml"
-      - "**/*.md"
-      - "**/*.mdx"
-      - ".prettier*"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/ci_prettier.yml"
-      - ".github/workflows/reusable_self-heal-prettier.yml"
+    branches: [main]
   workflow_dispatch:
     inputs:
       repair:

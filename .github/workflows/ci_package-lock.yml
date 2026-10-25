@@ -12,14 +12,7 @@ on:
       - ".github/workflows/ci_package-lock.yml"
       - ".github/workflows/reusable_self-heal_package-lock.yml"
   pull_request:
-    paths:
-      - "package.json"
-      - "package-lock.json"
-      - "packages/**/package.json"
-      - "apps/**/package.json"
-      - ".npmrc"
-      - ".github/workflows/ci_package-lock.yml"
-      - ".github/workflows/reusable_self-heal_package-lock.yml"
+    branches: [main]
   workflow_dispatch:
     inputs:
       repair:
