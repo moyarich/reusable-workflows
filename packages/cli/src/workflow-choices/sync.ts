@@ -18,7 +18,12 @@ export function syncYamlValues({
   updates,
   check = false,
 }: YamlUpdateOptions): boolean {
-  if (!/\.ya?ml$/.test(file) || file.startsWith("/") || file.includes("\\") || file.split("/").includes(".."))
+  if (
+    !/\.ya?ml$/.test(file) ||
+    file.startsWith("/") ||
+    file.includes("\\") ||
+    file.split("/").includes("..")
+  )
     throw new Error("Invalid YAML file path");
   if (!updates.length) throw new Error("At least one YAML update is required");
   const original = readFileSync(file, "utf8");
@@ -26,14 +31,19 @@ export function syncYamlValues({
   if (document.errors.length) throw new Error(document.errors.join("; "));
   let changed = false;
   for (const update of updates) {
-    if (!Array.isArray(update.path) || !update.path.length || update.path.some((p) => !p))
+    if (
+      !Array.isArray(update.path) ||
+      !update.path.length ||
+      update.path.some((p) => !p)
+    )
       throw new Error("Invalid YAML property path");
     if (!document.hasIn(update.path))
       throw new Error("Missing YAML property: " + update.path.join("."));
     const node = document.getIn(update.path, true);
-    const current = node && typeof node === "object" && "toJSON" in node
-      ? (node as { toJSON(): unknown }).toJSON()
-      : node;
+    const current =
+      node && typeof node === "object" && "toJSON" in node
+        ? (node as { toJSON(): unknown }).toJSON()
+        : node;
     if (JSON.stringify(current) === JSON.stringify(update.value)) continue;
     document.setIn(update.path, update.value);
     changed = true;
