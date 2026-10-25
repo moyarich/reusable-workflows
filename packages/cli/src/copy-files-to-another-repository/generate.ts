@@ -158,7 +158,6 @@ export function generateWorkflows(opts: GenerateOptions): string[] {
         pattern !== "publish*.yml" &&
         match(name, [pattern]),
     );
-  const create = patterns(target["create-files"] ?? [], "create-files");
   const overrides = target.overrides ?? {};
   if (!object(overrides)) throw Error("overrides must be a mapping");
   if (Object.keys(overrides).some((k) => !files.includes(k)))
@@ -187,11 +186,6 @@ export function generateWorkflows(opts: GenerateOptions): string[] {
       );
     selected = eligible.filter((f) => basename(f) === opts.workflow);
   }
-  if (opts.existingFiles)
-    selected = selected.filter(
-      (f) =>
-        opts.existingFiles!.includes(basename(f)) || match(basename(f), create),
-    );
   if (selected.includes(".github/workflows/publish.yml")) {
     if (opts.destinationPublish === undefined)
       throw Error(
