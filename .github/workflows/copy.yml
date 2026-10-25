@@ -1,0 +1,25 @@
+name: Copy canonical workflow callers
+
+on:
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: Optional single destination repository
+        type: string
+        default: ''
+      dry-run:
+        description: Preview changes without opening destination PRs
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  copy:
+    uses: ./.github/workflows/reusable_copy-files-to-another-repository.yml
+    with:
+      repository: ${{ inputs.repository }}
+      dry-run: ${{ inputs.dry-run }}
+    secrets:
+      workflow-token: ${{ secrets._WORKFLOW_TOKEN }}
