@@ -4,7 +4,7 @@
 source:
   repository: moyarich/reusable-workflows-callers
   directory: .github/workflows
-  include:
+  allow:
     - "ci_*.yml"
     - "ci.yml"
     - "check-dist.yml"
@@ -19,7 +19,7 @@ source:
     - "restore-release.yml"
     - "sync-release-package-choices.yml"
     - "upgrade-dependencies.yml"
-  exclude:
+  ignore:
     - copy.yml
     - "_self-test_*.yml"
     - "reusable_*.yml"
@@ -84,5 +84,5 @@ repositories:
     profile: browser
   - name: moyarich/zsh-glow
 # Per repository: include, exclude, and overrides are optional.
-# Each layer adjusts the source selection: defaults, then profile, then repository.
+# Source allow/ignore defines the candidate boundary. Each layer adjusts the source selection: defaults, then profile, then repository.
 # Includes add files and excludes remove them; later layers take precedence.
