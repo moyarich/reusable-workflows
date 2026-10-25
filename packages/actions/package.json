@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build --config vite.config.ts",
+    "build": "vite build --config vite.config.ts && node scripts/generate-actions.ts",
     "typecheck": "tsc --noEmit --project tsconfig.json"
   }
 }

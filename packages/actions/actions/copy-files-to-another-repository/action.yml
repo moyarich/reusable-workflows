@@ -1,0 +1,44 @@
+name: Copy files to another repository
+description: Copy a prepared directory tree into another GitHub repository and commit changed files.
+inputs:
+  token:
+    description: Token with contents write and workflow-file permissions in the destination.
+    required: true
+  source-directory:
+    description: Local directory tree whose relative paths are copied into destination root.
+    required: true
+  destination-repository:
+    description: Destination owner/repository.
+    required: true
+  destination-branch:
+    description: Existing destination branch.
+    required: false
+    default: main
+  dry-run:
+    description: Report changes without pushing.
+    required: false
+    default: "true"
+  commit-message:
+    description: Commit message for synchronized files.
+    required: false
+    default: "chore: synchronize repository files"
+outputs:
+  changed:
+    description: Whether any files differ.
+    value: ${{ steps.copy.outputs.changed }}
+  committed:
+    description: Whether a commit was pushed.
+    value: ${{ steps.copy.outputs.committed }}
+runs:
+  using: composite
+  steps:
+    - id: copy
+      shell: bash
+      env:
+        COPY_TOKEN: ${{ inputs.token }}
+        COPY_SOURCE: ${{ inputs.source-directory }}
+        COPY_DEST: ${{ inputs.destination-repository }}
+        COPY_BRANCH: ${{ inputs.destination-branch }}
+        COPY_DRY_RUN: ${{ inputs.dry-run }}
+        COPY_MESSAGE: ${{ inputs.commit-message }}
+      run: node "$GITHUB_ACTION_PATH/index.mjs"

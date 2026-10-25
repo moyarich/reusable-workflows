@@ -1,4 +1,3 @@
-import { actionDistributions } from "./plugins/action-distributions";
 import { existsSync, lstatSync, realpathSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,6 +12,8 @@ const stagingRoot = resolve(packageRoot, "dist/.bundles");
 
 const entries: Record<string, string> = {
   "browser-extension-publish": "browser-extension-publish/entry.ts",
+  "copy-files-to-another-repository":
+    "../../copy-files-to-another-repository/src/index.ts",
   "release-draft-sync": "release-draft-sync/action-entry.ts",
   "setup-workspace-tools": "setup-workspace-tools/action-entry.ts",
   "validate-release-identity": "validate-release-identity/action-entry.ts",
@@ -20,7 +21,13 @@ const entries: Record<string, string> = {
 
 const inputs = Object.fromEntries(
   Object.entries(entries).map(([name, file]) => {
-    const source = resolve(sourceRoot, file);
+    const source =
+      name === "copy-files-to-another-repository"
+        ? resolve(
+            packageRoot,
+            "../copy-files-to-another-repository/src/index.ts",
+          )
+        : resolve(sourceRoot, file);
     if (!existsSync(source)) throw new Error("Missing action entry: " + source);
     return [name, source];
   }),
@@ -48,7 +55,6 @@ if (
 }
 
 export default defineConfig({
-  plugins: [actionDistributions()],
   ssr: { noExternal: true },
   build: {
     ssr: true,
