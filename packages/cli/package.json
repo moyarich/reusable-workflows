@@ -19,7 +19,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "check:pack": "npm pack --dry-run",
     "lint": "eslint .",
-    "format": "prettier --write \"**/*.{ts,tsx}\""
+    "format": "prettier --write \"**/*.{ts,tsx}\"",
+    "test:copy-workflows": "python3 -m unittest discover -s tests -p 'test_copy_workflows.py' -v"
   },
   "dependencies": {
     "commander": "^14.0.0"
