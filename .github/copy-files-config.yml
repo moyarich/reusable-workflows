@@ -66,6 +66,8 @@ repositories:
     branch: main
     include: &browser_config
       - publish-browser-extension.yml
+    create-files:
+      - publish-browser-extension.yml
   - name: moyarich/vscode-act-runner-local
     branch: main
   - name: moyarich/dev-toolkit
@@ -74,11 +76,15 @@ repositories:
     branch: main
     include: &vscode_config
       - publish-vscode-vsx.yml
+    create-files:
+      - publish-vscode-vsx.yml
   - name: moyarich/css-color-parser
     branch: main
   - name: moyarich/vscode-dependency-links
     branch: main
     include: *vscode_config
+    create-files:
+      - publish-vscode-vsx.yml
   - name: moyarich/vue-webview-vite
     branch: main
   - name: moyarich/pointer-bubble
