@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/moyarich/reusable-workflows/main/.github/reusable-configurations/check-dist-config.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/moyarich/reusable-workflows/main/actions/check-dist/config.schema.json
 # Distribution targets come directly from the two workspace packages.
 # The private Actions package builds root actions/; CLI publishes packages/cli/dist/.
 packages:

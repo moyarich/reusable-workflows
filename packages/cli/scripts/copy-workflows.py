@@ -48,7 +48,7 @@ def publishing_kind(workflow_text):
     return "custom"
 
 
-def build(config_file: Path, repository: str, output: Path, existing_files=None, destination_publish=None):
+def build(config_file: Path, repository: str, output: Path, existing_files=None, destination_publish=None, workflow=''):
     config = yaml.load(config_file)
     # Support the original flat source-files config for existing generator users.
     if "source" in config:
@@ -99,6 +99,14 @@ def build(config_file: Path, repository: str, output: Path, existing_files=None,
     ]
     if any(f not in selected for f in overrides):
         raise ValueError("overrides cannot target excluded files")
+    if workflow:
+        if '/' in workflow or '\\' in workflow or not workflow.endswith('.yml'):
+            raise ValueError('Invalid canonical workflow filename')
+        if workflow not in {Path(f).name for f in files}:
+            raise ValueError(f'Workflow not included in canonical source selection: {workflow}')
+        if workflow not in {Path(f).name for f in selected}:
+            raise ValueError(f'Workflow excluded by destination configuration: {workflow}')
+        selected = [f for f in selected if Path(f).name == workflow]
     existing = None if existing_files is None else set(existing_files)
     if existing is not None:
         selected = [f for f in selected if Path(f).name in existing or matches(Path(f).name, create)]
@@ -163,6 +171,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=Path, default=Path(".github/copy.yml"))
     parser.add_argument("--repository", required=True)
+    parser.add_argument("--workflow", default="")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--existing-files", type=Path)
     parser.add_argument("--destination-publish-file", type=Path)
@@ -171,4 +180,4 @@ if __name__ == "__main__":
     if existing is not None and (not isinstance(existing, list) or not all(isinstance(x, str) for x in existing)):
         parser.error("--existing-files must contain a JSON array of filenames")
     publish = args.destination_publish_file.read_text() if args.destination_publish_file else None
-    build(args.config, args.repository, args.output, existing, publish)
+    build(args.config, args.repository, args.output, existing, publish, args.workflow)
