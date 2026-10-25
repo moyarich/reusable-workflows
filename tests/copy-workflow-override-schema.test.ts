@@ -5,7 +5,9 @@ import YAML from "yaml";
 
 describe("copier workflow overrides schema", () => {
   it("validates named publishing profiles and default branches", () => {
-    const root = fileURLToPath(new URL("../.github/copy-files-config.yml", import.meta.url));
+    const root = fileURLToPath(
+      new URL("../.github/copy-files-config.yml", import.meta.url),
+    );
     const config = YAML.parse(readFileSync(root, "utf8"));
     expect(config.defaults.branch).toBe("main");
     const expected = {
