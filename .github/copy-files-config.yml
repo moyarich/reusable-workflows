@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/moyarich/reusable-workflows/main/actions/copy-files-to-another-repository/config.schema.json
-# Destination repositories must explicitly opt in. Files must already exist in each
-# destination unless listed in its create-files allowlist. No deletions are propagated.
+# Destination repositories must explicitly opt in. Selected workflows are copied
+# whether or not they already exist. No deletions are propagated.
 source:
   repository: moyarich/reusable-workflows-callers
   directory: .github/workflows
@@ -32,10 +32,8 @@ profiles:
     include: [publish.yml]
   vscode:
     include: [publish-vscode-vsx.yml]
-    create-files: [publish-vscode-vsx.yml]
   browser:
     include: [publish-browser-extension.yml]
-    create-files: [publish-browser-extension.yml]
 repositories:
   - name: moyarich/snippet-canvas
   - name: moyarich/github_emulator
@@ -84,6 +82,6 @@ repositories:
   - name: moyarich/element-inspector
     profile: browser
   - name: moyarich/zsh-glow
-# Per repository: include, exclude, create-files, and overrides are optional.
+# Per repository: include, exclude, and overrides are optional.
 # include is additive: non-publishing workflows are selected by default; publish* workflows require explicit inclusion. Exclude always wins.
 # create-files explicitly allows creation of workflows not already in a destination.
