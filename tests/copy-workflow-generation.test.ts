@@ -30,7 +30,7 @@ describe("TypeScript copier generation", () => {
       }
       const config = {
         source: { directory: ".github/workflows", allow: ["*.yml"] },
-        defaults: { exclude: ["publish*.yml"] },
+        defaults: { include: ["*.yml"], exclude: ["publish*.yml"] },
         repositories: [
           { name: "moyarich/none", branch: "main" },
           {
@@ -79,6 +79,7 @@ describe("TypeScript copier generation", () => {
         `
 defaults:
   branch: main
+  include: ["*.yml"]
   exclude: [publish*.yml]
 profiles:
   vscode:
@@ -152,6 +153,7 @@ repositories:
           allow: ["ci_*.yml"],
           ignore: [],
         },
+        defaults: { include: ["*.yml"] },
         repositories: [
           {
             name: "moyarich/console",
