@@ -24,11 +24,12 @@ if (!validate(parsedConfig))
   );
 const config = parsedConfig as Record<string, unknown> & {
   source: { repository: string };
-  repositories: Array<{ name: string; branch: string }>;
+  defaults?: { branch?: string };
+  repositories: Array<{ name: string; branch?: string }>;
 };
 const repositories = config.repositories as Array<{
   name: string;
-  branch: string;
+  branch?: string;
 }>;
 const names = repositories.map((r) => r.name);
 if (new Set(names).size !== names.length)
@@ -41,7 +42,11 @@ if (argv.includes("--plan")) {
     (r) => !requested || r.name === requested,
   );
   const matrix = {
-    include: targets.map((r) => ({ name: r.name, branch: r.branch })),
+    include: targets.map((r) => {
+      const branch = r.branch ?? config.defaults?.branch;
+      if (!branch) throw Error("Missing branch for " + r.name);
+      return { name: r.name, branch };
+    }),
   };
   const output =
     "matrix=" +
