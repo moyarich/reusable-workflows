@@ -4,7 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build --config vite.config.ts && node scripts/generate-actions.ts",
+    "build": "vite build --config vite.config.ts",
     "typecheck": "tsc --noEmit --project tsconfig.json"
+  },
+  "dependencies": {
+    "@moyarich/vite-github-actions": "git+https://github.com/moyarich/vite-github-actions.git#main"
   }
 }
