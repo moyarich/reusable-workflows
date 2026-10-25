@@ -151,7 +151,7 @@ export function generateWorkflows(opts: GenerateOptions): string[] {
   if (!object(overrides)) throw Error("overrides must be a mapping");
   if (Object.keys(overrides).some((k) => !files.includes(k)))
     throw Error("overrides must reference available canonical source-files");
-  const selectedNames = new Set(files);
+  const selectedNames = new Set<string>();
   for (const layer of layers) {
     const included = patterns(layer.include ?? [], "include");
     const excluded = patterns(layer.exclude ?? [], "exclude");
