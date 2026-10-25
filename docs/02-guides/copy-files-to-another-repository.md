@@ -34,7 +34,7 @@ repositories:
       - publish-vscode-vsx.yml
 ```
 
-The central configuration currently keeps other repositories, including `github_emulator`, on its explicit allowlist. Do not remove them simply because a smaller subset is documented elsewhere. Each repository can use `include`, `exclude`, `create-files`, and `overrides`; override keys must already exist in the canonical source file. `exclude` wins over `include`. Only existing destination workflow files are updated by default; `create-files` opts into adding missing files. Deletions are not propagated.
+The central configuration currently keeps other repositories, including `github_emulator`, on its explicit allowlist. Do not remove them simply because a smaller subset is documented elsewhere. Each repository can use `include`, `exclude`, and `overrides`; override keys must already exist in the canonical source file. `exclude` wins over `include`. Selected workflow files are copied whether they already exist or not. Deletions are not propagated.
 
 ## Running a sync
 
@@ -55,6 +55,6 @@ PR mode preserves existing synchronization review-branch commits and uses non-fo
 - **Missing caller configuration**: create `.github/copy-files-config.yml` in the invoking repository; the upstream repository's configuration is not a fallback for external callers.
 - **Destination not allowlisted**: add the exact `owner/repo` to that caller's configuration and select its default branch.
 - **Publishing incompatibility**: keep a repository-specific exclusion until a compatible canonical publishing caller is available.
-- **No source files generated**: verify source filename globs, existing destination workflows, `create-files`, and package-choice synchronizer selection.
+- **No source files generated**: verify source filename globs, destination selection, exclusions, and package-choice synchronizer selection.
 - **Authentication failure**: verify `_WORKFLOW_TOKEN` rights to destination workflows/contents and source checkout.
 - **Conflicting PR branch**: reconcile review-branch edits instead of force-overwriting them.
