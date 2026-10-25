@@ -29,7 +29,7 @@ describe("TypeScript copier generation", () => {
         writeFileSync(join(directory, name), "name: Example\\n");
       }
       const config = {
-        source: { directory: ".github/workflows", include: ["*.yml"] },
+        source: { directory: ".github/workflows", allow: ["*.yml"] },
         defaults: { exclude: ["publish*.yml"] },
         repositories: [
           { name: "moyarich/none", branch: "main" },
@@ -90,7 +90,7 @@ shared: &common
   exclude: [ci_cli.yml]
 source:
   directory: .github/workflows
-  include: ["*.yml"]
+  allow: ["*.yml"]
 repositories:
   - name: moyarich/editor
     profile: vscode
@@ -149,8 +149,8 @@ repositories:
       const config = {
         source: {
           directory: ".github/workflows",
-          include: ["ci_*.yml"],
-          exclude: [],
+          allow: ["ci_*.yml"],
+          ignore: [],
         },
         repositories: [
           {
