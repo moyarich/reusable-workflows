@@ -76,7 +76,7 @@
         "overrides": {
           "type": "object",
           "propertyNames": {
-            "pattern": "^\\\\.github/workflows/[^/]+\\\\.ya?ml$"
+            "pattern": "^\\.github/workflows/[^/]+\\.ya?ml$"
           },
           "additionalProperties": {
             "type": "object",
