@@ -9,6 +9,13 @@ on:
       - packages/cli/src/workflow-choices/**
       - packages/cli/src/bin/sync-workflow-choices.ts
       - .github/workflows/sync-copy-destination-choices.yml
+  pull_request:
+    paths:
+      - .github/copy-files-config.yml
+      - .github/workflows/copy.yml
+      - packages/cli/src/workflow-choices/**
+      - packages/cli/src/bin/sync-workflow-choices.ts
+      - .github/workflows/sync-copy-destination-choices.yml
   workflow_dispatch:
 
 permissions:
@@ -20,6 +27,7 @@ concurrency:
 
 jobs:
   sync:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -64,3 +72,28 @@ jobs:
           git commit -m 'chore(actions): sync copy destination choices'
           auth="$(printf 'x-access-token:%s' "$WORKFLOW_TOKEN" | base64 -w0)"
           git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" push origin HEAD:main
+
+  validate:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Verify generated choices match configuration
+        run: >-
+          node --experimental-strip-types
+          packages/cli/src/bin/sync-workflow-choices.ts
+          --source .github/copy-files-config.yml
+          --values-path repositories
+          --value-field name
+          --prepend all
+          --default all
+          --workflow .github/workflows/copy.yml
+          --input repository
+          --check
