@@ -13,13 +13,22 @@ const repositories = config?.repositories;
 if (!Array.isArray(repositories) || !repositories.length)
   throw new Error("No configured destination repositories");
 const names = repositories.map((entry: { name?: unknown }) => entry?.name);
-if (names.some((name: unknown) => typeof name !== "string" || !/^[\\w.-]+\/[\\w.-]+$/.test(name as string)))
+if (
+  names.some(
+    (name: unknown) =>
+      typeof name !== "string" || !/^[\\w.-]+\/[\\w.-]+$/.test(name as string),
+  )
+)
   throw new Error("Invalid destination repository");
 const updated = syncWorkflowChoice({
   workflowFile: value("--workflow"),
   input: value("--input"),
-  options: ["all", ...names as string[]],
+  options: ["all", ...(names as string[])],
   defaultValue: "all",
   check: args.includes("--check"),
 });
-console.log(updated ? "Updated workflow dispatch choices" : "Workflow dispatch choices already current");
+console.log(
+  updated
+    ? "Updated workflow dispatch choices"
+    : "Workflow dispatch choices already current",
+);

@@ -16,9 +16,13 @@ export function syncWorkflowChoice(options: WorkflowChoiceOptions): boolean {
     throw new Error("Workflow must be inside .github/workflows");
   }
   const unique = [...new Set(options.options)];
-  if (!unique.length || unique.length !== options.options.length ||
-      unique.some(value => !value || typeof value !== "string") ||
-      !unique.includes(defaultValue) || unique.length > 100) {
+  if (
+    !unique.length ||
+    unique.length !== options.options.length ||
+    unique.some((value) => !value || typeof value !== "string") ||
+    !unique.includes(defaultValue) ||
+    unique.length > 100
+  ) {
     throw new Error("Invalid workflow choice options or default");
   }
   const original = readFileSync(workflowFile, "utf8");
@@ -33,11 +37,12 @@ export function syncWorkflowChoice(options: WorkflowChoiceOptions): boolean {
   choice.set("required", true);
   choice.set("default", defaultValue);
   const sequence = new YAMLSeq();
-  sequence.items = unique.map(value => document.createNode(value));
+  sequence.items = unique.map((value) => document.createNode(value));
   choice.set("options", sequence);
   const updated = String(document);
   if (updated === original) return false;
-  if (options.check) throw new Error("Workflow choices are out of sync: " + workflowFile);
+  if (options.check)
+    throw new Error("Workflow choices are out of sync: " + workflowFile);
   writeFileSync(workflowFile, updated);
   return true;
 }
