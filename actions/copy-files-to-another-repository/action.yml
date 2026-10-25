@@ -23,8 +23,8 @@ inputs:
     description: Preview changes without committing
     default: "false"
   mode:
-    description: pr (default) or direct (explicit opt-in)
-    default: pr
+    description: pull-request (create or update a PR) or update-branch (push directly)
+    default: pull-request
   pull-request-title:
     description: Title of destination PR
     default: "chore(ci): sync shared workflow callers"
@@ -63,7 +63,7 @@ runs:
         [[ "$SOURCE_REF" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ && "$SOURCE_REF" != *..* ]] || { echo "::error::Invalid source ref"; exit 1; }
         [[ "$DESTINATION" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo "::error::Invalid destination repository"; exit 1; }
         [[ "$BRANCH" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ && "$BRANCH" != *..* && "$BRANCH" != */*/*/* ]] || { echo "::error::Invalid destination branch"; exit 1; }
-        [[ "$MODE" == pr || "$MODE" == direct ]] || { echo "::error::Invalid mode"; exit 1; }
+        [[ "$MODE" == pull-request || "$MODE" == update-branch ]] || { echo "::error::mode must be pull-request or update-branch"; exit 1; }
         [[ "$DRY_RUN" == true || "$DRY_RUN" == false ]] || { echo "::error::dry-run must be true or false"; exit 1; }
         source_tmp=""
         if [[ -z "$SOURCE" ]]; then
@@ -92,7 +92,7 @@ runs:
         auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
         git -c http.extraheader="AUTHORIZATION: basic $auth" clone --quiet --single-branch --branch "$BRANCH" "https://github.com/$DESTINATION.git" "$tmp/dest"
         cd "$tmp/dest"
-        if [[ "$MODE" == pr ]]; then
+        if [[ "$MODE" == pull-request ]]; then
           SYNC_BRANCH="automation/sync-workflow-callers"
           if git -c http.extraheader="AUTHORIZATION: basic $auth" ls-remote --exit-code --heads origin "$SYNC_BRANCH" >/dev/null; then
             git -c http.extraheader="AUTHORIZATION: basic $auth" fetch --quiet origin "refs/heads/$SYNC_BRANCH:refs/remotes/origin/$SYNC_BRANCH"
@@ -127,7 +127,7 @@ runs:
         git config user.name 'github-actions[bot]'
         git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
         git commit -m "$COMMIT_MESSAGE"
-        if [[ "$MODE" == direct ]]; then
+        if [[ "$MODE" == update-branch ]]; then
           git -c http.extraheader="AUTHORIZATION: basic $auth" push origin "HEAD:refs/heads/$BRANCH"
         else
           SYNC_BRANCH="automation/sync-workflow-callers"
