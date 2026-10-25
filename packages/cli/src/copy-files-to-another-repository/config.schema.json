@@ -4,12 +4,19 @@
   "title": "Canonical workflow copy configuration",
   "type": "object",
   "additionalProperties": false,
-  "required": ["source", "repositories"],
+  "required": [
+    "source",
+    "repositories"
+  ],
   "properties": {
     "source": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["repository", "directory", "include"],
+      "required": [
+        "repository",
+        "directory",
+        "include"
+      ],
       "properties": {
         "repository": {
           "$ref": "#/$defs/repository"
@@ -35,7 +42,18 @@
       "items": {
         "$ref": "#/$defs/destination"
       },
-      "description": "Destination-specific workflow selection; YAML anchors and aliases may share include lists between destinations."
+      "description": "Destinations inherit defaults, then a named profile, then their own settings."
+    },
+    "defaults": {
+      "$ref": "#/$defs/profileSettings",
+      "description": "Shared defaults for destinations, including branch"
+    },
+    "profiles": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/profileSettings"
+      },
+      "description": "Named reusable settings assigned through repositories[].profile"
     }
   },
   "$defs": {
@@ -55,7 +73,9 @@
     "destination": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "branch"],
+      "required": [
+        "name"
+      ],
       "properties": {
         "name": {
           "$ref": "#/$defs/repository"
@@ -85,9 +105,41 @@
           "additionalProperties": {
             "type": "object",
             "propertyNames": {
-              "enum": ["on", "jobs", "env", "defaults", "name", "run-name"]
+              "enum": [
+                "on",
+                "jobs",
+                "env",
+                "defaults",
+                "name",
+                "run-name"
+              ]
             }
           }
+        },
+        "profile": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Name of an entry in profiles; unknown profiles are rejected"
+        }
+      }
+    },
+    "profileSettings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "branch": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!.*\\\\.\\\\.)[A-Za-z0-9][A-Za-z0-9._/-]*$"
+        },
+        "include": {
+          "$ref": "#/$defs/patterns"
+        },
+        "exclude": {
+          "$ref": "#/$defs/patterns"
+        },
+        "create-files": {
+          "$ref": "#/$defs/patterns"
         }
       }
     }
