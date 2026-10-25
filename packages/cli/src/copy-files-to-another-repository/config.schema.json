@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/moyarich/reusable-workflows/main/actions/copy-files-to-another-repository/config.schema.json",
+  "title": "Canonical workflow copy configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "source",
+    "repositories"
+  ],
+  "properties": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "directory",
+        "include"
+      ],
+      "properties": {
+        "repository": {
+          "$ref": "#/$defs/repository"
+        },
+        "directory": {
+          "const": ".github/workflows"
+        },
+        "include": {
+          "$ref": "#/$defs/patterns",
+          "minItems": 1
+        },
+        "exclude": {
+          "$ref": "#/$defs/patterns"
+        }
+      }
+    },
+    "destination-directory": {
+      "const": ".github/workflows"
+    },
+    "repositories": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/destination"
+      }
+    }
+  },
+  "$defs": {
+    "repository": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+    },
+    "patterns": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[^/\\\\]+$"
+      }
+    },
+    "destination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "branch"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/repository"
+        },
+        "branch": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!.*\\\\.\\\\.)[A-Za-z0-9][A-Za-z0-9._/-]*$"
+        },
+        "include": {
+          "$ref": "#/$defs/patterns"
+        },
+        "exclude": {
+          "$ref": "#/$defs/patterns"
+        },
+        "create-files": {
+          "$ref": "#/$defs/patterns"
+        },
+        "overrides": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^\\\\.github/workflows/[^/]+\\\\.ya?ml$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "propertyNames": {
+              "enum": [
+                "on",
+                "jobs",
+                "env",
+                "defaults",
+                "name",
+                "run-name"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}
