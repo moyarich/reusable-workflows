@@ -26,7 +26,16 @@ describe("workflow choice synchronization", () => {
       const options = {
         file,
         updates: [
-          {path: ["on","workflow_dispatch","inputs","repository","options"], value: ["all", "moyarich/console"]},
+          {
+            path: [
+              "on",
+              "workflow_dispatch",
+              "inputs",
+              "repository",
+              "options",
+            ],
+            value: ["all", "moyarich/console"],
+          },
         ],
       };
       expect(() => syncWorkflowChoice({ ...options, check: true })).toThrow(
