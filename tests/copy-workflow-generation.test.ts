@@ -20,18 +20,32 @@ describe("TypeScript copier generation", () => {
     const directory = join(sourceRoot, ".github/workflows");
     mkdirSync(directory, { recursive: true });
     try {
-      for (const name of ["ci_cli.yml", "publish.yml", "publish-vscode-vsx.yml", "publish-browser-extension.yml"]) {
+      for (const name of [
+        "ci_cli.yml",
+        "publish.yml",
+        "publish-vscode-vsx.yml",
+        "publish-browser-extension.yml",
+      ]) {
         writeFileSync(join(directory, name), "name: Example\\n");
       }
       const config = {
         source: { directory: ".github/workflows", include: ["*.yml"] },
         repositories: [
           { name: "moyarich/none", branch: "main" },
-          { name: "moyarich/vscode", branch: "main", include: ["publish-vscode-vsx.yml"] },
-          { name: "moyarich/browser", branch: "main", include: ["publish-browser-extension.yml"] },
+          {
+            name: "moyarich/vscode",
+            branch: "main",
+            include: ["publish-vscode-vsx.yml"],
+          },
+          {
+            name: "moyarich/browser",
+            branch: "main",
+            include: ["publish-browser-extension.yml"],
+          },
         ],
       };
-      const run = (repository: string) => generateWorkflows({ config, repository, sourceRoot, output });
+      const run = (repository: string) =>
+        generateWorkflows({ config, repository, sourceRoot, output });
       expect(run("moyarich/none")).toEqual([".github/workflows/ci_cli.yml"]);
       expect(run("moyarich/vscode")).toEqual([
         ".github/workflows/ci_cli.yml",
