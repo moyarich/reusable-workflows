@@ -1,6 +1,8 @@
 name: Copy canonical workflow callers
 run-name: >-
-  Copy callers · ${{ inputs.repository == 'all' && 'all destinations' || inputs.repository }} · ${{ inputs.dry-run && 'preview' || (inputs.mode == 'pull-request' && 'open PRs' || 'update branches') }}
+  Copy callers · ${{ inputs.repository == 'all' && 'all destinations' ||
+  inputs.repository }} · ${{ inputs.dry-run && 'preview' || (inputs.mode ==
+  'pull-request' && 'open PRs' || 'update branches') }}
 
 on:
   workflow_dispatch:
@@ -14,6 +16,7 @@ on:
         default: all
         options:
           - all
+          - moyarich/snippet-canvas
           - moyarich/github_emulator
           - moyarich/moyaforge
           - moyarich/autofilename
@@ -72,7 +75,7 @@ on:
         type: choice
         required: true
         default: pull-request
-        options: [pull-request, update-branch]
+        options: [ pull-request, update-branch ]
 
 permissions:
   contents: read
