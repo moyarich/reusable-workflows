@@ -1,6 +1,6 @@
 name: Copy canonical workflow callers
 run-name: >-
-  Copy callers · ${{ inputs.repository == 'all' && 'all destinations' || inputs.repository }} · ${{ inputs.dry-run && 'preview' || (inputs.mode == 'pr' && 'open PRs' || 'update branches') }}
+  Copy callers · ${{ inputs.repository == 'all' && 'all destinations' || inputs.repository }} · ${{ inputs.dry-run && 'preview' || (inputs.mode == 'pull-request' && 'open PRs' || 'update branches') }}
 
 on:
   workflow_dispatch:
@@ -68,11 +68,11 @@ on:
         required: true
         default: true
       mode:
-        description: Choose pull requests or direct destination branch updates
+        description: How to apply changes in selected repositories
         type: choice
         required: true
-        default: pr
-        options: [pr, direct]
+        default: pull-request
+        options: [pull-request, update-branch]
 
 permissions:
   contents: read
