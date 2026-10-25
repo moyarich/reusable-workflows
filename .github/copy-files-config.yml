@@ -25,26 +25,28 @@ source:
     - "reusable_*.yml"
     - "smoke-test_*.yml"
 destination-directory: .github/workflows
+defaults:
+  branch: main
+profiles:
+  npm:
+    include: [publish.yml]
+    create-files: [publish.yml]
+  vscode:
+    include: [publish-vscode-vsx.yml]
+    create-files: [publish-vscode-vsx.yml]
+  browser:
+    include: [publish-browser-extension.yml]
+    create-files: [publish-browser-extension.yml]
 repositories:
   - name: moyarich/snippet-canvas
-    branch: main
   - name: moyarich/github_emulator
-    branch: main
-    include: &npm_config
-      - publish.yml
+    profile: npm
   - name: moyarich/moyaforge
-    branch: main
   - name: moyarich/autofilename
-    branch: main
   - name: moyarich/colorshower
-    branch: main
-    include: &vscode_config
-      - publish-vscode-vsx.yml
-    create-files:
-      - publish-vscode-vsx.yml
+    profile: vscode
   - name: moyarich/workspace-tools
-    branch: main
-    include: *npm_config
+    profile: npm
     # Package options are maintained by sync-release-package-choices.yml.
     # Retain local workspace/app manifest triggers when copying this caller.
     overrides:
@@ -63,52 +65,26 @@ repositories:
               - .github/workflows/reset-release.yml
               - .github/workflows/sync-release-package-choices.yml
   - name: moyarich/css-expand-collapse
-    branch: main
   - name: moyarich/console
-    branch: main
   - name: moyarich/JotebookSync
-    branch: main
-    include: &browser_config
-      - publish-browser-extension.yml
-    create-files:
-      - publish-browser-extension.yml
+    profile: vscode
   - name: moyarich/vscode-act-runner-local
-    branch: main
-    include: *vscode_config
-    create-files:
-      - publish-vscode-vsx.yml
+    profile: vscode
   - name: moyarich/dev-toolkit
-    branch: main
   - name: moyarich/vscode-dev-toolkit
-    branch: main
-    include: *vscode_config
-    create-files:
-      - publish-vscode-vsx.yml
+    profile: vscode
   - name: moyarich/css-color-parser
-    branch: main
   - name: moyarich/vscode-dependency-links
-    branch: main
-    include: *vscode_config
-    create-files:
-      - publish-vscode-vsx.yml
+    profile: vscode
   - name: moyarich/vue-webview-vite
-    branch: main
   - name: moyarich/pointer-bubble
-    branch: main
   - name: moyarich/css-modules-kit
-    branch: main
   - name: moyarich/vite-github-actions
-    branch: main
   - name: moyarich/vite-package-bin
-    branch: main
-    include: *npm_config
+    profile: npm
   - name: moyarich/element-inspector
-    branch: main
-    include: *browser_config
-    create-files:
-      - publish-browser-extension.yml
+    profile: browser
   - name: moyarich/zsh-glow
-    branch: main
 # Per repository: include, exclude, create-files, and overrides are optional.
 # include is additive: non-publishing workflows are selected by default; publish* workflows require explicit inclusion. Exclude always wins.
 # create-files explicitly allows creation of workflows not already in a destination.
