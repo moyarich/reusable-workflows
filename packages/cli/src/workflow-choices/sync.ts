@@ -13,7 +13,11 @@ export interface YamlUpdateOptions {
 }
 
 /** Apply declarative updates to existing YAML keys while retaining unrelated content. */
-export function syncYamlValues({ file, updates, check = false }: YamlUpdateOptions): boolean {
+export function syncYamlValues({
+  file,
+  updates,
+  check = false,
+}: YamlUpdateOptions): boolean {
   if (!/^[\\w./-]+\\.ya?ml$/.test(file) || file.split("/").includes(".."))
     throw new Error("Invalid YAML file path");
   if (!updates.length) throw new Error("At least one YAML update is required");
@@ -21,7 +25,11 @@ export function syncYamlValues({ file, updates, check = false }: YamlUpdateOptio
   const document = parseDocument(original, { keepSourceTokens: true });
   if (document.errors.length) throw new Error(document.errors.join("; "));
   for (const update of updates) {
-    if (!Array.isArray(update.path) || !update.path.length || update.path.some(p => !p))
+    if (
+      !Array.isArray(update.path) ||
+      !update.path.length ||
+      update.path.some((p) => !p)
+    )
       throw new Error("Invalid YAML property path");
     if (!document.hasIn(update.path))
       throw new Error("Missing YAML property: " + update.path.join("."));
