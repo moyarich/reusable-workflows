@@ -9,7 +9,7 @@ This repository contains the central copier. [`moyarich/reusable-workflows-calle
 | [`.github/copy-files-config.yml`](../../.github/copy-files-config.yml)                                                                     | This repository's **private-to-this-repository configuration**: source, destination allowlist and overrides; it is not propagated |
 | [`.github/workflows/copy.yml`](../../.github/workflows/copy.yml)                                                                           | Manual dispatch caller using this repository's configuration and `_WORKFLOW_TOKEN`                                                |
 | [`.github/workflows/reusable_copy-files-to-another-repository.yml`](../../.github/workflows/reusable_copy-files-to-another-repository.yml) | Reusable workflow: validates configuration, selects destinations and generates per-repository YAML                                |
-| [`packages/cli/`](../../packages/cli/)                                           | Copier implementation, selection logic, and tests                                                                                 |
+| [`packages/cli/`](../../packages/cli/)                                                                                                     | Copier implementation, selection logic, and tests                                                                                 |
 | [`actions/copy-files-to-another-repository/`](../../actions/copy-files-to-another-repository/)                                             | Composite action that copies the generated tree to a destination PR                                                               |
 
 ## Local configuration
