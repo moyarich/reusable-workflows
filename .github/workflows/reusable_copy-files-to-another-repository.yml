@@ -95,7 +95,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: moyarich/reusable-workflows
-          ref: feat/copy-workflow-planner-upstream
+          ref: main
           path: upstream-copier
           persist-credentials: false
       - name: Checkout caller configuration
@@ -131,7 +131,7 @@ jobs:
         run: |
           python3 upstream-copier/packages/copy-files-to-another-repository/scripts/copy-workflows.py --config caller-config/.github/copy-files-config.yml --repository "$DEST_REPO" --output "$RUNNER_TEMP/generated" --existing-files "$RUNNER_TEMP/existing-workflows.json" $(test ! -f "$RUNNER_TEMP/destination-publish.yml" || printf -- "--destination-publish-file %s" "$RUNNER_TEMP/destination-publish.yml")
       - name: Copy generated workflows to destination
-        uses: moyarich/reusable-workflows/actions/copy-files-to-another-repository@feat/copy-workflow-planner-upstream
+        uses: moyarich/reusable-workflows/actions/copy-files-to-another-repository@main
         with:
           token: ${{ secrets.workflow-token }}
           source-repository: ${{ needs.plan.outputs.source-repository }}
