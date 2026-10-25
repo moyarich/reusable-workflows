@@ -46,14 +46,27 @@ const options = [...prefix, ...(extracted as string[])];
 if (new Set(options).size !== options.length || options.length > 100)
   throw new Error("Invalid or duplicate choice options");
 const defaultValue = option("--default");
-if (!options.includes(defaultValue)) throw new Error("Default must be an available option");
+if (!options.includes(defaultValue))
+  throw new Error("Default must be an available option");
 const changed = syncYamlValues({
   file: option("--workflow"),
   updates: [
-    { path: ["on", "workflow_dispatch", "inputs", input, "type"], value: "choice" },
-    { path: ["on", "workflow_dispatch", "inputs", input, "required"], value: true },
-    { path: ["on", "workflow_dispatch", "inputs", input, "default"], value: defaultValue },
-    { path: ["on", "workflow_dispatch", "inputs", input, "options"], value: options },
+    {
+      path: ["on", "workflow_dispatch", "inputs", input, "type"],
+      value: "choice",
+    },
+    {
+      path: ["on", "workflow_dispatch", "inputs", input, "required"],
+      value: true,
+    },
+    {
+      path: ["on", "workflow_dispatch", "inputs", input, "default"],
+      value: defaultValue,
+    },
+    {
+      path: ["on", "workflow_dispatch", "inputs", input, "options"],
+      value: options,
+    },
   ],
   check: args.includes("--check"),
 });
