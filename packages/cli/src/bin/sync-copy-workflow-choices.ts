@@ -20,7 +20,10 @@ const patterns = (kind: "include" | "exclude"): string[] => {
 const include = patterns("include"), exclude = patterns("exclude");
 if (!include.length) throw new Error("Missing source.include");
 const matches = (name: string, globs: string[]) =>
-  globs.some(pattern => new RegExp("^" + pattern.split("*").map(s => s.replace(/[.*+?^$()|[\]{}\\]/g, "\\$&")).join(".*") + "$").test(name));
+  globs.some(pattern => {
+    const regex = "^" + pattern.split("*").map(part => part.replaceAll(".", "\\.")).join(".*") + "$";
+    return new RegExp(regex).test(name);
+  });
 const files = readdirSync(option("--source-directory"), {withFileTypes: true})
   .filter(item => item.isFile() && item.name.endsWith(".yml"))
   .map(item => item.name)
