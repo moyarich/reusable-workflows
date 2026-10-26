@@ -164,7 +164,7 @@ repositories:
         source: {
           directory: ".github/workflows",
           allow: ["ci_*.yml"],
-          ignore: [],
+          ignore: ["ci_other.yml"],
         },
         defaults: { include: ["*.yml"] },
         repositories: [
