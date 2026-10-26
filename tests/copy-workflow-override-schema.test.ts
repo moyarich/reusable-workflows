@@ -20,10 +20,9 @@ describe("copier workflow overrides schema", () => {
       const destination = config.repositories.find(
         (entry: { name: string }) => entry.name === "moyarich/" + name,
       );
-      expect(destination.profile).toBe(profile);
+      expect(destination.profiles).toEqual([profile]);
       const files = config.profiles[profile].include;
       expect(files).toHaveLength(1);
-      expect(config.profiles[profile]["create-files"]).toEqual(files);
     }
   });
 
