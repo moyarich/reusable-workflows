@@ -1,143 +1,59 @@
 name: Copy files to another repository
-description: Synchronize a prepared tree to an allowlisted repository branch, with dry-run and no-op detection
+description: Copy a prepared directory tree into another GitHub repository and commit changed files.
 inputs:
-  token:
-    description: Token authorized to write workflow files in the destination
-    required: true
   source-repository:
-    description: Canonical owner/repository containing files to copy
+    description: Source owner/repository recorded in synchronization pull requests.
     required: true
   source-ref:
-    description: Canonical source branch, tag or commit SHA
+    description: Source ref recorded in synchronization pull requests.
     default: main
+  mode:
+    description: pull-request or update-branch.
+    default: pull-request
+  token:
+    description: Token with contents write and workflow-file permissions in the destination.
+    required: true
   source-directory:
-    description: Prepared local tree (when generated per destination); optional if copying directly from source repo
-    required: false
+    description: Local directory tree whose relative paths are copied into destination root.
+    required: true
   destination-repository:
-    description: Owner/repository destination
+    description: Destination owner/repository.
     required: true
   destination-branch:
-    description: Existing branch to update
-    required: true
+    description: Existing destination branch.
+    required: false
+    default: main
   dry-run:
-    description: Preview changes without committing
-    default: "false"
-  mode:
-    description: pull-request (create or update a PR) or update-branch (push directly)
-    default: pull-request
-  pull-request-title:
-    description: Title of destination PR
-    default: "chore(ci): sync shared workflow callers"
+    description: Report changes without pushing.
+    required: false
+    default: "true"
   commit-message:
-    description: Commit message for changed files
-    default: "chore: sync shared files"
+    description: Commit message for synchronized files.
+    required: false
+    default: "chore: synchronize repository files"
 outputs:
+  pull-request-url:
+    description: URL of the created or reused synchronization pull request.
+    value: ${{ steps.copy.outputs.pull-request-url }}
   changed:
-    description: Whether files differ
+    description: Whether any files differ.
     value: ${{ steps.copy.outputs.changed }}
   committed:
-    description: Whether a commit was pushed
+    description: Whether a commit was pushed.
     value: ${{ steps.copy.outputs.committed }}
-  pull-request-url:
-    description: Created or updated pull request URL
-    value: ${{ steps.copy.outputs.pull-request-url }}
 runs:
   using: composite
   steps:
     - id: copy
       shell: bash
       env:
-        GH_TOKEN: ${{ inputs.token }}
-        SOURCE: ${{ inputs.source-directory }}
-        SOURCE_REPO: ${{ inputs.source-repository }}
-        SOURCE_REF: ${{ inputs.source-ref }}
-        DESTINATION: ${{ inputs.destination-repository }}
-        BRANCH: ${{ inputs.destination-branch }}
-        DRY_RUN: ${{ inputs.dry-run }}
-        COMMIT_MESSAGE: ${{ inputs.commit-message }}
-        MODE: ${{ inputs.mode }}
-        PR_TITLE: ${{ inputs.pull-request-title }}
-      run: |
-        set -euo pipefail
-        [[ "$SOURCE_REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo "::error::Invalid source repository"; exit 1; }
-        [[ "$SOURCE_REF" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ && "$SOURCE_REF" != *..* ]] || { echo "::error::Invalid source ref"; exit 1; }
-        [[ "$DESTINATION" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo "::error::Invalid destination repository"; exit 1; }
-        [[ "$BRANCH" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ && "$BRANCH" != *..* && "$BRANCH" != */*/*/* ]] || { echo "::error::Invalid destination branch"; exit 1; }
-        [[ "$MODE" == pull-request || "$MODE" == update-branch ]] || { echo "::error::mode must be pull-request or update-branch"; exit 1; }
-        [[ "$DRY_RUN" == true || "$DRY_RUN" == false ]] || { echo "::error::dry-run must be true or false"; exit 1; }
-        source_tmp=""
-        if [[ -z "$SOURCE" ]]; then
-          source_tmp="$(mktemp -d)"
-          trap 'rm -rf "$source_tmp"' EXIT
-          auth_source="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
-          mkdir -p "$source_tmp/checkout"
-          git -C "$source_tmp/checkout" init --quiet
-          git -C "$source_tmp/checkout" remote add origin "https://github.com/$SOURCE_REPO.git"
-          git -C "$source_tmp/checkout" -c http.extraheader="AUTHORIZATION: basic $auth_source" fetch --quiet --depth 1 origin "$SOURCE_REF"
-          git -C "$source_tmp/checkout" checkout --quiet --detach FETCH_HEAD
-          mkdir -p "$source_tmp/prepared/.github/workflows"
-          find "$source_tmp/checkout/.github/workflows" -maxdepth 1 -type f -name "*.yml" -exec cp -t "$source_tmp/prepared/.github/workflows" -- {} +
-          SOURCE="$source_tmp/prepared"
-        fi
-        [[ -d "$SOURCE" ]] || { echo "::error::Source directory missing"; exit 1; }
-        SOURCE="$(realpath "$SOURCE")"
-        mapfile -d '' files < <(find "$SOURCE" -type f -print0)
-        (( ${#files[@]} )) || { echo "::error::No source files to copy"; exit 1; }
-        for f in "${files[@]}"; do
-          rel="${f#"$SOURCE"/}"
-          [[ "$rel" == .github/workflows/*.yml && "$rel" != *../* ]] || { echo "::error::Unsafe file: $rel"; exit 1; }
-        done
-        tmp="$(mktemp -d)"
-        trap 'rm -rf "$tmp" "$source_tmp"' EXIT
-        auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
-        git -c http.extraheader="AUTHORIZATION: basic $auth" clone --quiet --single-branch --branch "$BRANCH" "https://github.com/$DESTINATION.git" "$tmp/dest"
-        cd "$tmp/dest"
-        if [[ "$MODE" == pull-request ]]; then
-          SYNC_BRANCH="automation/sync-workflow-callers"
-          if git -c http.extraheader="AUTHORIZATION: basic $auth" ls-remote --exit-code --heads origin "$SYNC_BRANCH" >/dev/null; then
-            git -c http.extraheader="AUTHORIZATION: basic $auth" fetch --quiet origin "refs/heads/$SYNC_BRANCH:refs/remotes/origin/$SYNC_BRANCH"
-            if ! git merge-base --is-ancestor "refs/remotes/origin/$BRANCH" "refs/remotes/origin/$SYNC_BRANCH"; then
-              echo "::error::Review branch diverged from base. Resolve manually."
-              exit 1
-            fi
-            git checkout -B "$SYNC_BRANCH" "refs/remotes/origin/$SYNC_BRANCH"
-          else
-            git checkout -b "$SYNC_BRANCH"
-          fi
-        fi
-        for f in "${files[@]}"; do
-          rel="${f#"$SOURCE"/}"
-          mkdir -p "$(dirname "$rel")"
-          cp "$f" "$rel"
-          git add -- "$rel"
-        done
-        if git diff --cached --quiet; then
-          echo "changed=false" >> "$GITHUB_OUTPUT"
-          echo "committed=false" >> "$GITHUB_OUTPUT"
-          echo "No changes for $DESTINATION@$BRANCH" >> "$GITHUB_STEP_SUMMARY"
-          exit 0
-        fi
-        echo "changed=true" >> "$GITHUB_OUTPUT"
-        git diff --cached --stat
-        git diff --cached --stat >> "$GITHUB_STEP_SUMMARY"
-        if [[ "$DRY_RUN" == true ]]; then
-          echo "committed=false" >> "$GITHUB_OUTPUT"
-          exit 0
-        fi
-        git config user.name 'github-actions[bot]'
-        git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-        git commit -m "$COMMIT_MESSAGE"
-        if [[ "$MODE" == update-branch ]]; then
-          git -c http.extraheader="AUTHORIZATION: basic $auth" push origin "HEAD:refs/heads/$BRANCH"
-        else
-          SYNC_BRANCH="automation/sync-workflow-callers"
-          # Overwrite only the dedicated automation branch, never the default branch.
-          git -c http.extraheader="AUTHORIZATION: basic $auth" push origin "HEAD:refs/heads/$SYNC_BRANCH"
-          existing="$(gh api -H "Accept: application/vnd.github+json" "repos/$DESTINATION/pulls?state=open&head=${DESTINATION%%/*}:$SYNC_BRANCH&base=$BRANCH" --jq '.[0].html_url // empty')"
-          if [[ -z "$existing" ]]; then
-            existing="$(gh api -X POST "repos/$DESTINATION/pulls" -f title="$PR_TITLE" -f head="$SYNC_BRANCH" -f base="$BRANCH" -f body="Automated synchronization of canonical workflow callers. Review the changes before merging." --jq '.html_url')"
-          fi
-          echo "pull-request-url=$existing" >> "$GITHUB_OUTPUT"
-          echo "Destination PR: $existing" >> "$GITHUB_STEP_SUMMARY"
-        fi
-        echo "committed=true" >> "$GITHUB_OUTPUT"
+        COPY_SOURCE_REPO: ${{ inputs.source-repository }}
+        COPY_SOURCE_REF: ${{ inputs.source-ref }}
+        COPY_MODE: ${{ inputs.mode }}
+        COPY_TOKEN: ${{ inputs.token }}
+        COPY_SOURCE: ${{ inputs.source-directory }}
+        COPY_DEST: ${{ inputs.destination-repository }}
+        COPY_BRANCH: ${{ inputs.destination-branch }}
+        COPY_DRY_RUN: ${{ inputs.dry-run }}
+        COPY_MESSAGE: ${{ inputs.commit-message }}
+      run: node "$GITHUB_ACTION_PATH/index.mjs"

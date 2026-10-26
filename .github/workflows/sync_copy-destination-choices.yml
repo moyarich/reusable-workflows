@@ -1,0 +1,129 @@
+name: Sync copier destination choices
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/copy-files-config.yml
+      - .github/workflows/copy-files-to-another-repository.yml
+      - "packages/cli/**"
+      - .github/workflows/sync_copy-destination-choices.yml
+  pull_request:
+    paths:
+      - .github/copy-files-config.yml
+      - .github/workflows/copy-files-to-another-repository.yml
+      - "packages/cli/**"
+      - .github/workflows/sync_copy-destination-choices.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-copy-destination-choices
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Resolve canonical source
+        id: canonical
+        shell: bash
+        run: |
+          node actions/cli/index.mjs copy-workflow --config .github/copy-files-config.yml --plan
+      - name: Checkout canonical workflows
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ steps.canonical.outputs.source_repository }}
+          ref: main
+          path: canonical-source
+          persist-credentials: false
+      - name: Update workflow choices from destination inventory
+        run: >-
+          node actions/cli/index.mjs sync-workflow-choices
+          --source .github/copy-files-config.yml
+          --values-path repositories
+          --value-field name
+          --prepend all
+          --default all
+          --workflow .github/workflows/copy-files-to-another-repository.yml
+          --input repository
+      - name: Generate workflow choices from canonical source
+        run: >-
+          node actions/cli/index.mjs copy-workflow-choices
+          --config .github/copy-files-config.yml
+          --source-directory canonical-source/.github/workflows
+          --workflow .github/workflows/copy-files-to-another-repository.yml
+      - name: Format workflow
+        run: npx --yes prettier@3.6.2 --write .github/workflows/copy-files-to-another-repository.yml
+      - name: Commit synchronization
+        env:
+          WORKFLOW_TOKEN: ${{ secrets._WORKFLOW_TOKEN }}
+          TARGET_BRANCH: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- .github/workflows/copy-files-to-another-repository.yml; then
+            echo "Workflow choices already match canonical source and destination inventory"
+            exit 0
+          fi
+          if [[ -z "$WORKFLOW_TOKEN" ]]; then
+            echo "::error::Missing _WORKFLOW_TOKEN with contents and workflow write permissions"
+            exit 1
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/copy-files-to-another-repository.yml
+          git commit -m 'chore(actions): sync copy destination choices'
+          auth="$(printf 'x-access-token:%s' "$WORKFLOW_TOKEN" | base64 -w0)"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" push origin "HEAD:refs/heads/$TARGET_BRANCH"
+
+  validate:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Resolve canonical source
+        id: canonical
+        shell: bash
+        run: |
+          node actions/cli/index.mjs copy-workflow --config .github/copy-files-config.yml --plan
+      - name: Checkout canonical workflows
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ steps.canonical.outputs.source_repository }}
+          ref: main
+          path: canonical-source
+          persist-credentials: false
+      - name: Verify canonical workflow choices
+        run: >-
+          node actions/cli/index.mjs copy-workflow-choices
+          --config .github/copy-files-config.yml
+          --source-directory canonical-source/.github/workflows
+          --workflow .github/workflows/copy-files-to-another-repository.yml
+          --check
+      - name: Verify generated choices match configuration
+        run: >-
+          node actions/cli/index.mjs sync-workflow-choices
+          --source .github/copy-files-config.yml
+          --values-path repositories
+          --value-field name
+          --prepend all
+          --default all
+          --workflow .github/workflows/copy-files-to-another-repository.yml
+          --input repository
+          --check

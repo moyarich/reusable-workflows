@@ -87,13 +87,18 @@ jobs:
         id: verify-package
         if: github.repository == 'moyarich/reusable-workflows'
         run: |
-          node packages/cli/dist/cli.mjs --help
-          node packages/cli/dist/workspace-source.mjs --help
-          node packages/cli/dist/release-validate.mjs --help
-          node packages/cli/dist/browser.mjs --help
-          node packages/cli/dist/setup-workspace-tools.mjs --help
+          node packages/cli/dist/bin/cli.mjs --help
+          node packages/cli/dist/bin/cli.mjs workspace-source --help
+          node packages/cli/dist/bin/cli.mjs release-validate --help
+          node packages/cli/dist/bin/cli.mjs browser --help
+          node packages/cli/dist/bin/cli.mjs setup-workspace-tools --help
+          node packages/cli/dist/bin/cli.mjs copy-workflow --help
+          node packages/cli/dist/bin/cli.mjs copy-workflow-choices --help
+          node packages/cli/dist/bin/cli.mjs sync-workflow-choices --help
+          node packages/cli/dist/bin/cli.mjs sync-release-choices --help
+          node packages/cli/dist/bin/cli.mjs sync-release-summary --help
           npm exec --workspace @moyarich/reusable-workflows-cli -- reusable-workflows-cli --help
-          node packages/cli/dist/cli.mjs workspace-source --source registry:npm:latest
+          node packages/cli/dist/bin/cli.mjs workspace-source --source registry:npm:latest
           npm pack --workspace @moyarich/reusable-workflows-cli --dry-run
           node --input-type=module <<'NODE'
           import { readFileSync, existsSync } from 'node:fs';

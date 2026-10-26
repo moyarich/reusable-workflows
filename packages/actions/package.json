@@ -8,6 +8,6 @@
     "typecheck": "tsc --noEmit --project tsconfig.json"
   },
   "dependencies": {
-    "@moyarich/vite-github-actions": "git+https://github.com/moyarich/vite-github-actions.git#feat/configurable-action-project-root"
+    "@moyarich/vite-github-actions": "git+https://github.com/moyarich/vite-github-actions.git"
   }
 }

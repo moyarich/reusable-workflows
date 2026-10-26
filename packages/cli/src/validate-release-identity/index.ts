@@ -2,7 +2,7 @@
 import process from "node:process";
 import { execFileSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
-import { validateReleaseMarker } from "../release-draft-sync/identity";
+import { validateReleaseMarker } from "../release-draft-sync/identity.js";
 import { findReleaseByTag } from "./release-lookup.js";
 
 const input = (name: string): string => {

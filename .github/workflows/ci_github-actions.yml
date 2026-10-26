@@ -9,7 +9,7 @@ on:
       - "vite.config.*"
       - "package.json"
       - "package-lock.json"
-      - ".github/workflows/ci_actions.yml"
+      - ".github/workflows/ci_github-actions.yml"
   pull_request:
     paths:
       - "actions/**"
@@ -18,7 +18,7 @@ on:
       - "vite.config.*"
       - "package.json"
       - "package-lock.json"
-      - ".github/workflows/ci_actions.yml"
+      - ".github/workflows/ci_github-actions.yml"
   workflow_call:
     inputs:
       checkout-sha:
@@ -59,7 +59,7 @@ jobs:
           # Preserve authored action.yml metadata while regenerating distributions.
           npm run build:actions
           # Authored source files must survive Vite cleanup and regeneration.
-          git diff --exit-code -- packages/cli/src/ packages/actions/actions/ packages/actions/scripts/
+          git diff --exit-code -- packages/cli/ packages/actions/
           # Distribution drift is repaired by check-dist.yml via reusable_check-dist.yml.
           # Do not fail this package CI job on generated files that need healing.
           if [[ -n "$(git status --porcelain -- actions/)" ]]; then
@@ -71,6 +71,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          test -f actions/cli/index.mjs
+          test -f actions/cli/copy-files-config.schema.json
+          node actions/cli/index.mjs --help
+          node actions/cli/index.mjs copy-workflow --config .github/copy-files-config.yml --plan
           test -f actions/setup-workspace-tools/index.mjs
           test -f actions/release-draft-sync/index.mjs
           test -f actions/validate-release-identity/index.mjs

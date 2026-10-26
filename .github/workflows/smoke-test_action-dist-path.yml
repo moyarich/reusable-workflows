@@ -3,15 +3,17 @@ name: "Smoke-test · Setup Workspace Tools distribution"
 on:
   pull_request:
     paths:
-      - "packages/cli/src/setup-workspace-tools/**"
+      - "packages/cli/**"
       - "actions/setup-workspace-tools/**"
+      - "actions/cli/**"
       - "actions/_assets/**"
       - "packages/actions/**"
       - ".github/workflows/smoke-test_action-dist-path.yml"
   push:
     paths:
-      - "packages/cli/src/setup-workspace-tools/**"
+      - "packages/cli/**"
       - "actions/setup-workspace-tools/**"
+      - "actions/cli/**"
       - "actions/_assets/**"
       - "packages/actions/**"
       - ".github/workflows/smoke-test_action-dist-path.yml"
@@ -29,6 +31,10 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
+      - name: Execute committed workflow CLI without installing dependencies
+        run: |
+          node actions/cli/index.mjs --help
+          node actions/cli/index.mjs copy-workflow --config .github/copy-files-config.yml --plan
       - name: Execute committed setup-workspace-tools bundle
         id: smoke
         shell: bash

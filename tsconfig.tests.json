@@ -12,5 +12,9 @@
     "strict": false,
     "noEmit": true
   },
-  "include": ["tests/**/*.ts", "packages/cli/vite*.config.ts"]
+  "include": [
+    "tests/**/*.ts",
+    "packages/cli/vite*.config.ts",
+    "packages/cli/tests/**/*.ts"
+  ]
 }

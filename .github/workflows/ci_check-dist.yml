@@ -6,12 +6,10 @@ run-name: >-
 on:
   push:
     paths:
-      - "packages/cli/src/**"
+      - "packages/cli/**"
       - "packages/actions/actions/**"
       - "packages/actions/scripts/**"
       - "packages/actions/plugins/**"
-      - "packages/cli/src/workflow-dispatch/**"
-      - "packages/cli/src/verify-workflow-runs/**"
       - "packages/actions/vite.config.ts"
       - ".github/workflows/ci_cli.yml"
       - "vitest.config.ts"

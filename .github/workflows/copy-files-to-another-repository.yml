@@ -1,0 +1,102 @@
+name: Copy files to another repository
+run-name: >-
+  Copy callers · ${{ inputs.repository == 'all' && 'all destinations' ||
+  inputs.repository }} · ${{ inputs.dry-run && 'preview' || (inputs.mode ==
+  'pull-request' && 'open PRs' || 'update branches') }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      # Keep this list synchronized with .github/copy-files-config.yml.
+      # workflow_dispatch choice options are static; GitHub does not support dynamic choices.
+      repository:
+        description: Copy to all configured destinations, or select one repository
+        type: choice
+        required: true
+        default: all
+        options:
+          - all
+          - moyarich/snippet-canvas
+          - moyarich/github_emulator
+          - moyarich/moyaforge
+          - moyarich/autofilename
+          - moyarich/colorshower
+          - moyarich/workspace-tools
+          - moyarich/css-expand-collapse
+          - moyarich/console
+          - moyarich/JotebookSync
+          - moyarich/vscode-act-runner-local
+          - moyarich/dev-toolkit
+          - moyarich/vscode-dev-toolkit
+          - moyarich/css-color-parser
+          - moyarich/vscode-dependency-links
+          - moyarich/vue-webview-vite
+          - moyarich/pointer-bubble
+          - moyarich/css-modules-kit
+          - moyarich/vite-github-actions
+          - moyarich/vite-package-bin
+          - moyarich/element-inspector
+          - moyarich/zsh-glow
+      workflow:
+        description: Copy all eligible workflows or one canonical caller
+        type: choice
+        required: true
+        default: all
+        options:
+          - all
+          - check-dist.yml
+          - ci_actionlint.yml
+          - ci_cli.yml
+          - ci_package-lock.yml
+          - ci_playwright.yml
+          - ci_prettier.yml
+          - ci_storybook.yml
+          - delete-release-tag.yml
+          - history-cleanup.yml
+          - issue-dependencies_manage.yml
+          - issue-dependencies_set.yml
+          - issue-dependencies_show-tree.yml
+          - pages.yml
+          - prepare-release-pr.yml
+          - publish-browser-extension.yml
+          - publish-vscode-vsx.yml
+          - publish.yml
+          - release-approved-pr.yml
+          - release-draft.yml
+          - release-tag.yml
+          - release.yml
+          - reset-release.yml
+          - restore-release.yml
+          - sync-release-package-choices.yml
+          - upgrade-dependencies.yml
+      dry-run:
+        description: Preview changes without writing to destination repositories
+        type: boolean
+        required: true
+        default: true
+      mode:
+        description: How to apply changes in selected repositories
+        type: choice
+        required: true
+        default: pull-request
+        options: [ pull-request, update-branch ]
+
+permissions:
+  contents: read
+
+# Never cancel an in-flight propagation, even if a second dispatch starts.
+concurrency:
+  group: copy-canonical-workflow-callers
+  cancel-in-progress: false
+
+jobs:
+  copy:
+    name: Synchronize selected destinations
+    uses: ./.github/workflows/reusable_copy-files-to-another-repository.yml
+    with:
+      repository: ${{ inputs.repository }}
+      workflow: ${{ inputs.workflow }}
+      dry-run: ${{ inputs.dry-run }}
+      mode: ${{ inputs.mode }}
+    secrets:
+      workflow-token: ${{ secrets._WORKFLOW_TOKEN }}

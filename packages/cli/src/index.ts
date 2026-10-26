@@ -3,17 +3,20 @@ export {
   parseWorkspaceToolsSource,
   resolveBinDir,
   validateBinDir,
-} from "./setup-workspace-tools/setup-workspace-tools";
-export { validateReleaseMarker } from "./release-draft-sync/identity";
+} from "./setup-workspace-tools/setup-workspace-tools.js";
+export { validateReleaseMarker } from "./release-draft-sync/identity.js";
 export {
   validate as validateBrowserManifest,
   safeDir as safeBrowserDirectory,
-} from "./browser-extension-publish/manifest";
-export type { Store } from "./browser-extension-publish/manifest";
+} from "./browser-extension-publish/manifest.js";
+export type { Store } from "./browser-extension-publish/manifest.js";
 export {
   copyFiles,
   validateOptions as validateCopyFilesOptions,
-} from "./copy-files-to-another-repository/index";
-export type { CopyOptions } from "./copy-files-to-another-repository/index";
-export { syncYamlValues } from "./workflow-choices/sync";
-export type { YamlUpdate, YamlUpdateOptions } from "./workflow-choices/sync";
+} from "./copy-files-to-another-repository/index.js";
+export type { CopyOptions } from "./copy-files-to-another-repository/index.js";
+export { syncYamlValues } from "./sync-yaml-values/sync-yaml-values.js";
+export type {
+  YamlUpdate,
+  YamlUpdateOptions,
+} from "./sync-yaml-values/sync-yaml-values.js";

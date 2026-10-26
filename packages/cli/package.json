@@ -4,29 +4,30 @@
   "type": "module",
   "description": "Commander CLI for reusable workflows",
   "bin": {
-    "reusable-workflows-cli": "dist/cli.mjs",
-    "reusable-workflows": "dist/cli.mjs",
-    "reusable-workflows-workspace-source": "dist/workspace-source.mjs",
-    "reusable-workflows-release-validate": "dist/release-validate.mjs",
-    "reusable-workflows-browser": "dist/browser.mjs",
-    "reusable-workflows-setup-workspace-tools": "dist/setup-workspace-tools.mjs"
+    "reusable-workflows-cli": "dist/bin/cli.mjs"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "index.js",
+    "index.d.ts"
   ],
   "scripts": {
-    "build": "vite build --config vite.config.ts && vite build --config vite.lib.config.ts && node scripts/ensure-bin-executable.ts",
+    "build": "vite build --config vite.config.ts && tsc -p tsconfig.modules.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "check:pack": "npm pack --dry-run",
+    "check:pack": "npm run build && npm pack --dry-run",
     "lint": "eslint .",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
-    "test:copy-workflows": "vitest run ../../tests/copy-workflow-generation.test.ts",
-    "sync:workflow-choices": "node --experimental-strip-types src/bin/sync-workflow-choices.ts"
+    "test": "vitest run",
+    "test:copy-workflows": "vitest run tests/copy-workflow-generation.test.ts",
+    "build:workflow-runtime": "vite build --config vite.workflow.config.ts"
   },
   "dependencies": {
+    "ajv": "^8.17.1",
     "commander": "^14.0.0",
-    "yaml": "^2.9.1",
-    "ajv": "^8.17.1"
+    "yaml": "^2.9.1"
   },
   "engines": {
     "node": ">=24"
@@ -34,27 +35,37 @@
   "publishConfig": {
     "access": "public"
   },
+  "devDependencies": {
+    "@moyarich/vite-plugin-package-bin": "git+https://github.com/moyarich/vite-package-bin.git",
+    "@types/node": "^24.19.2"
+  },
+  "module": "./index.js",
+  "types": "./index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/types/index.d.ts",
-      "default": "./dist/lib/index.mjs"
+      "types": "./index.d.ts",
+      "default": "./index.js"
     },
-    "./release-identity": {
-      "types": "./dist/types/release-draft-sync/identity.d.ts",
-      "default": "./dist/lib/release-identity.mjs"
+    "./package.json": "./package.json",
+    "./schemas/copy-files-config.schema.json": "./dist/copy-files-to-another-repository/config.schema.json",
+    "./schemas/*": "./dist/schemas/*",
+    "./*.js": {
+      "types": "./dist/*.d.ts",
+      "import": "./dist/*.js"
     },
-    "./workspace-source": {
-      "types": "./dist/types/setup-workspace-tools/setup-workspace-tools.d.ts",
-      "default": "./dist/lib/workspace-source.mjs"
-    },
-    "./browser-manifest": {
-      "types": "./dist/types/browser-extension-publish/manifest.d.ts",
-      "default": "./dist/lib/browser-manifest.mjs"
-    },
-    "./package.json": "./package.json"
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "import": "./dist/*.js"
+    }
   },
-  "types": "./dist/types/index.d.ts",
-  "devDependencies": {
-    "unplugin-dts": "^1.1.2"
-  }
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/moyarich/reusable-workflows.git",
+    "directory": "packages/cli"
+  },
+  "main": "./index.js",
+  "sideEffects": [
+    "./dist/bin/**"
+  ]
 }

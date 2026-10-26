@@ -1,79 +1,85 @@
 import { readFileSync } from "node:fs";
-import { parse } from "yaml";
-import { syncYamlValues } from "../workflow-choices/sync.ts";
 
-export function runSyncWorkflowChoices(): void {
-  const args = process.argv.slice(2);
-  const option = (name: string): string => {
-    const index = args.indexOf(name);
-    if (index < 0 || !args[index + 1]) throw new Error("Missing " + name);
-    return args[index + 1];
-  };
-  const sourceFile = option("--source");
+import { parse } from "yaml";
+import { syncYamlValues } from "../sync-yaml-values/sync-yaml-values.js";
+
+const MAX_CHOICES = 100;
+
+interface Options {
+  source: string;
+  valuesPath: string;
+  valueField?: string;
+  prepend?: string;
+  input: string;
+  default: string;
+  workflow: string;
+  check?: boolean;
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === "object" && !Array.isArray(value);
+
+export const syncWorkflowChoices = (opts: Options) => {
   if (
-    sourceFile.split("/").includes("..") ||
-    !/\.(?:ya?ml|json)$/.test(sourceFile)
-  )
+    opts.source.split("/").includes("..") ||
+    !/\.(?:ya?ml|json)$/.test(opts.source)
+  ) {
     throw new Error("Source must be a safe YAML or JSON file");
-  const data: unknown = parse(readFileSync(sourceFile, "utf8"));
-  const path = option("--values-path").split(".");
-  let values: unknown = data;
-  for (const key of path) {
-    if (
-      !key ||
-      values === null ||
-      typeof values !== "object" ||
-      Array.isArray(values)
-    )
-      throw new Error("Missing values path: " + path.join("."));
-    values = (values as Record<string, unknown>)[key];
   }
-  if (!Array.isArray(values))
+
+  const data: unknown = parse(readFileSync(opts.source, "utf8"));
+  const keys = opts.valuesPath.split(".");
+  let values: unknown = data;
+  for (const key of keys) {
+    if (!key || !isRecord(values)) {
+      throw new Error(`Missing values path: ${opts.valuesPath}`);
+    }
+    values = values[key];
+  }
+  if (!Array.isArray(values)) {
     throw new Error("Values path must resolve to an array");
-  const fieldIndex = args.indexOf("--value-field");
-  const field = fieldIndex < 0 ? "" : option("--value-field");
+  }
+
+  const { valueField } = opts;
   const extracted = values.map((item: unknown): unknown => {
-    if (!field) return item;
-    if (!item || typeof item !== "object" || Array.isArray(item))
+    if (!valueField) return item;
+    if (!isRecord(item)) {
       throw new Error("Expected objects when --value-field is used");
-    return (item as Record<string, unknown>)[field];
+    }
+    return item[valueField];
   });
-  if (extracted.some((item) => typeof item !== "string" || !item))
+  if (extracted.some((item) => typeof item !== "string" || !item)) {
     throw new Error("Choice values must be nonempty strings");
-  const prefixIndex = args.indexOf("--prepend");
-  const prefix = prefixIndex < 0 ? [] : [option("--prepend")];
-  const input = option("--input");
-  const options = [...prefix, ...(extracted as string[])];
-  if (new Set(options).size !== options.length || options.length > 100)
+  }
+
+  const options = [
+    ...(opts.prepend === undefined ? [] : [opts.prepend]),
+    ...(extracted as string[]),
+  ];
+  if (
+    new Set(options).size !== options.length ||
+    options.length > MAX_CHOICES
+  ) {
     throw new Error("Invalid or duplicate choice options");
-  const defaultValue = option("--default");
-  if (!options.includes(defaultValue))
+  }
+  if (!options.includes(opts.default)) {
     throw new Error("Default must be an available option");
+  }
+
+  const base = ["on", "workflow_dispatch", "inputs", opts.input];
   const changed = syncYamlValues({
-    file: option("--workflow"),
+    file: opts.workflow,
     updates: [
-      {
-        path: ["on", "workflow_dispatch", "inputs", input, "type"],
-        value: "choice",
-      },
-      {
-        path: ["on", "workflow_dispatch", "inputs", input, "required"],
-        value: true,
-      },
-      {
-        path: ["on", "workflow_dispatch", "inputs", input, "default"],
-        value: defaultValue,
-      },
-      {
-        path: ["on", "workflow_dispatch", "inputs", input, "options"],
-        value: options,
-      },
+      { path: [...base, "type"], value: "choice" },
+      { path: [...base, "required"], value: true },
+      { path: [...base, "default"], value: opts.default },
+      { path: [...base, "options"], value: options },
     ],
-    check: args.includes("--check"),
+    check: opts.check ?? false,
   });
   console.log(
     changed
       ? "Updated workflow dispatch choices"
       : "Workflow dispatch choices already current",
   );
-}
+};

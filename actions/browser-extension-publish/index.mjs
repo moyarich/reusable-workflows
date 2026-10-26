@@ -1,41 +1,10 @@
-import { n as InvalidArgumentError, t as Command } from "../_assets/esm-BGzD_pfc.mjs";
+import { r as Option, t as Command } from "../_assets/esm-CScb8cmR.mjs";
 import { execFileSync } from "node:child_process";
-import { join, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import process from "node:process";
-// ../cli/src/browser-extension-publish/manifest.ts
-/** Public safe dir API. */
-function safeDir(value) {
-	const root = process.cwd();
-	const absolute = resolve(root, value);
-	const rel = relative(root, absolute);
-	if (rel === ".." || rel.startsWith("../") || rel.startsWith("..\\") || rel.startsWith("/")) throw new Error("Directory must be inside the workspace");
-	return absolute;
-}
-/** Public validate API. */
-function validate(directory, registry, firefoxId = "") {
-	const dir = safeDir(directory);
-	const manifest = JSON.parse(readFileSync(join(dir, "manifest.json"), "utf8"));
-	if (![2, 3].includes(manifest.manifest_version) || typeof manifest.name !== "string" || !manifest.name.trim() || !/^\d+\.\d+\.\d+(?:\.\d+)?$/.test(manifest.version)) throw new Error("Invalid browser extension manifest version, name, or version");
-	const gecko = manifest.browser_specific_settings?.gecko?.id ?? manifest.applications?.gecko?.id;
-	if (registry !== "chrome" && !gecko) throw new Error("Firefox requires browser_specific_settings.gecko.id");
-	if (firefoxId && gecko !== firefoxId) throw new Error("Firefox ID does not match manifest");
-	return {
-		dir,
-		version: manifest.version,
-		name: manifest.name
-	};
-}
-// ../cli/src/browser-extension-publish/browser-extension-publish-cli.ts
-/** Commander-powered CLI command and feature implementation. @module */
-var store = (value) => {
-	if (![
-		"chrome",
-		"firefox",
-		"all"
-	].includes(value)) throw new InvalidArgumentError("registry must be chrome, firefox, or all");
-	return value;
-};
+// ../cli/src/browser-extension-publish/chrome-publish.ts
+/** Chrome Web Store API orchestration, independent of Commander parsing. */
 async function jsonRequest(url, init) {
 	const response = await fetch(url, init);
 	const payload = await response.text();
@@ -91,43 +60,45 @@ async function chromePublish(archive, options) {
 		body: JSON.stringify({ publishType: "DEFAULT_PUBLISH" })
 	});
 }
-var program = new Command().name("browser-extension-publish").description("Validate, package and submit Chrome/Firefox browser extensions");
-program.command("validate").requiredOption("--build-directory <dir>").option("--registry <store>", "chrome | firefox | all", store, "all").option("--firefox-addon-id <id>", "Expected Gecko extension ID", "").action((opts) => {
-	const result = validate(opts.buildDirectory, opts.registry, opts.firefoxAddonId);
-	if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, "version=" + result.version + "\n");
-	console.log(JSON.stringify({
-		name: result.name,
-		version: result.version
-	}));
-});
-program.command("package").requiredOption("--build-directory <dir>").option("--output <zip>", "Archive destination", "extension.zip").action((opts) => {
-	const directory = safeDir(opts.buildDirectory);
-	readFileSync(join(directory, "manifest.json"));
-	const output = resolve(process.cwd(), opts.output);
-	if (existsSync(output)) throw new Error("Output already exists: " + output);
-	mkdirSync(resolve(output, ".."), { recursive: true });
-	execFileSync("zip", [
-		"-q",
-		"-r",
-		output,
-		"."
-	], { cwd: directory });
-	execFileSync("unzip", ["-t", output], { stdio: "ignore" });
-	console.log("Packaged " + output);
-});
-program.command("publish-chrome").requiredOption("--archive <zip>").requiredOption("--publisher-id <id>").requiredOption("--extension-id <id>").action(async (opts) => {
-	await chromePublish(resolve(opts.archive), {
-		publisher: opts.publisherId,
-		extension: opts.extensionId
-	});
-	console.log("Chrome Web Store publication submitted");
-});
-program.command("publish-firefox").requiredOption("--build-directory <dir>").option("--output-directory <dir>", "Signed artifact directory", "firefox-signed").action((opts) => {
+// ../cli/src/browser-extension-publish/manifest-rules.ts
+/** Verify extension metadata without accessing the filesystem. */
+function validateManifest(manifest, registry, firefoxId = "") {
+	if (typeof manifest.manifest_version !== "number" || ![2, 3].includes(manifest.manifest_version) || typeof manifest.name !== "string" || !manifest.name.trim() || typeof manifest.version !== "string" || !/^\d+\.\d+\.\d+(?:\.\d+)?$/.test(manifest.version)) throw new Error("Invalid browser extension manifest version, name, or version");
+	const gecko = manifest.browser_specific_settings?.gecko?.id ?? manifest.applications?.gecko?.id;
+	if (registry !== "chrome" && !gecko) throw new Error("Firefox requires browser_specific_settings.gecko.id");
+	if (firefoxId && gecko !== firefoxId) throw new Error("Firefox ID does not match manifest");
+	return {
+		version: manifest.version,
+		name: manifest.name
+	};
+}
+// ../cli/src/browser-extension-publish/manifest.ts
+/** Public store API. */
+/** Public safe dir API. */
+function safeDir(value) {
+	const root = process.cwd();
+	const absolute = resolve(root, value);
+	const rel = relative(root, absolute);
+	if (rel === ".." || rel.startsWith("../") || rel.startsWith("..\\") || rel.startsWith("/")) throw new Error("Directory must be inside the workspace");
+	return absolute;
+}
+/** Public validate API. */
+function validate(directory, registry, firefoxId = "") {
+	const dir = safeDir(directory);
+	return {
+		dir,
+		...validateManifest(JSON.parse(readFileSync(join(dir, "manifest.json"), "utf8")), registry, firefoxId)
+	};
+}
+// ../cli/src/browser-extension-publish/firefox-publish.ts
+/** Firefox Add-ons signing and submission service, independent of Commander. */
+/** Validate an extension and submit it to Firefox Add-ons for signing. */
+function firefoxPublish(buildDirectory, outputDirectory = "firefox-signed") {
 	const key = process.env.FIREFOX_API_KEY;
 	const secret = process.env.FIREFOX_API_SECRET;
 	if (!key || !secret) throw new Error("Firefox API credentials required");
-	validate(opts.buildDirectory, "firefox");
-	const output = safeDir(opts.outputDirectory);
+	validate(buildDirectory, "firefox");
+	const output = safeDir(outputDirectory);
 	mkdirSync(output, { recursive: true });
 	execFileSync("npm", [
 		"exec",
@@ -137,7 +108,7 @@ program.command("publish-firefox").requiredOption("--build-directory <dir>").opt
 		"web-ext",
 		"sign",
 		"--source-dir",
-		safeDir(opts.buildDirectory),
+		safeDir(buildDirectory),
 		"--artifacts-dir",
 		output,
 		"--channel",
@@ -147,7 +118,65 @@ program.command("publish-firefox").requiredOption("--build-directory <dir>").opt
 		"--api-secret",
 		secret
 	], { stdio: "inherit" });
-	console.log("Firefox Add-ons submission completed");
-});
-await program.parseAsync();
-export { chromePublish };
+}
+// ../cli/src/browser-extension-publish/package-extension.ts
+/** ZIP packaging service for browser extension distribution. */
+/** Package an extension directory and verify its ZIP archive. */
+function packageExtension(buildDirectory, destination = "extension.zip") {
+	const directory = safeDir(buildDirectory);
+	readFileSync(join(directory, "manifest.json"));
+	const output = resolve(process.cwd(), destination);
+	if (existsSync(output)) throw new Error("Output already exists: " + output);
+	mkdirSync(dirname(output), { recursive: true });
+	execFileSync("zip", [
+		"-q",
+		"-r",
+		output,
+		"."
+	], { cwd: directory });
+	execFileSync("unzip", ["-t", output], { stdio: "ignore" });
+	return output;
+}
+// ../cli/src/browser-extension-publish/browser-extension-publish-cli.ts
+/** Commander-powered CLI command and feature implementation. @module */
+var STORES = [
+	"chrome",
+	"firefox",
+	"all"
+];
+/** Build the browser extension command tree without executing it. */
+function createBrowserExtensionProgram() {
+	const program = new Command().name("browser-extension-publish").description("Validate, package and submit Chrome/Firefox browser extensions");
+	program.command("validate").requiredOption("--build-directory <dir>", "built extension directory").addOption(new Option("--registry <store>", STORES.join(" | ")).choices(STORES).default("all")).option("--firefox-addon-id <id>", "Expected Gecko extension ID", "").action((opts) => {
+		const result = validate(opts.buildDirectory, opts.registry, opts.firefoxAddonId);
+		if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `version=${result.version}\n`);
+		console.log(JSON.stringify({
+			name: result.name,
+			version: result.version
+		}));
+	});
+	program.command("package").requiredOption("--build-directory <dir>", "built extension directory").option("--output <zip>", "Archive destination", "extension.zip").action((opts) => {
+		const output = packageExtension(opts.buildDirectory, opts.output);
+		console.log(`Packaged ${output}`);
+	});
+	program.command("publish-chrome").requiredOption("--archive <zip>", "extension archive to upload").requiredOption("--publisher-id <id>", "Chrome Web Store publisher ID").requiredOption("--extension-id <id>", "Chrome Web Store extension ID").action(async (opts) => {
+		await chromePublish(resolve(opts.archive), {
+			publisher: opts.publisherId,
+			extension: opts.extensionId
+		});
+		console.log("Chrome Web Store publication submitted");
+	});
+	program.command("publish-firefox").requiredOption("--build-directory <dir>", "built extension directory").option("--output-directory <dir>", "Signed artifact directory", "firefox-signed").action(async (opts) => {
+		await firefoxPublish(opts.buildDirectory, opts.outputDirectory);
+		console.log("Firefox Add-ons submission completed");
+	});
+	return program;
+}
+/** Invoke the browser extension CLI explicitly. */
+async function runBrowserExtensionCli(argv = process.argv) {
+	await createBrowserExtensionProgram().parseAsync(argv);
+}
+// ../cli/src/browser-extension-publish/entry.ts
+/** Executable browser-extension CLI entry point. */
+await runBrowserExtensionCli();
+export {};

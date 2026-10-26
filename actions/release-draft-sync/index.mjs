@@ -1,38 +1,9 @@
 import { execFileSync } from "node:child_process";
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
-import process from "node:process";
-// ../cli/src/release-draft-sync/index.ts
-/** Commander-powered CLI command and feature implementation. @module */
-var GENERATED_START = "<!-- release-draft-sync:generated:start -->";
-var GENERATED_END = "<!-- release-draft-sync:generated:end -->";
-function changelogSection(markdown, version) {
-	if (!version) return "";
-	const escaped = version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-	const heading = new RegExp("^##\\s+\\[?" + escaped + "\\]?(?:\\s+-\\s+.+)?\\s*$");
-	const notes = [];
-	let collecting = false;
-	for (const line of markdown.split("\n")) {
-		if (!collecting && heading.test(line.trim())) {
-			collecting = true;
-			continue;
-		}
-		if (collecting && /^##\s+/.test(line)) break;
-		if (collecting) notes.push(line);
-	}
-	return notes.join("\n").trim();
-}
-function hasMeaningfulGeneratedBody(body) {
-	return body.replace(/[*-]\s*No changes\.?/gi, "").replace(/#+\s*(Changes|Release notes|What's Changed)/gi, "").trim().length > 0;
-}
-function commitFallback(targetPath) {
-	const args = [
-		"log",
-		"--reverse",
-		"--format=%s%x09%h",
-		"HEAD"
-	];
-	if (targetPath && targetPath !== ".") args.push("--", targetPath);
-	const output = execFileSync("git", args, { encoding: "utf8" }).trim();
+import process$1 from "node:process";
+// ../cli/src/release-draft-sync/commit-rules.ts
+/** Format a git log into stable, deduplicated release-note bullets. */
+function formatReleaseCommits(output) {
 	if (!output) return "";
 	const excludedTypes = /* @__PURE__ */ new Set([
 		"docs",
@@ -60,6 +31,31 @@ function commitFallback(targetPath) {
 	}
 	return entries.join("\n");
 }
+// ../cli/src/release-draft-sync/release-note-rules.ts
+/** Pure release-note extraction and content classification. */
+function changelogSection(markdown, version) {
+	if (!version) return "";
+	const escaped = version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+	const heading = new RegExp("^##\\s+\\[?" + escaped + "\\]?(?:\\s+-\\s+.+)?\\s*$");
+	const notes = [];
+	let collecting = false;
+	for (const line of markdown.split("\n")) {
+		if (!collecting && heading.test(line.trim())) {
+			collecting = true;
+			continue;
+		}
+		if (collecting && /^##\s+/.test(line)) break;
+		if (collecting) notes.push(line);
+	}
+	return notes.join("\n").trim();
+}
+function hasMeaningfulGeneratedBody(body) {
+	return body.replace(/[*-]\s*No changes\.?/gi, "").replace(/#+\s*(Changes|Release notes|What's Changed)/gi, "").trim().length > 0;
+}
+// ../cli/src/release-draft-sync/reconcile-rules.ts
+/** Deterministic release draft entry merging and metadata rules. */
+var GENERATED_START = "<!-- release-draft-sync:generated:start -->";
+var GENERATED_END = "<!-- release-draft-sync:generated:end -->";
 function splitGeneratedRegion(body) {
 	const start = body.indexOf(GENERATED_START);
 	const end = body.indexOf(GENERATED_END);
@@ -151,20 +147,19 @@ ${result}`;
 <!-- release-draft-sync:seed-sha=${seedSha} source=${source} -->`);
 	return result.trim();
 }
+// ../cli/src/release-draft-sync/release-body-rules.ts
+/** Release body decisions with all external data supplied by the caller. */
 function resolveInitialSeed(options) {
-	if (options.changelogPath && existsSync(options.changelogPath)) {
-		const notes = changelogSection(readFileSync(options.changelogPath, "utf8"), options.version);
-		if (notes) return {
-			source: "changelog",
-			body: notes
-		};
-	}
+	if (options.curatedNotes) return {
+		source: "changelog",
+		body: options.curatedNotes
+	};
 	const generated = options.generatedBody.trim();
 	if (hasMeaningfulGeneratedBody(generated)) return {
 		source: "release-drafter",
 		body: generatedRegion(generated)
 	};
-	const commits = commitFallback(options.targetPath);
+	const commits = options.commitNotes;
 	if (commits) return {
 		source: "commits",
 		body: `## Release notes
@@ -179,12 +174,10 @@ ${commits}`
 function reconcileReleaseBody(options) {
 	const existing = options.existingBody.trim();
 	const generated = options.generatedBody.trim();
-	if (options.version && options.changelogPath && existsSync(options.changelogPath)) {
-		const curated = changelogSection(readFileSync(options.changelogPath, "utf8"), options.version);
-		if (curated) {
-			const seedSha = existing.match(/<!--\\s*release-draft-sync:seed-sha=([^\\s]+)(?:\\s+source=[^>]+)?\\s*-->/)?.[1] || options.seedSha;
-			return ensureMetadata(curated, options.targetKey, seedSha, "changelog");
-		}
+	if (options.curatedNotes) {
+		const curated = options.curatedNotes;
+		const seedSha = existing.match(/<!--\s*release-draft-sync:seed-sha=([^\s]+)(?:\s+source=[^>]+)?\s*-->/)?.[1] || options.seedSha;
+		return ensureMetadata(curated, options.targetKey, seedSha, "changelog");
 	}
 	if (!existing) {
 		const seed = resolveInitialSeed(options);
@@ -217,14 +210,26 @@ ${generatedRegion(managed)}`;
 	}
 	return ensureMetadata(body, options.targetKey, options.seedSha, "existing");
 }
+// ../cli/src/release-draft-sync/index.ts
+/** Commander-powered CLI command and feature implementation. @module */
+function commitFallback(targetPath) {
+	const args = [
+		"log",
+		"--reverse",
+		"--format=%s%x09%h",
+		"HEAD"
+	];
+	if (targetPath && targetPath !== ".") args.push("--", targetPath);
+	return formatReleaseCommits(execFileSync("git", args, { encoding: "utf8" }).trim());
+}
 function input(name, required = false) {
 	const suffix = name.toUpperCase();
-	const value = process.env[`INPUT_${suffix}`] ?? process.env[`INPUT_${suffix.replaceAll("-", "_")}`] ?? "";
+	const value = process$1.env[`INPUT_${suffix}`] ?? process$1.env[`INPUT_${suffix.replaceAll("-", "_")}`] ?? "";
 	if (required && !value) throw new Error(`Missing required input: ${name}`);
 	return value;
 }
 function setOutput(name, value) {
-	const outputFile = process.env.GITHUB_OUTPUT;
+	const outputFile = process$1.env.GITHUB_OUTPUT;
 	if (outputFile) appendFileSync(outputFile, `${name}=${value}
 `);
 }
@@ -237,29 +242,29 @@ function runAction() {
 	const targetKey = input("target-key") || "root";
 	const seedSha = input("seed-sha");
 	const targetPath = input("target-path");
+	const existingBody = existsSync(existingBodyFile) ? readFileSync(existingBodyFile, "utf8") : "";
+	const generatedBody = existsSync(generatedBodyFile) ? readFileSync(generatedBodyFile, "utf8") : "";
+	const curatedNotes = version && existsSync(changelogPath) ? changelogSection(readFileSync(changelogPath, "utf8"), version) : "";
 	const result = reconcileReleaseBody({
-		existingBody: existsSync(existingBodyFile) ? readFileSync(existingBodyFile, "utf8") : "",
-		generatedBody: existsSync(generatedBodyFile) ? readFileSync(generatedBodyFile, "utf8") : "",
-		changelogPath,
-		version,
+		existingBody,
+		generatedBody,
+		curatedNotes,
+		commitNotes: !curatedNotes && !existingBody.trim() && !hasMeaningfulGeneratedBody(generatedBody.trim()) ? commitFallback(targetPath) : "",
 		targetKey,
-		seedSha,
-		targetPath
+		seedSha
 	});
 	writeFileSync(outputFile, `${result.trim()}
 `);
 	setOutput("body-file", outputFile);
 	setOutput("seed-sha", seedSha);
 }
-function runEntryPoint() {
-	try {
-		runAction();
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		process.stderr.write(`release-draft-sync: ${message}
-`);
-		process.exitCode = 1;
-	}
+// ../cli/src/release-draft-sync/action-entry.ts
+/** Executable entrypoint for the release draft sync action. */
+try {
+	runAction();
+} catch (error) {
+	const message = error instanceof Error ? error.message : String(error);
+	process.stderr.write(`release-draft-sync: ${message}\n`);
+	process.exitCode = 1;
 }
-if (process.env.GITHUB_ACTIONS === "true") runEntryPoint();
-export { runAction };
+export {};

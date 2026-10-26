@@ -1,4 +1,4 @@
-import { n as InvalidArgumentError, t as Command } from "../_assets/esm-BGzD_pfc.mjs";
+import { n as InvalidArgumentError, t as Command } from "../_assets/esm-CScb8cmR.mjs";
 import { dirname, join, resolve } from "node:path";
 import { appendFileSync, existsSync } from "node:fs";
 // ../cli/src/setup-workspace-tools/setup-workspace-tools.ts
@@ -43,7 +43,7 @@ function resolveBinDir(mode, paths) {
 function validateBinDir(dir) {
 	for (const cli of ["workspace-release.mjs", "workspace-publish.mjs"]) if (!existsSync(join(dir, cli))) throw new Error(`Workspace Tools CLI is missing: ${join(dir, cli)}`);
 }
-// ../cli/src/setup-workspace-tools/setup-workspace-tools-command.ts
+// ../cli/src/setup-workspace-tools/setup-workspace-tools-cli.ts
 /** Commander-powered CLI command and feature implementation. @module */
 function createSetupWorkspaceToolsCommand() {
 	return new Command().name("setup-workspace-tools").requiredOption("--workspace-tools-source <source>", "npm source or checkout reference").option("--mode <mode>", "resolve | bin-dir", "resolve").option("--workspace <path>", "GitHub workspace", process.env.GITHUB_WORKSPACE).option("--runner-temp <path>", "GitHub runner temporary directory", process.env.RUNNER_TEMP).option("--release-bin <path>", "Resolved workspace-release executable").option("--github-output <path>", "GitHub Actions output file", process.env.GITHUB_OUTPUT).action((opts) => {
@@ -70,7 +70,11 @@ function createSetupWorkspaceToolsCommand() {
 		else process.stdout.write(JSON.stringify(entries) + "\n");
 	});
 }
-// ../cli/src/setup-workspace-tools/setup-workspace-tools-cli.ts
-/** CLI entrypoint for Workspace Tools setup. */
-await createSetupWorkspaceToolsCommand().parseAsync();
+/** Invoke the Workspace Tools setup CLI explicitly. */
+async function runSetupWorkspaceToolsCli(argv = process.argv) {
+	await createSetupWorkspaceToolsCommand().parseAsync(argv);
+}
+// ../cli/src/setup-workspace-tools/action-entry.ts
+/** Executable Workspace Tools setup action entry. */
+await runSetupWorkspaceToolsCli();
 export {};

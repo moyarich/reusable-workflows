@@ -1,32 +1,45 @@
-/** Build configuration for CLI executable and library output. @module */
-import { defineConfig } from "vite";
+/** Build the combined npm executable declared in package.json. */
+import { defineConfig, runnerImport } from "vite";
+import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import { runtimeAssets } from "./plugins/runtime-assets.ts";
+
+// The Git dependency ships TypeScript but has no prepared dist bundle.
+// Prefer its public entry when available; otherwise load its shipped source.
+const packageBinEntry = new URL(
+  import.meta.resolve("@moyarich/vite-plugin-package-bin"),
+);
+const { packageBinBuild } = existsSync(packageBinEntry)
+  ? ((await import(
+      packageBinEntry.href
+    )) as typeof import("@moyarich/vite-plugin-package-bin"))
+  : (
+      await runnerImport<typeof import("@moyarich/vite-plugin-package-bin")>(
+        fileURLToPath(new URL("../src/index.ts", packageBinEntry)),
+        {
+          configFile: false,
+          ssr: { noExternal: ["@moyarich/vite-plugin-package-bin"] },
+        },
+      )
+    ).module;
+
 const root = dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   root,
-  build: {
-    ssr: true,
-    target: "node24",
-    outDir: resolve(root, "dist"),
-    emptyOutDir: true,
-    minify: false,
-    rollupOptions: {
-      input: {
-        cli: resolve(root, "src/cli.ts"),
-        "workspace-source": resolve(root, "src/bin/workspace-source-entry.ts"),
-        "release-validate": resolve(root, "src/bin/release-validate-entry.ts"),
-        browser: resolve(root, "src/bin/browser-entry.ts"),
-        "setup-workspace-tools": resolve(
-          root,
-          "src/setup-workspace-tools/bin-entry.ts",
-        ),
-      },
-      output: {
-        entryFileNames: "[name].mjs",
-        chunkFileNames: "chunks/[name]-[hash].mjs",
-        banner: (chunk) => (chunk.isEntry ? "#!/usr/bin/env node" : ""),
-      },
-    },
-  },
+  plugins: [
+    packageBinBuild({
+      emptyOutDir: true,
+      outDir: "dist",
+      sources: { "reusable-workflows-cli": "src/bin/cli-entries.ts" },
+      target: "node24",
+      external: [/^(?:commander|ajv|yaml)(?:\/|$)/],
+      minify: false,
+    }),
+    runtimeAssets({
+      source: resolve(root, "src/check-dist/config.schema.json"),
+      destination: "schemas/check-dist.schema.json",
+    }),
+  ],
+  build: { outDir: "dist" },
 });

@@ -8,6 +8,7 @@ import {
   lstatSync,
   appendFileSync,
 } from "node:fs";
+import { createHash, randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -21,6 +22,7 @@ export interface CopyOptions {
   token: string;
   dryRun: boolean;
   message: string;
+  mode?: "pull-request" | "update-branch";
 }
 export function validateOptions(o: CopyOptions): void {
   if (
@@ -47,6 +49,11 @@ export function validateOptions(o: CopyOptions): void {
     o.branch.includes("//")
   )
     throw new Error("Invalid branch");
+  if (
+    o.mode !== undefined &&
+    !["pull-request", "update-branch"].includes(o.mode)
+  )
+    throw new Error("Invalid copy mode");
   if (!o.token) throw new Error("Destination token is required");
   if (
     !existsSync(o.sourceDirectory) ||
@@ -60,6 +67,7 @@ export function copyFiles(options: CopyOptions): {
   changed: boolean;
   committed: boolean;
   summary: string;
+  pullRequestUrl?: string;
 } {
   validateOptions(options);
   const temp = mkdtempSync(join(tmpdir(), "copy-repository-"));
@@ -67,12 +75,51 @@ export function copyFiles(options: CopyOptions): {
   const auth =
     "AUTHORIZATION: basic " +
     Buffer.from("x-access-token:" + options.token).toString("base64");
+  const mode = options.mode ?? "pull-request";
+  let pullRequestBranch =
+    "automation/copy-workflows-" +
+    createHash("sha256")
+      .update(
+        JSON.stringify([
+          options.sourceRepository,
+          options.sourceRef,
+          options.branch,
+        ]),
+      )
+      .digest("hex")
+      .slice(0, 16);
   const git = (...args: string[]) =>
     execFileSync("git", args, {
       cwd: destination,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
     });
+  const authenticatedGit = (...args: string[]) =>
+    git("-c", "http.extraheader=" + auth, ...args);
+  const github = (...args: string[]) =>
+    execFileSync("gh", args, {
+      cwd: destination,
+      encoding: "utf8",
+      env: { ...process.env, GH_TOKEN: options.token },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  const existingPullRequest = (): string =>
+    github(
+      "pr",
+      "list",
+      "--repo",
+      options.repository,
+      "--base",
+      options.branch,
+      "--head",
+      pullRequestBranch,
+      "--state",
+      "open",
+      "--json",
+      "url",
+      "--jq",
+      ".[0].url // empty",
+    ).trim();
   try {
     execFileSync(
       "git",
@@ -89,6 +136,38 @@ export function copyFiles(options: CopyOptions): {
       ],
       { stdio: ["ignore", "pipe", "pipe"] },
     );
+    let existingBranch = false;
+    let pullRequestUrl: string | undefined;
+    if (mode === "pull-request") {
+      existingBranch = Boolean(
+        authenticatedGit(
+          "ls-remote",
+          "--heads",
+          "origin",
+          "refs/heads/" + pullRequestBranch,
+        ).trim(),
+      );
+      if (existingBranch) {
+        pullRequestUrl = existingPullRequest() || undefined;
+        if (!pullRequestUrl) {
+          // A retained branch from a merged or closed PR must not be reused.
+          pullRequestBranch += "-" + randomUUID().slice(0, 8);
+          existingBranch = false;
+        }
+      }
+      if (existingBranch) {
+        authenticatedGit(
+          "fetch",
+          "--depth",
+          "1",
+          "origin",
+          "refs/heads/" + pullRequestBranch,
+        );
+        git("checkout", "-B", pullRequestBranch, "FETCH_HEAD");
+      } else {
+        git("checkout", "-b", pullRequestBranch);
+      }
+    }
     for (const name of readdirSync(options.sourceDirectory)) {
       if (name === ".git") throw new Error("Refusing to copy .git");
       if (lstatSync(resolve(options.sourceDirectory, name)).isSymbolicLink())
@@ -102,8 +181,10 @@ export function copyFiles(options: CopyOptions): {
     git("add", "-A");
     const changed = git("diff", "--cached", "--name-only").trim().length > 0;
     const summary = changed ? git("diff", "--cached", "--stat") : "No changes";
-    if (!changed || options.dryRun)
-      return { changed, committed: false, summary };
+    if (options.dryRun) return { changed, committed: false, summary };
+    if (!changed) {
+      return { changed, committed: false, summary, pullRequestUrl };
+    }
     git("config", "user.name", "github-actions[bot]");
     git(
       "config",
@@ -111,23 +192,40 @@ export function copyFiles(options: CopyOptions): {
       "41898282+github-actions[bot]@users.noreply.github.com",
     );
     git("commit", "-m", options.message);
-    git(
-      "-c",
-      "http.extraheader=" + auth,
+    authenticatedGit(
       "push",
       "origin",
-      "HEAD:" + options.branch,
+      "HEAD:" + (mode === "pull-request" ? pullRequestBranch : options.branch),
     );
-    return { changed: true, committed: true, summary };
+    pullRequestUrl =
+      mode === "pull-request"
+        ? pullRequestUrl ||
+          github(
+            "pr",
+            "create",
+            "--repo",
+            options.repository,
+            "--base",
+            options.branch,
+            "--head",
+            pullRequestBranch,
+            "--title",
+            options.message,
+            "--body",
+            `Synchronize prepared files from ${options.sourceRepository} at ${options.sourceRef}.`,
+          ).trim()
+        : undefined;
+    return { changed: true, committed: true, summary, pullRequestUrl };
   } finally {
     rmSync(temp, { recursive: true, force: true });
   }
 }
-function main(): void {
+export function runCopyAction(): void {
   const dryRun = process.env.COPY_DRY_RUN ?? "true";
   if (dryRun !== "true" && dryRun !== "false")
     throw new Error("dry-run must be true or false");
   const result = copyFiles({
+    mode: (process.env.COPY_MODE ?? "pull-request") as CopyOptions["mode"],
     sourceRepository: process.env.COPY_SOURCE_REPO ?? "",
     sourceRef: process.env.COPY_SOURCE_REF ?? "main",
     sourceDirectory: process.env.COPY_SOURCE ?? "",
@@ -140,21 +238,23 @@ function main(): void {
   if (process.env.GITHUB_OUTPUT) {
     appendFileSync(
       process.env.GITHUB_OUTPUT,
-      "changed=" + result.changed + "\ncommitted=" + result.committed + "\n",
+      "changed=" +
+        result.changed +
+        "\ncommitted=" +
+        result.committed +
+        "\npull-request-url=" +
+        (result.pullRequestUrl ?? "") +
+        "\n",
     );
   }
   if (process.env.GITHUB_STEP_SUMMARY)
     appendFileSync(
       process.env.GITHUB_STEP_SUMMARY,
-      "### " +
-        process.env.COPY_DEST +
-        "\n\`\`\`\n" +
-        result.summary +
-        "\n\`\`\`\n",
+      "### " + process.env.COPY_DEST + "\n```\n" + result.summary + "\n```\n",
     );
 }
 if (
   process.argv[1] &&
   import.meta.url === new URL("file://" + resolve(process.argv[1])).href
 )
-  main();
+  runCopyAction();

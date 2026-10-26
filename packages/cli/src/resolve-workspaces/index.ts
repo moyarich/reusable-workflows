@@ -92,10 +92,25 @@ export async function resolveWorkspaces({
       dependenciesResolved: result.reduce((n, p) => n + p.changes.length, 0),
       batches: batches.length,
     },
-    packages: result.map((item) => {
-      const { absolute: _absolute, manifest: _manifest, ...publicItem } = item;
-      return publicItem;
-    }),
+    packages: result.map(
+      ({
+        name,
+        version,
+        directory,
+        private: isPrivate,
+        publishable,
+        dependencies,
+        changes,
+      }) => ({
+        name,
+        version,
+        directory,
+        private: isPrivate,
+        publishable,
+        dependencies,
+        changes,
+      }),
+    ),
     publish: {
       order: batches.flat(),
       batches: batches.map((packages, level) => ({ level, packages })),
