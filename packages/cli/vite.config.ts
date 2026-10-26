@@ -41,7 +41,7 @@ export default defineConfig({
         root,
         "src/copy-files-to-another-repository/config.schema.json",
       ),
-      destination: "schemas/copy-files-config.schema.json",
+      destination: "copy-files-to-another-repository/config.schema.json",
     }),
     runtimeAssets({
       source: resolve(root, "src/check-dist/config.schema.json"),
