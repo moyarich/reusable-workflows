@@ -36,10 +36,10 @@ profiles:
     include: [publish-vscode-vsx.yml]
 repositories:
   - name: moyarich/workspace-tools
-    profile: vscode
+    profiles: [vscode]
 ```
 
-The central configuration currently keeps other repositories, including `github_emulator`, on its explicit allowlist. Do not remove them simply because a smaller subset is documented elsewhere. Each repository can use `include`, `exclude`, and `overrides`; override keys must already exist in the canonical source file. The source allow/ignore defines the hard candidate boundary. Starting with that set, defaults, profile and repository each add matching includes and remove matching excludes in order, so the most specific layer wins. Common workflows do not need to be repeated in every profile. Selected workflow files are copied whether they already exist or not. Deletions are not propagated.
+The central configuration currently keeps other repositories, including `github_emulator`, on its explicit allowlist. Do not remove them simply because a smaller subset is documented elsewhere. Each repository can use ordered `profiles`, `include`, `exclude`, and `overrides`; override keys must already exist in the canonical source file. The source allow/ignore defines the hard candidate boundary. Starting with that set, defaults, ordered profiles and repository each add matching includes and remove matching excludes in order, so the most specific layer wins. Common workflows do not need to be repeated in every profile. Selected workflow files are copied whether they already exist or not. Deletions are not propagated.
 
 ## Running a sync
 
