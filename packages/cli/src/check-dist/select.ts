@@ -25,7 +25,7 @@ function discoverLocalPackages(): Package[] {
     : (manifest.workspaces?.packages ?? []);
   const found = new Map<string, Package>();
   for (const pattern of patterns.filter((value) => !value.startsWith("!"))) {
-    for (const file of fs.globSync(pattern.replace(/\\/g, "/").replace(/\\/$/, "") + "/package.json", { cwd: root })) {
+    for (const file of fs.globSync(pattern.replaceAll("\\", "/").replace(/\/$/, "") + "/package.json", { cwd: root })) {
       const directory = path.posix.dirname(file.replace(/\\/g, "/"));
       const pkg = JSON.parse(fs.readFileSync(path.join(root, file), "utf8")) as {
         name?: string;
