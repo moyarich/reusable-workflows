@@ -186,35 +186,4 @@ jobs:
           COMMIT_STATUS: ${{ steps.commit.outcome }}
           SYNC_RESULT: ${{ steps.commit.outputs.result }}
           COMMIT_SHA: ${{ steps.commit.outputs.sha }}
-        run: |
-          python3 - <<'PY'
-          import json
-          import os
-
-          def parse_json(value, fallback):
-              try:
-                  return json.loads(value)
-              except (ValueError, TypeError):
-                  return fallback
-
-          release_packages = parse_json(os.environ.get("RELEASE_PACKAGES_JSON"), {}).get("included", [])
-          publish_packages = parse_json(os.environ.get("PUBLISH_PACKAGES_JSON"), {}).get("included", [])
-          files = parse_json(os.environ.get("WORKFLOW_FILES"), []) or [os.environ["WORKFLOW_FILE"]]
-          result = os.environ.get("SYNC_RESULT") or "failed or skipped"
-          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as output:
-              output.write("# Release package choice synchronization\n\n")
-              output.write(f"**Result:** {result}\n\n")
-              output.write("| Stage | Status |\n| --- | --- |\n")
-              for stage, key in [("Release discovery", "DISCOVER_RELEASE_STATUS"), ("npm discovery", "DISCOVER_PUBLISH_STATUS"), ("Update workflow choices", "UPDATE_STATUS"), ("Commit and push", "COMMIT_STATUS")]:
-                  output.write(f"| {stage} | {os.environ.get(key, 'unknown')} |\n")
-              output.write(f"\n**Release-eligible packages:** {len(release_packages)}\n\n")
-              output.write(f"**npm-eligible packages:** {len(publish_packages)}\n\n")
-              output.write("| Package | Directory | Version |\n| --- | --- | --- |\n")
-              for package in release_packages:
-                  output.write(f"| `{package.get('name', '')}` | `{package.get('directory', '')}` | `{package.get('version', '')}` |\n")
-              output.write("\n**Configured workflow files (not necessarily modified):**\n\n")
-              for filename in files:
-                  output.write(f"- `{filename}`\n")
-              if os.environ.get("COMMIT_SHA"):
-                  output.write(f"\n**Commit:** `{os.environ['COMMIT_SHA']}`\n")
-          PY
+        run: node --experimental-strip-types .workflow-cli/packages/cli/src/bin/sync-release-summary.ts
