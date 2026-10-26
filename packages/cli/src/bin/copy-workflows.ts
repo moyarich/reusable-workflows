@@ -33,7 +33,8 @@ const repositories = config.repositories as Array<{
   name: string;
   branch?: string;
 }>;
-const profiles = (config as { profiles?: Record<string, unknown> }).profiles ?? {};
+const profiles =
+  (config as { profiles?: Record<string, unknown> }).profiles ?? {};
 for (const repository of config.repositories as Array<{
   name: string;
   profiles?: string[];

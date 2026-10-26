@@ -16,7 +16,9 @@ function packages(value: string | undefined): Package[] {
   return Array.isArray(parsed.included) ? parsed.included : [];
 }
 function safe(value: unknown): string {
-  return String(value ?? "").replaceAll("|", "\\|").replaceAll("\n", " ");
+  return String(value ?? "")
+    .replaceAll("|", "\\|")
+    .replaceAll("\n", " ");
 }
 
 const release = packages(env.RELEASE_PACKAGES_JSON);
@@ -32,12 +34,14 @@ const rows: string[] = [
   "",
   "| Stage | Status |",
   "| --- | --- |",
-  ...([
-    ["Release discovery", "DISCOVER_RELEASE_STATUS"],
-    ["npm discovery", "DISCOVER_PUBLISH_STATUS"],
-    ["Update workflow choices", "UPDATE_STATUS"],
-    ["Commit and push", "COMMIT_STATUS"],
-  ] as const).map(([label, key]) => `| ${label} | ${safe(env[key] ?? "unknown")} |`),
+  ...(
+    [
+      ["Release discovery", "DISCOVER_RELEASE_STATUS"],
+      ["npm discovery", "DISCOVER_PUBLISH_STATUS"],
+      ["Update workflow choices", "UPDATE_STATUS"],
+      ["Commit and push", "COMMIT_STATUS"],
+    ] as const
+  ).map(([label, key]) => `| ${label} | ${safe(env[key] ?? "unknown")} |`),
   "",
   `**Release-eligible packages:** ${release.length}`,
   "",
@@ -45,8 +49,9 @@ const rows: string[] = [
   "",
   "| Package | Directory | Version |",
   "| --- | --- | --- |",
-  ...release.map((pkg) =>
-    `| \`${safe(pkg.name)}\` | \`${safe(pkg.directory)}\` | \`${safe(pkg.version)}\` |`
+  ...release.map(
+    (pkg) =>
+      `| \`${safe(pkg.name)}\` | \`${safe(pkg.directory)}\` | \`${safe(pkg.version)}\` |`,
   ),
   "",
   "**Configured workflow files (not necessarily modified):**",
