@@ -4,7 +4,6 @@ import { execFileSync } from "node:child_process";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { appendFileSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import process$1 from "node:process";
-import { fileURLToPath } from "node:url";
 // \0rolldown/runtime.js
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -6070,29 +6069,29 @@ var require_compile = /* @__PURE__ */ __commonJSMin(((exports) => {
 }));
 // node_modules/ajv/dist/refs/data.json
 var data_exports = /* @__PURE__ */ __exportAll({
-	$id: () => $id$8,
+	$id: () => $id$9,
 	additionalProperties: () => false,
 	default: () => data_default,
 	description: () => description,
-	properties: () => properties$8,
-	required: () => required,
-	type: () => type$8
-}), $id$8, description, type$8, required, properties$8, data_default;
+	properties: () => properties$9,
+	required: () => required$1,
+	type: () => type$9
+}), $id$9, description, type$9, required$1, properties$9, data_default;
 var init_data = __esmMin((() => {
-	$id$8 = "https://raw.githubusercontent.com/ajv-validator/ajv/master/lib/refs/data.json#";
+	$id$9 = "https://raw.githubusercontent.com/ajv-validator/ajv/master/lib/refs/data.json#";
 	description = "Meta-schema for $data reference (JSON AnySchema extension proposal)";
-	type$8 = "object";
-	required = ["$data"];
-	properties$8 = { "$data": {
+	type$9 = "object";
+	required$1 = ["$data"];
+	properties$9 = { "$data": {
 		"type": "string",
 		"anyOf": [{ "format": "relative-json-pointer" }, { "format": "json-pointer" }]
 	} };
 	data_default = {
-		$id: $id$8,
+		$id: $id$9,
 		description,
-		type: type$8,
-		required,
-		properties: properties$8,
+		type: type$9,
+		required: required$1,
+		properties: properties$9,
 		additionalProperties: false
 	};
 }));
@@ -9730,19 +9729,19 @@ var require_discriminator = /* @__PURE__ */ __commonJSMin(((exports) => {
 var schema_exports = /* @__PURE__ */ __exportAll({
 	$comment: () => $comment,
 	$dynamicAnchor: () => $dynamicAnchor$7,
-	$id: () => $id$7,
-	$schema: () => $schema$7,
+	$id: () => $id$8,
+	$schema: () => $schema$8,
 	$vocabulary: () => $vocabulary$7,
 	allOf: () => allOf,
 	default: () => schema_default,
-	properties: () => properties$7,
-	title: () => title$7,
-	type: () => type$7
+	properties: () => properties$8,
+	title: () => title$8,
+	type: () => type$8
 });
-var $schema$7, $id$7, $vocabulary$7, $dynamicAnchor$7, title$7, allOf, type$7, $comment, properties$7, schema_default;
+var $schema$8, $id$8, $vocabulary$7, $dynamicAnchor$7, title$8, allOf, type$8, $comment, properties$8, schema_default;
 var init_schema = __esmMin((() => {
-	$schema$7 = "https://json-schema.org/draft/2020-12/schema";
-	$id$7 = "https://json-schema.org/draft/2020-12/schema";
+	$schema$8 = "https://json-schema.org/draft/2020-12/schema";
+	$id$8 = "https://json-schema.org/draft/2020-12/schema";
 	$vocabulary$7 = {
 		"https://json-schema.org/draft/2020-12/vocab/core": true,
 		"https://json-schema.org/draft/2020-12/vocab/applicator": true,
@@ -9753,7 +9752,7 @@ var init_schema = __esmMin((() => {
 		"https://json-schema.org/draft/2020-12/vocab/content": true
 	};
 	$dynamicAnchor$7 = "meta";
-	title$7 = "Core and Validation specifications meta-schema";
+	title$8 = "Core and Validation specifications meta-schema";
 	allOf = [
 		{ "$ref": "meta/core" },
 		{ "$ref": "meta/applicator" },
@@ -9763,9 +9762,9 @@ var init_schema = __esmMin((() => {
 		{ "$ref": "meta/format-annotation" },
 		{ "$ref": "meta/content" }
 	];
-	type$7 = ["object", "boolean"];
+	type$8 = ["object", "boolean"];
 	$comment = "This meta-schema also defines keywords that have appeared in previous drafts in order to prevent incompatible extensions as they remain in common use.";
-	properties$7 = {
+	properties$8 = {
 		"definitions": {
 			"$comment": "\"definitions\" has been replaced by \"$defs\".",
 			"type": "object",
@@ -9792,38 +9791,38 @@ var init_schema = __esmMin((() => {
 		}
 	};
 	schema_default = {
-		$schema: $schema$7,
-		$id: $id$7,
+		$schema: $schema$8,
+		$id: $id$8,
 		$vocabulary: $vocabulary$7,
 		$dynamicAnchor: $dynamicAnchor$7,
-		title: title$7,
+		title: title$8,
 		allOf,
-		type: type$7,
+		type: type$8,
 		$comment,
-		properties: properties$7
+		properties: properties$8
 	};
 }));
 // node_modules/ajv/dist/refs/json-schema-2020-12/meta/applicator.json
 var applicator_exports = /* @__PURE__ */ __exportAll({
-	$defs: () => $defs$2,
+	$defs: () => $defs$3,
 	$dynamicAnchor: () => $dynamicAnchor$6,
-	$id: () => $id$6,
-	$schema: () => $schema$6,
+	$id: () => $id$7,
+	$schema: () => $schema$7,
 	$vocabulary: () => $vocabulary$6,
 	default: () => applicator_default,
-	properties: () => properties$6,
-	title: () => title$6,
-	type: () => type$6
+	properties: () => properties$7,
+	title: () => title$7,
+	type: () => type$7
 });
-var $schema$6, $id$6, $vocabulary$6, $dynamicAnchor$6, title$6, type$6, properties$6, $defs$2, applicator_default;
+var $schema$7, $id$7, $vocabulary$6, $dynamicAnchor$6, title$7, type$7, properties$7, $defs$3, applicator_default;
 var init_applicator = __esmMin((() => {
-	$schema$6 = "https://json-schema.org/draft/2020-12/schema";
-	$id$6 = "https://json-schema.org/draft/2020-12/meta/applicator";
+	$schema$7 = "https://json-schema.org/draft/2020-12/schema";
+	$id$7 = "https://json-schema.org/draft/2020-12/meta/applicator";
 	$vocabulary$6 = { "https://json-schema.org/draft/2020-12/vocab/applicator": true };
 	$dynamicAnchor$6 = "meta";
-	title$6 = "Applicator vocabulary meta-schema";
-	type$6 = ["object", "boolean"];
-	properties$6 = {
+	title$7 = "Applicator vocabulary meta-schema";
+	type$7 = ["object", "boolean"];
+	properties$7 = {
 		"prefixItems": { "$ref": "#/$defs/schemaArray" },
 		"items": { "$dynamicRef": "#meta" },
 		"contains": { "$dynamicRef": "#meta" },
@@ -9853,110 +9852,110 @@ var init_applicator = __esmMin((() => {
 		"oneOf": { "$ref": "#/$defs/schemaArray" },
 		"not": { "$dynamicRef": "#meta" }
 	};
-	$defs$2 = { "schemaArray": {
+	$defs$3 = { "schemaArray": {
 		"type": "array",
 		"minItems": 1,
 		"items": { "$dynamicRef": "#meta" }
 	} };
 	applicator_default = {
-		$schema: $schema$6,
-		$id: $id$6,
+		$schema: $schema$7,
+		$id: $id$7,
 		$vocabulary: $vocabulary$6,
 		$dynamicAnchor: $dynamicAnchor$6,
-		title: title$6,
-		type: type$6,
-		properties: properties$6,
-		$defs: $defs$2
+		title: title$7,
+		type: type$7,
+		properties: properties$7,
+		$defs: $defs$3
 	};
 }));
 // node_modules/ajv/dist/refs/json-schema-2020-12/meta/unevaluated.json
 var unevaluated_exports = /* @__PURE__ */ __exportAll({
 	$dynamicAnchor: () => $dynamicAnchor$5,
-	$id: () => $id$5,
-	$schema: () => $schema$5,
+	$id: () => $id$6,
+	$schema: () => $schema$6,
 	$vocabulary: () => $vocabulary$5,
 	default: () => unevaluated_default,
-	properties: () => properties$5,
-	title: () => title$5,
-	type: () => type$5
+	properties: () => properties$6,
+	title: () => title$6,
+	type: () => type$6
 });
-var $schema$5, $id$5, $vocabulary$5, $dynamicAnchor$5, title$5, type$5, properties$5, unevaluated_default;
+var $schema$6, $id$6, $vocabulary$5, $dynamicAnchor$5, title$6, type$6, properties$6, unevaluated_default;
 var init_unevaluated = __esmMin((() => {
-	$schema$5 = "https://json-schema.org/draft/2020-12/schema";
-	$id$5 = "https://json-schema.org/draft/2020-12/meta/unevaluated";
+	$schema$6 = "https://json-schema.org/draft/2020-12/schema";
+	$id$6 = "https://json-schema.org/draft/2020-12/meta/unevaluated";
 	$vocabulary$5 = { "https://json-schema.org/draft/2020-12/vocab/unevaluated": true };
 	$dynamicAnchor$5 = "meta";
-	title$5 = "Unevaluated applicator vocabulary meta-schema";
-	type$5 = ["object", "boolean"];
-	properties$5 = {
+	title$6 = "Unevaluated applicator vocabulary meta-schema";
+	type$6 = ["object", "boolean"];
+	properties$6 = {
 		"unevaluatedItems": { "$dynamicRef": "#meta" },
 		"unevaluatedProperties": { "$dynamicRef": "#meta" }
 	};
 	unevaluated_default = {
-		$schema: $schema$5,
-		$id: $id$5,
+		$schema: $schema$6,
+		$id: $id$6,
 		$vocabulary: $vocabulary$5,
 		$dynamicAnchor: $dynamicAnchor$5,
-		title: title$5,
-		type: type$5,
-		properties: properties$5
+		title: title$6,
+		type: type$6,
+		properties: properties$6
 	};
 }));
 // node_modules/ajv/dist/refs/json-schema-2020-12/meta/content.json
 var content_exports = /* @__PURE__ */ __exportAll({
 	$dynamicAnchor: () => $dynamicAnchor$4,
-	$id: () => $id$4,
-	$schema: () => $schema$4,
+	$id: () => $id$5,
+	$schema: () => $schema$5,
 	$vocabulary: () => $vocabulary$4,
 	default: () => content_default,
-	properties: () => properties$4,
-	title: () => title$4,
-	type: () => type$4
+	properties: () => properties$5,
+	title: () => title$5,
+	type: () => type$5
 });
-var $schema$4, $id$4, $vocabulary$4, $dynamicAnchor$4, title$4, type$4, properties$4, content_default;
+var $schema$5, $id$5, $vocabulary$4, $dynamicAnchor$4, title$5, type$5, properties$5, content_default;
 var init_content = __esmMin((() => {
-	$schema$4 = "https://json-schema.org/draft/2020-12/schema";
-	$id$4 = "https://json-schema.org/draft/2020-12/meta/content";
+	$schema$5 = "https://json-schema.org/draft/2020-12/schema";
+	$id$5 = "https://json-schema.org/draft/2020-12/meta/content";
 	$vocabulary$4 = { "https://json-schema.org/draft/2020-12/vocab/content": true };
 	$dynamicAnchor$4 = "meta";
-	title$4 = "Content vocabulary meta-schema";
-	type$4 = ["object", "boolean"];
-	properties$4 = {
+	title$5 = "Content vocabulary meta-schema";
+	type$5 = ["object", "boolean"];
+	properties$5 = {
 		"contentEncoding": { "type": "string" },
 		"contentMediaType": { "type": "string" },
 		"contentSchema": { "$dynamicRef": "#meta" }
 	};
 	content_default = {
-		$schema: $schema$4,
-		$id: $id$4,
+		$schema: $schema$5,
+		$id: $id$5,
 		$vocabulary: $vocabulary$4,
 		$dynamicAnchor: $dynamicAnchor$4,
-		title: title$4,
-		type: type$4,
-		properties: properties$4
+		title: title$5,
+		type: type$5,
+		properties: properties$5
 	};
 }));
 // node_modules/ajv/dist/refs/json-schema-2020-12/meta/core.json
 var core_exports = /* @__PURE__ */ __exportAll({
-	$defs: () => $defs$1,
+	$defs: () => $defs$2,
 	$dynamicAnchor: () => $dynamicAnchor$3,
-	$id: () => $id$3,
-	$schema: () => $schema$3,
+	$id: () => $id$4,
+	$schema: () => $schema$4,
 	$vocabulary: () => $vocabulary$3,
 	default: () => core_default,
-	properties: () => properties$3,
-	title: () => title$3,
-	type: () => type$3
+	properties: () => properties$4,
+	title: () => title$4,
+	type: () => type$4
 });
-var $schema$3, $id$3, $vocabulary$3, $dynamicAnchor$3, title$3, type$3, properties$3, $defs$1, core_default;
+var $schema$4, $id$4, $vocabulary$3, $dynamicAnchor$3, title$4, type$4, properties$4, $defs$2, core_default;
 var init_core = __esmMin((() => {
-	$schema$3 = "https://json-schema.org/draft/2020-12/schema";
-	$id$3 = "https://json-schema.org/draft/2020-12/meta/core";
+	$schema$4 = "https://json-schema.org/draft/2020-12/schema";
+	$id$4 = "https://json-schema.org/draft/2020-12/meta/core";
 	$vocabulary$3 = { "https://json-schema.org/draft/2020-12/vocab/core": true };
 	$dynamicAnchor$3 = "meta";
-	title$3 = "Core vocabulary meta-schema";
-	type$3 = ["object", "boolean"];
-	properties$3 = {
+	title$4 = "Core vocabulary meta-schema";
+	type$4 = ["object", "boolean"];
+	properties$4 = {
 		"$id": {
 			"$ref": "#/$defs/uriReferenceString",
 			"$comment": "Non-empty fragments not allowed.",
@@ -9978,7 +9977,7 @@ var init_core = __esmMin((() => {
 			"additionalProperties": { "$dynamicRef": "#meta" }
 		}
 	};
-	$defs$1 = {
+	$defs$2 = {
 		"anchorString": {
 			"type": "string",
 			"pattern": "^[A-Za-z_][-A-Za-z0-9._]*$"
@@ -9993,66 +9992,66 @@ var init_core = __esmMin((() => {
 		}
 	};
 	core_default = {
-		$schema: $schema$3,
-		$id: $id$3,
+		$schema: $schema$4,
+		$id: $id$4,
 		$vocabulary: $vocabulary$3,
 		$dynamicAnchor: $dynamicAnchor$3,
-		title: title$3,
-		type: type$3,
-		properties: properties$3,
-		$defs: $defs$1
+		title: title$4,
+		type: type$4,
+		properties: properties$4,
+		$defs: $defs$2
 	};
 }));
 // node_modules/ajv/dist/refs/json-schema-2020-12/meta/format-annotation.json
 var format_annotation_exports = /* @__PURE__ */ __exportAll({
 	$dynamicAnchor: () => $dynamicAnchor$2,
-	$id: () => $id$2,
-	$schema: () => $schema$2,
+	$id: () => $id$3,
+	$schema: () => $schema$3,
 	$vocabulary: () => $vocabulary$2,
 	default: () => format_annotation_default,
-	properties: () => properties$2,
-	title: () => title$2,
-	type: () => type$2
+	properties: () => properties$3,
+	title: () => title$3,
+	type: () => type$3
 });
-var $schema$2, $id$2, $vocabulary$2, $dynamicAnchor$2, title$2, type$2, properties$2, format_annotation_default;
+var $schema$3, $id$3, $vocabulary$2, $dynamicAnchor$2, title$3, type$3, properties$3, format_annotation_default;
 var init_format_annotation = __esmMin((() => {
-	$schema$2 = "https://json-schema.org/draft/2020-12/schema";
-	$id$2 = "https://json-schema.org/draft/2020-12/meta/format-annotation";
+	$schema$3 = "https://json-schema.org/draft/2020-12/schema";
+	$id$3 = "https://json-schema.org/draft/2020-12/meta/format-annotation";
 	$vocabulary$2 = { "https://json-schema.org/draft/2020-12/vocab/format-annotation": true };
 	$dynamicAnchor$2 = "meta";
-	title$2 = "Format vocabulary meta-schema for annotation results";
-	type$2 = ["object", "boolean"];
-	properties$2 = { "format": { "type": "string" } };
+	title$3 = "Format vocabulary meta-schema for annotation results";
+	type$3 = ["object", "boolean"];
+	properties$3 = { "format": { "type": "string" } };
 	format_annotation_default = {
-		$schema: $schema$2,
-		$id: $id$2,
+		$schema: $schema$3,
+		$id: $id$3,
 		$vocabulary: $vocabulary$2,
 		$dynamicAnchor: $dynamicAnchor$2,
-		title: title$2,
-		type: type$2,
-		properties: properties$2
+		title: title$3,
+		type: type$3,
+		properties: properties$3
 	};
 }));
 // node_modules/ajv/dist/refs/json-schema-2020-12/meta/meta-data.json
 var meta_data_exports = /* @__PURE__ */ __exportAll({
 	$dynamicAnchor: () => $dynamicAnchor$1,
-	$id: () => $id$1,
-	$schema: () => $schema$1,
+	$id: () => $id$2,
+	$schema: () => $schema$2,
 	$vocabulary: () => $vocabulary$1,
 	default: () => meta_data_default,
-	properties: () => properties$1,
-	title: () => title$1,
-	type: () => type$1
+	properties: () => properties$2,
+	title: () => title$2,
+	type: () => type$2
 });
-var $schema$1, $id$1, $vocabulary$1, $dynamicAnchor$1, title$1, type$1, properties$1, meta_data_default;
+var $schema$2, $id$2, $vocabulary$1, $dynamicAnchor$1, title$2, type$2, properties$2, meta_data_default;
 var init_meta_data = __esmMin((() => {
-	$schema$1 = "https://json-schema.org/draft/2020-12/schema";
-	$id$1 = "https://json-schema.org/draft/2020-12/meta/meta-data";
+	$schema$2 = "https://json-schema.org/draft/2020-12/schema";
+	$id$2 = "https://json-schema.org/draft/2020-12/meta/meta-data";
 	$vocabulary$1 = { "https://json-schema.org/draft/2020-12/vocab/meta-data": true };
 	$dynamicAnchor$1 = "meta";
-	title$1 = "Meta-data vocabulary meta-schema";
-	type$1 = ["object", "boolean"];
-	properties$1 = {
+	title$2 = "Meta-data vocabulary meta-schema";
+	type$2 = ["object", "boolean"];
+	properties$2 = {
 		"title": { "type": "string" },
 		"description": { "type": "string" },
 		"default": true,
@@ -10074,36 +10073,36 @@ var init_meta_data = __esmMin((() => {
 		}
 	};
 	meta_data_default = {
-		$schema: $schema$1,
-		$id: $id$1,
+		$schema: $schema$2,
+		$id: $id$2,
 		$vocabulary: $vocabulary$1,
 		$dynamicAnchor: $dynamicAnchor$1,
-		title: title$1,
-		type: type$1,
-		properties: properties$1
+		title: title$2,
+		type: type$2,
+		properties: properties$2
 	};
 }));
 // node_modules/ajv/dist/refs/json-schema-2020-12/meta/validation.json
 var validation_exports = /* @__PURE__ */ __exportAll({
-	$defs: () => $defs,
+	$defs: () => $defs$1,
 	$dynamicAnchor: () => $dynamicAnchor,
-	$id: () => $id,
-	$schema: () => $schema,
+	$id: () => $id$1,
+	$schema: () => $schema$1,
 	$vocabulary: () => $vocabulary,
 	default: () => validation_default,
-	properties: () => properties,
-	title: () => title,
-	type: () => type
+	properties: () => properties$1,
+	title: () => title$1,
+	type: () => type$1
 });
-var $schema, $id, $vocabulary, $dynamicAnchor, title, type, properties, $defs, validation_default;
+var $schema$1, $id$1, $vocabulary, $dynamicAnchor, title$1, type$1, properties$1, $defs$1, validation_default;
 var init_validation = __esmMin((() => {
-	$schema = "https://json-schema.org/draft/2020-12/schema";
-	$id = "https://json-schema.org/draft/2020-12/meta/validation";
+	$schema$1 = "https://json-schema.org/draft/2020-12/schema";
+	$id$1 = "https://json-schema.org/draft/2020-12/meta/validation";
 	$vocabulary = { "https://json-schema.org/draft/2020-12/vocab/validation": true };
 	$dynamicAnchor = "meta";
-	title = "Validation vocabulary meta-schema";
-	type = ["object", "boolean"];
-	properties = {
+	title$1 = "Validation vocabulary meta-schema";
+	type$1 = ["object", "boolean"];
+	properties$1 = {
 		"type": { "anyOf": [{ "$ref": "#/$defs/simpleTypes" }, {
 			"type": "array",
 			"items": { "$ref": "#/$defs/simpleTypes" },
@@ -10148,7 +10147,7 @@ var init_validation = __esmMin((() => {
 			"additionalProperties": { "$ref": "#/$defs/stringArray" }
 		}
 	};
-	$defs = {
+	$defs$1 = {
 		"nonNegativeInteger": {
 			"type": "integer",
 			"minimum": 0
@@ -10174,14 +10173,14 @@ var init_validation = __esmMin((() => {
 		}
 	};
 	validation_default = {
-		$schema,
-		$id,
+		$schema: $schema$1,
+		$id: $id$1,
 		$vocabulary,
 		$dynamicAnchor,
-		title,
-		type,
-		properties,
-		$defs
+		title: title$1,
+		type: type$1,
+		properties: properties$1,
+		$defs: $defs$1
 	};
 }));
 // node_modules/ajv/dist/refs/json-schema-2020-12/index.js
@@ -17035,6 +17034,123 @@ function generateWorkflows(opts) {
 	}
 	return selected;
 }
+var config_schema_default = {
+	$schema: "https://json-schema.org/draft/2020-12/schema",
+	$id: "https://raw.githubusercontent.com/moyarich/reusable-workflows/main/actions/copy-files-to-another-repository/config.schema.json",
+	title: "Canonical workflow copy configuration",
+	type: "object",
+	additionalProperties: false,
+	required: ["source", "repositories"],
+	properties: {
+		"source": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": [
+				"repository",
+				"directory",
+				"allow"
+			],
+			"properties": {
+				"repository": { "$ref": "#/$defs/repository" },
+				"directory": { "const": ".github/workflows" },
+				"allow": {
+					"$ref": "#/$defs/patterns",
+					"minItems": 1
+				},
+				"ignore": { "$ref": "#/$defs/patterns" }
+			}
+		},
+		"destination-directory": { "const": ".github/workflows" },
+		"repositories": {
+			"type": "array",
+			"minItems": 1,
+			"items": { "$ref": "#/$defs/destination" },
+			"description": "Destinations inherit defaults, then ordered profiles, then repository settings."
+		},
+		"defaults": {
+			"$ref": "#/$defs/profileSettings",
+			"description": "Shared defaults for destinations, including branch"
+		},
+		"profiles": {
+			"type": "object",
+			"additionalProperties": { "$ref": "#/$defs/profileSettings" },
+			"description": "Named reusable settings assigned through repositories[].profiles"
+		}
+	},
+	$defs: {
+		"repository": {
+			"type": "string",
+			"pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+		},
+		"patterns": {
+			"type": "array",
+			"uniqueItems": true,
+			"items": {
+				"type": "string",
+				"minLength": 1,
+				"pattern": "^[^/\\\\]+$"
+			}
+		},
+		"destination": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": ["name"],
+			"properties": {
+				"name": { "$ref": "#/$defs/repository" },
+				"branch": {
+					"type": "string",
+					"minLength": 1,
+					"pattern": "^(?!.*\\\\.\\\\.)[A-Za-z0-9][A-Za-z0-9._/-]*$"
+				},
+				"include": {
+					"$ref": "#/$defs/patterns",
+					"description": "Additive workflow filename patterns. Publishing workflows (publish*.yml) require explicit repository inclusion; YAML anchors and aliases are supported when parsed."
+				},
+				"exclude": {
+					"$ref": "#/$defs/patterns",
+					"description": "Excluded workflows always take precedence over included workflows."
+				},
+				"overrides": {
+					"type": "object",
+					"propertyNames": { "pattern": "^\\.github/workflows/[^/]+\\.ya?ml$" },
+					"additionalProperties": {
+						"type": "object",
+						"propertyNames": { "enum": [
+							"on",
+							"jobs",
+							"env",
+							"defaults",
+							"name",
+							"run-name"
+						] }
+					}
+				},
+				"profiles": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"minLength": 1
+					},
+					"uniqueItems": true,
+					"description": "Ordered profile names; later profiles override earlier settings"
+				}
+			}
+		},
+		"profileSettings": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"branch": {
+					"type": "string",
+					"minLength": 1,
+					"pattern": "^(?!.*\\\\.\\\\.)[A-Za-z0-9][A-Za-z0-9._/-]*$"
+				},
+				"include": { "$ref": "#/$defs/patterns" },
+				"exclude": { "$ref": "#/$defs/patterns" }
+			}
+		}
+	}
+};
 // src/copy/copy-workflows.ts
 var copyWorkflow = (opts) => {
 	const requestedRepository = opts.repository === "all" ? "" : opts.repository ?? "";
@@ -17044,7 +17160,7 @@ var copyWorkflow = (opts) => {
 		allErrors: true,
 		strict: false
 	});
-	const validate = ajv.compile(JSON.parse(readFileSync(opts.schema, "utf8")));
+	const validate = ajv.compile(opts.schema ? JSON.parse(readFileSync(opts.schema, "utf8")) : config_schema_default);
 	if (!validate(parsedConfig)) throw new Error(`Invalid copier configuration: ${ajv.errorsText(validate.errors)}`);
 	const config = parsedConfig;
 	const { repositories } = config;
@@ -17090,26 +17206,9 @@ var copyWorkflow = (opts) => {
 	})}\n`);
 };
 // src/copy/copy-workflows-cli.ts
-var defaultSchema = fileURLToPath([
-	new URL(
-		/* @vite-ignore */
-		"./copy-files-config.schema.json",
-		import.meta.url
-	),
-	new URL(
-		/* @vite-ignore */
-		"../schemas/copy-files-config.schema.json",
-		import.meta.url
-	),
-	new URL(
-		/* @vite-ignore */
-		"../copy-files-to-another-repository/config.schema.json",
-		import.meta.url
-	)
-].find((path) => existsSync(path)));
 /** Create the copy-workflow Commander command. */
 function createCopyWorkflowCommand() {
-	return new Command("copy-workflow").option("--config <path>", "copier config file", ".github/copy-files-config.yml").option("--schema <path>", "JSON schema for the config", defaultSchema).option("--repository <name>", "destination repository (must be allowlisted; empty or all selects all during planning)").option("--plan", "emit the job matrix instead of generating files").option("--output <path>", "output directory for generated files").option("--existing-files <path>", "JSON array of existing destination filenames").option("--destination-publish-file <path>", "destination publish workflow file").option("--source-root <path>", "source repository root", ".").option("--workflow <name>", "workflow name or all", "").action(copyWorkflow);
+	return new Command("copy-workflow").option("--config <path>", "copier config file", ".github/copy-files-config.yml").option("--schema <path>", "JSON schema for the config").option("--repository <name>", "destination repository (must be allowlisted; empty or all selects all during planning)").option("--plan", "emit the job matrix instead of generating files").option("--output <path>", "output directory for generated files").option("--existing-files <path>", "JSON array of existing destination filenames").option("--destination-publish-file <path>", "destination publish workflow file").option("--source-root <path>", "source repository root", ".").option("--workflow <name>", "workflow name or all", "").action(copyWorkflow);
 }
 // src/sync-yaml-values/sync-yaml-values.ts
 /** Apply declarative updates to existing YAML keys while retaining unrelated content. */
