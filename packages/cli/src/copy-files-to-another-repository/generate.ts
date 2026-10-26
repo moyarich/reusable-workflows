@@ -135,18 +135,21 @@ export function generateWorkflows(opts: GenerateOptions): string[] {
   const profiles = config.profiles ?? {};
   if (!object(defaults) || !object(profiles))
     throw Error("defaults and profiles must be mappings");
-  const profileName = repositoryConfig.profile;
-  if (
-    profileName !== undefined &&
-    (typeof profileName !== "string" || !Object.hasOwn(profiles, profileName))
-  )
-    throw Error("Unknown copier profile: " + String(profileName));
-  const profile = typeof profileName === "string" ? profiles[profileName] : {};
-  if (!object(profile)) throw Error("Copier profile must be a mapping");
-  // Source selection is the hard boundary. Each subsequent layer adjusts that
-  // selection; later includes can restore files excluded by an earlier layer.
-  const layers = [defaults, profile, repositoryConfig];
-  const target = { ...defaults, ...profile, ...repositoryConfig };
+  const names = repositoryConfig.profiles ?? [];
+  if (!Array.isArray(names) || names.some((name) => typeof name !== "string"))
+    throw Error("Copier profiles must be an array of profile names");
+  if (new Set(names).size !== names.length)
+    throw Error("Duplicate copier profiles");
+  const selectedProfiles = names.map((name: string) => {
+    if (!Object.hasOwn(profiles, name))
+      throw Error("Unknown copier profile: " + name);
+    const settings = profiles[name];
+    if (!object(settings)) throw Error("Copier profile must be a mapping: " + name);
+    return settings;
+  });
+  // Profiles are applied in declared order; repository settings are last.
+  const layers = [defaults, ...selectedProfiles, repositoryConfig];
+  const target = Object.assign({}, ...layers) as RecordValue;
   const overrides = target.overrides ?? {};
   if (!object(overrides)) throw Error("overrides must be a mapping");
   if (Object.keys(overrides).some((k) => !files.includes(k)))
