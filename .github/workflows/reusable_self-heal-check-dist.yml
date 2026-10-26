@@ -189,7 +189,16 @@ jobs:
       - name: Rebuild distribution
         env:
           BUILD_COMMAND: ${{ matrix.buildCommand }}
-        run: bash -euo pipefail -c "$BUILD_COMMAND"
+          DIST_PATH: ${{ steps.resolve.outputs.dist-path }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The root actions directory is entirely generated. Clear stale outputs
+          # so removed entrypoints and helpers are included in the repair diff.
+          if [[ "$DIST_PATH" == "actions" || "$DIST_PATH" == "actions/" ]]; then
+            rm -rf -- actions
+          fi
+          bash -euo pipefail -c "$BUILD_COMMAND"
 
       - name: Compare distribution
         id: compare
@@ -209,7 +218,7 @@ jobs:
             echo "CI-only distribution: build output exists; Git comparison skipped."
             exit 0
           fi
-          git add -f -- "$DIST_PATH"
+          git add -f -A -- "$DIST_PATH"
           if git diff --cached --quiet -- "$DIST_PATH"; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "Distribution matches committed output."
