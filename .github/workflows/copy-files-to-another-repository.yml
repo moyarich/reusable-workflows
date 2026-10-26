@@ -52,9 +52,6 @@ on:
           - ci_storybook.yml
           - delete-release-tag.yml
           - history-cleanup.yml
-          - issue-dependencies_manage.yml
-          - issue-dependencies_set.yml
-          - issue-dependencies_show-tree.yml
           - pages.yml
           - prepare-release-pr.yml
           - publish-browser-extension.yml
