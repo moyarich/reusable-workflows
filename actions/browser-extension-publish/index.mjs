@@ -1,4 +1,4 @@
-import { r as Option, t as Command } from "../../_chunks/esm-CeeLd381.mjs";
+import { r as Option, t as Command } from "../_chunks/esm-CeeLd381.mjs";
 import { execFileSync } from "node:child_process";
 import { dirname, join, relative, resolve } from "node:path";
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
