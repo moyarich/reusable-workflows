@@ -1,6 +1,6 @@
+import { join, resolve } from "node:path";
 import { appendFileSync, cpSync, existsSync, lstatSync, mkdtempSync, readdirSync, rmSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { join, resolve } from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 // ../cli/src/copy-files-to-another-repository/index.ts
@@ -140,5 +140,6 @@ function runCopyAction() {
 	if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, "changed=" + result.changed + "\ncommitted=" + result.committed + "\npull-request-url=" + (result.pullRequestUrl ?? "") + "\n");
 	if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, "### " + process.env.COPY_DEST + "\n```\n" + result.summary + "\n```\n");
 }
-if (process.argv[1] && import.meta.url === new URL("file://" + resolve(process.argv[1])).href) runCopyAction();
-export { copyFiles, runCopyAction, validateOptions };
+// ../cli/src/copy-files-to-another-repository/action-entry.ts
+runCopyAction();
+export {};

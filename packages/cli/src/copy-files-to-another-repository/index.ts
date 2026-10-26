@@ -253,8 +253,3 @@ export function runCopyAction(): void {
       "### " + process.env.COPY_DEST + "\n```\n" + result.summary + "\n```\n",
     );
 }
-if (
-  process.argv[1] &&
-  import.meta.url === new URL("file://" + resolve(process.argv[1])).href
-)
-  runCopyAction();

@@ -1,7 +1,6 @@
 /** GitHub API and runner output adapter for workflow verification. */
-import { appendFileSync, realpathSync } from "node:fs";
+import { appendFileSync } from "node:fs";
 import { basename } from "node:path";
-import { pathToFileURL } from "node:url";
 import type { WorkflowRun } from "./select-run.js";
 import { selectRun, validateRun } from "./select-run.js";
 
@@ -103,11 +102,7 @@ export async function verify({
   return output;
 }
 
-const isMain =
-  !!process.argv[1] &&
-  import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href;
-
-if (isMain) {
+export async function runVerifyWorkflowRunsAction(): Promise<void> {
   try {
     const env = process.env;
     const results = await verify({

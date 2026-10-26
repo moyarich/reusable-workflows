@@ -1,7 +1,7 @@
 import { r as Option, t as Command } from "../_assets/esm-CeeLd381.mjs";
+import { dirname, join, relative, resolve } from "node:path";
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { dirname, join, relative, resolve } from "node:path";
 import process from "node:process";
 // ../cli/src/browser-extension-publish/chrome-publish.ts
 /** Chrome Web Store API orchestration, independent of Commander parsing. */
@@ -176,7 +176,7 @@ function createBrowserExtensionProgram() {
 async function runBrowserExtensionCli(argv = process.argv) {
 	await createBrowserExtensionProgram().parseAsync(argv);
 }
-// ../cli/src/browser-extension-publish/entry.ts
-/** Executable browser-extension CLI entry point. */
+// ../cli/src/browser-extension-publish/action-entry.ts
+/** Executable browser-extension action entry point. */
 await runBrowserExtensionCli();
 export {};

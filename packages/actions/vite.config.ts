@@ -12,11 +12,17 @@ export default defineConfig({
     githubActions({
       projectRoot: "../..",
       entries: {
+        "resolve-workspaces":
+          "packages/cli/src/resolve-workspaces/action-entry.ts",
+        "workflow-dispatch":
+          "packages/cli/src/workflow-dispatch/action-entry.ts",
+        "verify-workflow-runs":
+          "packages/cli/src/verify-workflow-runs/action-entry.ts",
         "check-dist": "packages/cli/src/check-dist/action-entry.ts",
         "browser-extension-publish":
-          "packages/cli/src/browser-extension-publish/entry.ts",
+          "packages/cli/src/browser-extension-publish/action-entry.ts",
         "copy-files-to-another-repository":
-          "packages/cli/src/copy-files-to-another-repository/index.ts",
+          "packages/cli/src/copy-files-to-another-repository/action-entry.ts",
         "release-draft-sync":
           "packages/cli/src/release-draft-sync/action-entry.ts",
         "setup-workspace-tools":
@@ -37,24 +43,6 @@ export default defineConfig({
         "copy-files-to-another-repository": {
           "config.schema.json":
             "packages/cli/src/schemas/copy-config.schema.json",
-        },
-        "resolve-workspaces": {
-          "index.mjs": "packages/cli/src/resolve-workspaces/index.ts",
-          "workspace-rules.js":
-            "packages/cli/src/resolve-workspaces/workspace-rules.ts",
-          "resolve-manifests.js":
-            "packages/cli/src/resolve-workspaces/resolve-manifests.ts",
-        },
-        "workflow-dispatch": {
-          "index.mjs":
-            "packages/cli/src/workflow-dispatch/workflow-dispatch.ts",
-          "dispatch-rules.js":
-            "packages/cli/src/workflow-dispatch/dispatch-rules.ts",
-        },
-        "verify-workflow-runs": {
-          "index.mjs": "packages/cli/src/verify-workflow-runs/index.ts",
-          "select-run.js":
-            "packages/cli/src/verify-workflow-runs/select-run.ts",
         },
       },
     }),

@@ -38,3 +38,9 @@ The root `npm run build:actions` command then asks `packages/cli` to build its
 self-contained workflow runtime into `actions/cli/`. The Actions workspace does
 not build the combined CLI. The CLI npm build separately writes `dist/bin/cli.mjs`
 and includes `dist/` in its npm package.
+
+Compiled actions use `packages/cli/src/<feature>/action-entry.ts` as their Vite
+entry point. Reusable modules do not execute action code when imported. The
+build emits `actions/<feature>/index.mjs`; action metadata and workflows execute
+these built files. Composite actions containing only inline scripts need no
+TypeScript entry point.
