@@ -16,7 +16,7 @@ function packages(value: string | undefined): Package[] {
   return Array.isArray(parsed.included) ? parsed.included : [];
 }
 function safe(value: unknown): string {
-  return String(value ?? "").replaceAll("|", "\\|").replaceAll("\\n", " ");
+  return String(value ?? "").replaceAll("|", "\\|").replaceAll("\n", " ");
 }
 
 const release = packages(env.RELEASE_PACKAGES_JSON);
@@ -54,6 +54,6 @@ const rows: string[] = [
   ...files.filter(Boolean).map((file) => `- \`${safe(file)}\``),
 ];
 if (env.COMMIT_SHA) rows.push("", `**Commit:** \`${safe(env.COMMIT_SHA)}\``);
-const summary = rows.join("\\n") + "\\n";
+const summary = rows.join("\n") + "\n";
 if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, summary);
 else process.stdout.write(summary);
