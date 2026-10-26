@@ -17221,7 +17221,8 @@ var copyWorkflow = (opts) => {
 			if (!branch) throw new Error(`Missing branch for ${r.name}`);
 			return {
 				name: r.name,
-				branch
+				branch,
+				profiles: r.profiles ?? []
 			};
 		}) };
 		const output = `matrix=${JSON.stringify(matrix)}\nsource_repository=${config.source.repository}\n`;

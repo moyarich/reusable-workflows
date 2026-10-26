@@ -73,7 +73,7 @@ export const copyWorkflow = (opts: Options) => {
         .map((r) => {
           const branch = r.branch ?? config.defaults?.branch;
           if (!branch) throw new Error(`Missing branch for ${r.name}`);
-          return { name: r.name, branch };
+          return { name: r.name, branch, profiles: r.profiles ?? [] };
         }),
     };
     const output =

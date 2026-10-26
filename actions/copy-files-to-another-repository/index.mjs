@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { join, resolve } from "node:path";
-import { appendFileSync, cpSync, existsSync, lstatSync, mkdtempSync, readdirSync, rmSync, statSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { appendFileSync, cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, rmSync, statSync } from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 // ../cli/src/copy-files-to-another-repository/index.ts
@@ -85,7 +85,9 @@ function copyFiles(options) {
 		for (const name of readdirSync(options.sourceDirectory)) {
 			if (name === ".git") throw new Error("Refusing to copy .git");
 			if (lstatSync(resolve(options.sourceDirectory, name)).isSymbolicLink()) throw new Error("Refusing symbolic-link source: " + name);
-			cpSync(resolve(options.sourceDirectory, name), join(destination, name), {
+			const target = join(destination, name);
+			mkdirSync(dirname(target), { recursive: true });
+			cpSync(resolve(options.sourceDirectory, name), target, {
 				recursive: true,
 				force: true,
 				dereference: false
