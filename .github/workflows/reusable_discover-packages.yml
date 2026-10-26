@@ -149,16 +149,8 @@ jobs:
           ref: ${{ job.workflow_sha }}
           path: .github/reusable-workflows-runtime
           persist-credentials: false
-      - name: Bootstrap version-matched actions from source
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd .github/reusable-workflows-runtime
-          npm install --no-package-lock --no-audit --no-fund
-          npm run build:actions
-          test -f actions/setup-workspace-tools/action.yml
-          test -f actions/setup-workspace-tools/index.mjs
-
+          sparse-checkout: actions
+          sparse-checkout-cone-mode: false
       - name: Resolve workspace tools CLI
         id: workspace-tools
         uses: ./.github/reusable-workflows-runtime/actions/setup-workspace-tools
