@@ -117,10 +117,19 @@ repositories:
         ".github/workflows/publish-vscode-vsx.yml",
       ]);
       expect(run("moyarich/browser")).toEqual([".github/workflows/ci_cli.yml"]);
-      expect(() => generateWorkflows({
-        config: { ...config, repositories: [{ name: "moyarich/multi", profiles: ["vscode", "browser"] }] },
-        repository: "moyarich/multi", sourceRoot, output,
-      })).not.toThrow();
+      expect(() =>
+        generateWorkflows({
+          config: {
+            ...config,
+            repositories: [
+              { name: "moyarich/multi", profiles: ["vscode", "browser"] },
+            ],
+          },
+          repository: "moyarich/multi",
+          sourceRoot,
+          output,
+        }),
+      ).not.toThrow();
       expect(() =>
         generateWorkflows({
           config: {
