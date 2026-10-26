@@ -9,18 +9,25 @@ Requires Node.js 24 or newer.
 npx @moyarich/reusable-workflows-cli --help
 npx @moyarich/reusable-workflows-cli copy-workflow --help
 npx @moyarich/reusable-workflows-cli browser --help
+npx @moyarich/reusable-workflows-cli validate-schema --schema schema.json --file config.yml
 ```
 
-Commands: `workspace-source`, `release-validate`, `browser`, `setup-workspace-tools`,
+Commands: `validate-schema`, `workspace-source`, `release-validate`, `browser`, `setup-workspace-tools`,
 `copy-workflow`, `copy-workflow-choices`, `sync-workflow-choices`,
 `sync-release-choices`, and `sync-release-summary`.
+
+`validate-schema` accepts JSON or YAML documents and a local JSON schema file.
+It writes JSON to stdout: `{ "valid": true, "errors": [], "file": "config.yml", "schema": "schema.json" }`.
+Failures include `"valid": false`, an `error` message, and an `errors` array containing
+Ajv details (`instancePath`, `schemaPath`, `keyword`, `params`, and `message`).
+File and parsing failures return an empty `errors` array. Failures exit with code 1.
 
 ## TypeScript and JavaScript imports
 
 ```ts
 import { parseWorkspaceToolsSource } from "@moyarich/reusable-workflows-cli";
 import { resolveWorkspaces } from "@moyarich/reusable-workflows-cli/resolve-workspaces/index";
-import { createCopyWorkflowCommand } from "@moyarich/reusable-workflows-cli/copy/copy-workflows-cli";
+import { createCopyWorkflowCommand } from "@moyarich/reusable-workflows-cli/copy-workflows/copy-workflows-cli";
 
 const source = parseWorkspaceToolsSource("registry:npm:latest");
 ```
@@ -39,3 +46,7 @@ schemas, this README, the MIT license, and the changelog.
 
 GitHub Actions use a separate runtime distribution in the repository's `actions/`
 directory. See [the repository](https://github.com/moyarich/reusable-workflows).
+
+`validateSchema(schema, data)` returns a JSON-serializable result with `valid` and
+`errors`. Failures also include an `error` message. The function does not throw
+for invalid data or schema compilation failures.

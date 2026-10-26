@@ -26,19 +26,6 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Validate YAML configuration against schema
-      shell: bash
-      env:
-        CONFIG_FILE: ${{ inputs.config-path }}
-      run: |
-        set -euo pipefail
-        if [[ -f "$CONFIG_FILE" ]]; then
-          python3 -m venv "$RUNNER_TEMP/check-dist-schema-venv"
-          "$RUNNER_TEMP/check-dist-schema-venv/bin/pip" install --quiet check-jsonschema
-          "$RUNNER_TEMP/check-dist-schema-venv/bin/check-jsonschema" \
-            --schemafile "$GITHUB_ACTION_PATH/config.schema.json" \
-            "$CONFIG_FILE"
-        fi
     - name: Select packages
       id: select
       shell: bash
@@ -48,4 +35,4 @@ runs:
         DIST_PATH_OVERRIDE: ${{ inputs.dist-path }}
         BUILD_COMMAND_OVERRIDE: ${{ inputs.build-command }}
         CONFIG_FILE: ${{ inputs.config-path }}
-      run: node "$GITHUB_ACTION_PATH/select.mjs"
+      run: node "$GITHUB_ACTION_PATH/index.mjs"

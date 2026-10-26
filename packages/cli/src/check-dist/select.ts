@@ -1,7 +1,8 @@
 /** CLI adapter for distribution selection and GitHub Actions outputs. */
 import fs from "node:fs";
-import { execFileSync } from "node:child_process";
-import { pathToFileURL } from "node:url";
+import { parse } from "yaml";
+import { validateSchema } from "../validate-schema/validate-schema.js";
+import configSchema from "../schemas/check-dist-config.schema.json" with { type: "json" };
 
 import { selectDistributionTargets } from "./select-targets.js";
 import type { Config, Package } from "./select-targets.js";
@@ -18,23 +19,16 @@ export function runSelection(env: NodeJS.ProcessEnv = process.env): void {
     included: Package[];
   };
   const configPath = required(env, "CONFIG_FILE");
-  const config: Config = fs.existsSync(configPath)
-    ? (JSON.parse(
-        execFileSync(
-          "ruby",
-          [
-            "-r",
-            "yaml",
-            "-r",
-            "json",
-            "-e",
-            "print JSON.generate(YAML.safe_load(File.read(ARGV.fetch(0)), aliases: false) || {})",
-            configPath,
-          ],
-          { encoding: "utf8" },
-        ),
-      ) as Config)
+  const parsedConfig: unknown = fs.existsSync(configPath)
+    ? parse(fs.readFileSync(configPath, "utf8"))
     : {};
+  const validation = validateSchema(
+    configSchema,
+    parsedConfig,
+    "check-dist configuration",
+  );
+  if (validation.valid === false) throw new Error(validation.error);
+  const config = parsedConfig as Config;
   const result = selectDistributionTargets({
     discovered: report.included,
     config,
@@ -52,11 +46,4 @@ export function runSelection(env: NodeJS.ProcessEnv = process.env): void {
     ].join("\n"),
   );
   console.log("Selected distribution targets:", result.directories.join(", "));
-}
-
-if (
-  process.argv[1] &&
-  import.meta.url === pathToFileURL(process.argv[1]).href
-) {
-  runSelection();
 }

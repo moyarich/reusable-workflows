@@ -1,12 +1,18 @@
 import { defineConfig } from "vite";
+import { runtimeAssets } from "../cli/plugins/runtime-assets.js";
+import { fileURLToPath } from "node:url";
 import { githubActions } from "@moyarich/vite-github-actions";
 
 // Run Vite locally in packages/actions; resolve distribution paths from the repository root.
 export default defineConfig({
+  resolve: {
+    alias: { "@": fileURLToPath(new URL("../cli/src", import.meta.url)) },
+  },
   plugins: [
     githubActions({
       projectRoot: "../..",
       entries: {
+        "check-dist": "packages/cli/src/check-dist/action-entry.ts",
         "browser-extension-publish":
           "packages/cli/src/browser-extension-publish/entry.ts",
         "copy-files-to-another-repository":
@@ -25,14 +31,12 @@ export default defineConfig({
       sharedChunks: true,
       runtimeFiles: {
         "check-dist": {
-          "select.mjs": "packages/cli/src/check-dist/select.ts",
-          "select-targets.js": "packages/cli/src/check-dist/select-targets.ts",
-          "config.schema.json":
-            "packages/cli/src/check-dist/config.schema.json",
+          "check-dist-config.schema.json":
+            "packages/cli/src/schemas/check-dist-config.schema.json",
         },
         "copy-files-to-another-repository": {
           "config.schema.json":
-            "packages/cli/src/copy-files-to-another-repository/config.schema.json",
+            "packages/cli/src/schemas/copy-config.schema.json",
         },
         "resolve-workspaces": {
           "index.mjs": "packages/cli/src/resolve-workspaces/index.ts",
@@ -54,5 +58,17 @@ export default defineConfig({
         },
       },
     }),
+    ...["check-dist-config.schema.json", "copy-config.schema.json"].map(
+      (name) =>
+        runtimeAssets({
+          source: fileURLToPath(
+            new URL(`../cli/src/schemas/${name}`, import.meta.url),
+          ),
+          destination: `schemas/${name}`,
+          outputDirectory: fileURLToPath(
+            new URL("../../actions", import.meta.url),
+          ),
+        }),
+    ),
   ],
 });

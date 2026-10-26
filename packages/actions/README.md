@@ -2,18 +2,16 @@
 
 The repository root `actions/` is **generated and replaceable**. Do not edit or store authoritative implementations there.
 
-| Purpose                                       | Authoritative path                                              |
-| --------------------------------------------- | --------------------------------------------------------------- |
-| Action metadata (`action.yml`, action README) | `packages/actions/actions/<name>/`                              |
-| CLI and composite action runtime code         | `packages/cli/src/`                                             |
-| Vite entrypoint configuration                 | `packages/actions/vite.config.ts`                               |
-| Bundling and distribution generator           | `@moyarich/vite-github-actions`                                 |
-| Check-dist JSON schema                        | `.github/reusable-configurations/check-dist-config.schema.json` |
-| Check-dist example YAML                       | `.github/reusable-configurations/check-dist-config.yml`         |
-| Per-caller check-dist override                | `.github/check-dist-config.yml` in the **caller repository**    |
-| Publishable action bundles and metadata       | `actions/` (generated)                                          |
-
-The schema under `actions/check-dist/config.schema.json` is a **copied runtime file**, not an independent schema. Its canonical source is `.github/reusable-configurations/check-dist-config.schema.json`; keep the copy because the published composite action validates caller YAML using `$GITHUB_ACTION_PATH/config.schema.json`.
+| Purpose                                       | Authoritative path                                           |
+| --------------------------------------------- | ------------------------------------------------------------ |
+| Action metadata (`action.yml`, action README) | `packages/actions/actions/<name>/`                           |
+| CLI and composite action runtime code         | `packages/cli/src/`                                          |
+| Vite entrypoint configuration                 | `packages/actions/vite.config.ts`                            |
+| Bundling and distribution generator           | `@moyarich/vite-github-actions`                              |
+| Check-dist JSON schema                        | `packages/cli/src/schemas/check-dist-config.schema.json`     |
+| Check-dist example YAML                       | `.github/reusable-configurations/check-dist-config.yml`      |
+| Per-caller check-dist override                | `.github/check-dist-config.yml` in the **caller repository** |
+| Publishable action bundles and metadata       | `actions/` (generated)                                       |
 
 ## Regeneration
 

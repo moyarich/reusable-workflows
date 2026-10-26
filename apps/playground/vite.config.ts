@@ -6,6 +6,7 @@ import remarkFrontmatter from "remark-frontmatter";
 import remarkGfm from "remark-gfm";
 import remarkMdxFrontmatter from "remark-mdx-frontmatter";
 import { defineConfig } from "vite";
+import { resolve } from "node:path";
 
 const repositoryRoot = fileURLToPath(new URL("../..", import.meta.url));
 
@@ -29,6 +30,11 @@ export default defineConfig({
   server: {
     fs: {
       allow: [repositoryRoot],
+    },
+  },
+  resolve: {
+    alias: {
+      "@": resolve(import.meta.dirname, "./src"),
     },
   },
 });

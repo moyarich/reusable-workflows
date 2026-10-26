@@ -6,6 +6,7 @@ import type { Plugin } from "vite";
 export function runtimeAssets(options: {
   source: string;
   destination: string;
+  outputDirectory?: string;
 }): Plugin {
   if (
     !options.destination ||
@@ -20,7 +21,10 @@ export function runtimeAssets(options: {
     name: "runtime-assets",
     apply: "build",
     configResolved(config) {
-      outputDirectory = resolve(config.root, config.build.outDir);
+      outputDirectory = resolve(
+        config.root,
+        options.outputDirectory ?? config.build.outDir,
+      );
     },
     buildStart() {
       this.addWatchFile(options.source);
