@@ -5,25 +5,14 @@
     "moduleResolution": "Bundler",
     "resolveJsonModule": true,
     "allowImportingTsExtensions": true,
-    "types": [
-      "node"
-    ],
+    "types": ["node"],
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true,
     "paths": {
-      "@/*": [
-        "./src/*"
-      ]
+      "@/*": ["./src/*"]
     }
   },
-  "include": [
-    "src/**/*.ts",
-    "plugins/**/*.ts"
-  ],
-  "exclude": [
-    "src/tests/**",
-    "dist",
-    "node_modules"
-  ]
+  "include": ["src/**/*.ts", "plugins/**/*.ts"],
+  "exclude": ["src/tests/**", "dist", "node_modules"]
 }
