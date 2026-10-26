@@ -39,9 +39,10 @@ profiles:
 repositories:
   - name: moyarich/snippet-canvas
   - name: moyarich/github_emulator
-    profiles: [npm]
   - name: moyarich/moyaforge
+    profiles: [npm]
   - name: moyarich/autofilename
+    profiles: [vscode]
   - name: moyarich/colorshower
     profiles: [vscode]
   - name: moyarich/workspace-tools
@@ -64,26 +65,34 @@ repositories:
               - .github/workflows/reset-release.yml
               - .github/workflows/sync-release-package-choices.yml
   - name: moyarich/css-expand-collapse
+    profiles: [npm]
   - name: moyarich/console
+    profiles: [npm]
   - name: moyarich/JotebookSync
     profiles: [vscode]
   - name: moyarich/vscode-act-runner-local
     profiles: [vscode]
   - name: moyarich/dev-toolkit
+    profiles: [npm]
   - name: moyarich/vscode-dev-toolkit
     profiles: [vscode]
   - name: moyarich/css-color-parser
   - name: moyarich/vscode-dependency-links
     profiles: [vscode]
   - name: moyarich/vue-webview-vite
+    profiles: [vscode]
   - name: moyarich/pointer-bubble
+    profiles: [npm]
   - name: moyarich/css-modules-kit
+    profiles: [npm]
   - name: moyarich/vite-github-actions
+    profiles: [npm]
   - name: moyarich/vite-package-bin
     profiles: [npm]
   - name: moyarich/element-inspector
     profiles: [browser]
   - name: moyarich/zsh-glow
+    profiles: [npm]
 # Per repository: include, exclude, and overrides are optional.
 # Source allow/ignore defines the candidate boundary. Each layer adjusts the source selection: defaults, then ordered profiles, then repository.
 # Includes add files and excludes remove them; later layers take precedence.
