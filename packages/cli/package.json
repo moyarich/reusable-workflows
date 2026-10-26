@@ -21,7 +21,7 @@
     "lint": "eslint .",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "test": "vitest run",
-    "test:copy-workflows": "vitest run tests/copy-workflow-generation.test.ts",
+    "test:copy-workflows": "vitest run src/tests/copy-files-to-another-repository/copy-workflow-generation.",
     "build:workflow-runtime": "vite build --config vite.workflow.config.ts"
   },
   "dependencies": {
@@ -47,7 +47,7 @@
       "default": "./index.js"
     },
     "./package.json": "./package.json",
-    "./schemas/copy-files-config.schema.json": "./dist/copy-files-to-another-repository/config.schema.json",
+    "./schemas/copy-files-config.schema.json": "./dist/schemas/copy-config.schema.json",
     "./schemas/*": "./dist/schemas/*",
     "./*.js": {
       "types": "./dist/*.d.ts",

@@ -4,8 +4,8 @@ export default defineConfig({
   test: {
     environment: "node",
     include: [
-      "tests/**/*.{test,spec}.{ts,tsx,js,mjs}",
       "packages/*/tests/**/*.{test,spec}.{ts,tsx,js,mjs}",
+      "packages/cli/src/tests/**/*.{test,spec}.{ts,tsx,js,mjs}",
     ],
     exclude: ["**/node_modules/**", "**/dist/**"],
   },

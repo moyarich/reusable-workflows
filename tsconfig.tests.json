@@ -13,8 +13,7 @@
     "noEmit": true
   },
   "include": [
-    "tests/**/*.ts",
     "packages/cli/vite*.config.ts",
-    "packages/cli/tests/**/*.ts"
+    "packages/cli/src/tests/**/*.ts"
   ]
 }

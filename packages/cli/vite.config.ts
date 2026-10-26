@@ -37,9 +37,18 @@ export default defineConfig({
       minify: false,
     }),
     runtimeAssets({
-      source: resolve(root, "src/check-dist/config.schema.json"),
-      destination: "schemas/check-dist.schema.json",
+      source: resolve(root, "src/schemas/copy-config.schema.json"),
+      destination: "schemas/copy-config.schema.json",
+    }),
+    runtimeAssets({
+      source: resolve(root, "src/schemas/check-dist-config.schema.json"),
+      destination: "schemas/check-dist-config.schema.json",
     }),
   ],
   build: { outDir: "dist" },
+  resolve: {
+    alias: {
+      "@": resolve(import.meta.dirname, "./src"),
+    },
+  },
 });

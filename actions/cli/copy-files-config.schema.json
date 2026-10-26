@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/moyarich/reusable-workflows/main/actions/copy-files-to-another-repository/config.schema.json",
+  "$id": "https://raw.githubusercontent.com/moyarich/reusable-workflows/main/actions/schemas/copy-config.schema.json",
   "title": "Canonical workflow copy configuration",
   "type": "object",
   "additionalProperties": false,

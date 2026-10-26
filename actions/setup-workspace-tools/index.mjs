@@ -1,6 +1,6 @@
-import { n as InvalidArgumentError, t as Command } from "../_assets/esm-CScb8cmR.mjs";
-import { dirname, join, resolve } from "node:path";
+import { n as InvalidArgumentError, t as Command } from "../_assets/esm-CeeLd381.mjs";
 import { appendFileSync, existsSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 // ../cli/src/setup-workspace-tools/setup-workspace-tools.ts
 /** Parse and validate workspace-tools installation source syntax. */
 function parseWorkspaceToolsSource(source) {

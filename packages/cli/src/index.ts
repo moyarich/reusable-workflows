@@ -20,3 +20,7 @@ export type {
   YamlUpdate,
   YamlUpdateOptions,
 } from "./sync-yaml-values/sync-yaml-values.js";
+
+export { validateSchema } from "./validate-schema/validate-schema.js";
+
+export type { SchemaValidationResult } from "./validate-schema/validate-schema.js";

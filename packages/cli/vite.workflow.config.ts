@@ -7,13 +7,11 @@ import { fileURLToPath } from "node:url";
 const root = dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   root,
+  resolve: { alias: { "@": resolve(root, "src") } },
   ssr: { noExternal: true },
   plugins: [
     runtimeAssets({
-      source: resolve(
-        root,
-        "src/copy-files-to-another-repository/config.schema.json",
-      ),
+      source: resolve(root, "src/schemas/copy-config.schema.json"),
       destination: "copy-files-config.schema.json",
     }),
   ],
