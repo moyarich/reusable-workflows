@@ -94,11 +94,11 @@ source:
   allow: ["*.yml"]
 repositories:
   - name: moyarich/editor
-    profile: vscode
+    profiles: [vscode]
     <<: *common
     branch: release
   - name: moyarich/browser
-    profile: browser
+    profiles: [browser]
     exclude: [publish-browser-extension.yml]
 `,
         { merge: true },
@@ -117,11 +117,15 @@ repositories:
         ".github/workflows/publish-vscode-vsx.yml",
       ]);
       expect(run("moyarich/browser")).toEqual([".github/workflows/ci_cli.yml"]);
+      expect(() => generateWorkflows({
+        config: { ...config, repositories: [{ name: "moyarich/multi", profiles: ["vscode", "browser"] }] },
+        repository: "moyarich/multi", sourceRoot, output,
+      })).not.toThrow();
       expect(() =>
         generateWorkflows({
           config: {
             ...config,
-            repositories: [{ name: "moyarich/bad", profile: "missing" }],
+            repositories: [{ name: "moyarich/bad", profiles: ["missing"] }],
           },
           repository: "moyarich/bad",
           sourceRoot,
