@@ -29,7 +29,10 @@ beforeEach(() => {
         allow: ["*.yml"],
       },
       defaults: { branch: "main", include: ["*.yml"] },
-      repositories: [{ name: "example/one", profiles: ["npm"] }, { name: "example/two" }],
+      repositories: [
+        { name: "example/one", profiles: ["npm"] },
+        { name: "example/two" },
+      ],
     }),
   );
   options = {
