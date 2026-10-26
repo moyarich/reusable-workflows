@@ -11,7 +11,7 @@ function option(key: string): string {
 const source = parse(readFileSync(option("--config"), "utf8"))?.source;
 if (!source || source.directory !== ".github/workflows")
   throw new Error("Expected source.directory .github/workflows");
-const patterns = (kind: "include" | "exclude"): string[] => {
+const patterns = (kind: "allow" | "ignore"): string[] => {
   const list = source[kind] ?? [];
   if (
     !Array.isArray(list) ||
@@ -20,9 +20,9 @@ const patterns = (kind: "include" | "exclude"): string[] => {
     throw new Error("Invalid source." + kind);
   return list;
 };
-const include = patterns("include"),
-  exclude = patterns("exclude");
-if (!include.length) throw new Error("Missing source.include");
+const include = patterns("allow"),
+  exclude = patterns("ignore");
+if (!include.length) throw new Error("Missing source.allow");
 const matches = (name: string, globs: string[]) =>
   globs.some((pattern) => {
     const regex =

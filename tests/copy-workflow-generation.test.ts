@@ -13,7 +13,140 @@ import { parse } from "yaml";
 import { generateWorkflows } from "../packages/cli/src/copy-files-to-another-repository/generate";
 
 describe("TypeScript copier generation", () => {
-  it("preserves unmodified bytes, applies nested overrides and enforces opt-in", () => {
+  it("excludes publishers by default and selects only an explicitly included publisher", () => {
+    const root = mkdtempSync(join(tmpdir(), "copier-publish-"));
+    const sourceRoot = join(root, "canonical");
+    const output = join(root, "out");
+    const directory = join(sourceRoot, ".github/workflows");
+    mkdirSync(directory, { recursive: true });
+    try {
+      for (const name of [
+        "ci_cli.yml",
+        "publish.yml",
+        "publish-vscode-vsx.yml",
+        "publish-browser-extension.yml",
+      ]) {
+        writeFileSync(join(directory, name), "name: Example\\n");
+      }
+      const config = {
+        source: { directory: ".github/workflows", allow: ["*.yml"] },
+        defaults: { include: ["*.yml"], exclude: ["publish*.yml"] },
+        repositories: [
+          { name: "moyarich/none", branch: "main" },
+          {
+            name: "moyarich/vscode",
+            branch: "main",
+            include: ["publish-vscode-vsx.yml"],
+          },
+          {
+            name: "moyarich/browser",
+            branch: "main",
+            include: ["publish-browser-extension.yml"],
+          },
+        ],
+      };
+      const run = (repository: string) =>
+        generateWorkflows({ config, repository, sourceRoot, output });
+      expect(run("moyarich/none")).toEqual([".github/workflows/ci_cli.yml"]);
+      expect(run("moyarich/vscode")).toEqual([
+        ".github/workflows/ci_cli.yml",
+        ".github/workflows/publish-vscode-vsx.yml",
+      ]);
+      expect(run("moyarich/browser")).toEqual([
+        ".github/workflows/ci_cli.yml",
+        ".github/workflows/publish-browser-extension.yml",
+      ]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("combines YAML anchors, aliases, merges and named profiles", () => {
+    const root = mkdtempSync(join(tmpdir(), "copier-merged-"));
+    const sourceRoot = join(root, "source");
+    const output = join(root, "output");
+    const directory = join(sourceRoot, ".github/workflows");
+    mkdirSync(directory, { recursive: true });
+    try {
+      for (const name of [
+        "ci_cli.yml",
+        "publish-vscode-vsx.yml",
+        "publish-browser-extension.yml",
+      ]) {
+        writeFileSync(join(directory, name), "name: Sample\n");
+      }
+      const config = parse(
+        `
+defaults:
+  branch: main
+  include: ["*.yml"]
+  exclude: [publish*.yml]
+profiles:
+  vscode:
+    include: [publish-vscode-vsx.yml]
+  browser:
+    include: [publish-browser-extension.yml]
+shared: &common
+  branch: develop
+  exclude: [ci_cli.yml]
+source:
+  directory: .github/workflows
+  allow: ["*.yml"]
+repositories:
+  - name: moyarich/editor
+    profiles: [vscode]
+    <<: *common
+    branch: release
+  - name: moyarich/browser
+    profiles: [browser]
+    exclude: [publish-browser-extension.yml]
+`,
+        { merge: true },
+      );
+      const run = (repository: string) =>
+        generateWorkflows({
+          config,
+          repository,
+          sourceRoot,
+          output,
+          existingFiles: [],
+        });
+      expect(config.repositories[0].branch).toBe("release");
+      expect(config.repositories[0].exclude).toEqual(["ci_cli.yml"]);
+      expect(run("moyarich/editor")).toEqual([
+        ".github/workflows/publish-vscode-vsx.yml",
+      ]);
+      expect(run("moyarich/browser")).toEqual([".github/workflows/ci_cli.yml"]);
+      expect(() =>
+        generateWorkflows({
+          config: {
+            ...config,
+            repositories: [
+              { name: "moyarich/multi", profiles: ["vscode", "browser"] },
+            ],
+          },
+          repository: "moyarich/multi",
+          sourceRoot,
+          output,
+        }),
+      ).not.toThrow();
+      expect(() =>
+        generateWorkflows({
+          config: {
+            ...config,
+            repositories: [{ name: "moyarich/bad", profiles: ["missing"] }],
+          },
+          repository: "moyarich/bad",
+          sourceRoot,
+          output,
+        }),
+      ).toThrow("Unknown copier profile");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("preserves unmodified bytes, applies nested overrides and copies new files", () => {
     const root = mkdtempSync(join(tmpdir(), "copier-ts-"));
     const source = join(root, "canonical");
     const output = join(root, "generated");
@@ -30,14 +163,14 @@ describe("TypeScript copier generation", () => {
       const config = {
         source: {
           directory: ".github/workflows",
-          include: ["ci_*.yml"],
-          exclude: [],
+          allow: ["ci_*.yml"],
+          ignore: ["ci_other.yml"],
         },
+        defaults: { include: ["*.yml"] },
         repositories: [
           {
             name: "moyarich/console",
             branch: "main",
-            "create-files": ["ci_alpha.yml"],
           },
         ],
       };

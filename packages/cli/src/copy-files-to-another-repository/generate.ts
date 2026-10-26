@@ -98,9 +98,9 @@ export function generateWorkflows(opts: GenerateOptions): string[] {
   if (object(source)) {
     if (source.directory !== ".github/workflows")
       throw Error("Only .github/workflows source directory is allowed");
-    const include = patterns(source.include, "source.include");
-    const exclude = patterns(source.exclude ?? [], "source.exclude");
-    if (!include.length) throw Error("source.include must not be empty");
+    const include = patterns(source.allow, "source.allow");
+    const exclude = patterns(source.ignore ?? [], "source.ignore");
+    if (!include.length) throw Error("source.allow must not be empty");
     files = readdirSync(join(sourceRoot, ".github/workflows"))
       .filter(
         (name) =>
@@ -130,17 +130,42 @@ export function generateWorkflows(opts: GenerateOptions): string[] {
   );
   if (targets.length !== 1)
     throw Error("Expected exactly one repository config for " + repository);
-  const target = targets[0] as RecordValue;
-  const include = patterns(target.include ?? ["*.yml"], "include");
-  const exclude = patterns(target.exclude ?? [], "exclude");
-  const create = patterns(target["create-files"] ?? [], "create-files");
+  const repositoryConfig = targets[0] as RecordValue;
+  const defaults = config.defaults ?? {};
+  const profiles = config.profiles ?? {};
+  if (!object(defaults) || !object(profiles))
+    throw Error("defaults and profiles must be mappings");
+  const names = repositoryConfig.profiles ?? [];
+  if (!Array.isArray(names) || names.some((name) => typeof name !== "string"))
+    throw Error("Copier profiles must be an array of profile names");
+  if (new Set(names).size !== names.length)
+    throw Error("Duplicate copier profiles");
+  const selectedProfiles = names.map((name: string) => {
+    if (!Object.hasOwn(profiles, name))
+      throw Error("Unknown copier profile: " + name);
+    const settings = profiles[name];
+    if (!object(settings))
+      throw Error("Copier profile must be a mapping: " + name);
+    return settings;
+  });
+  // Profiles are applied in declared order; repository settings are last.
+  const layers = [defaults, ...selectedProfiles, repositoryConfig];
+  const target = Object.assign({}, ...layers) as RecordValue;
   const overrides = target.overrides ?? {};
   if (!object(overrides)) throw Error("overrides must be a mapping");
   if (Object.keys(overrides).some((k) => !files.includes(k)))
     throw Error("overrides must reference available canonical source-files");
-  const eligible = files.filter(
-    (f) => match(basename(f), include) && !match(basename(f), exclude),
-  );
+  const selectedNames = new Set<string>();
+  for (const layer of layers) {
+    const included = patterns(layer.include ?? [], "include");
+    const excluded = patterns(layer.exclude ?? [], "exclude");
+    for (const f of files) {
+      const name = basename(f);
+      if (match(name, included)) selectedNames.add(f);
+      if (match(name, excluded)) selectedNames.delete(f);
+    }
+  }
+  const eligible = files.filter((f) => selectedNames.has(f));
   if (Object.keys(overrides).some((k) => !eligible.includes(k)))
     throw Error("overrides cannot target excluded files");
   let selected = eligible;
@@ -157,11 +182,6 @@ export function generateWorkflows(opts: GenerateOptions): string[] {
       );
     selected = eligible.filter((f) => basename(f) === opts.workflow);
   }
-  if (opts.existingFiles)
-    selected = selected.filter(
-      (f) =>
-        opts.existingFiles!.includes(basename(f)) || match(basename(f), create),
-    );
   if (selected.includes(".github/workflows/publish.yml")) {
     if (opts.destinationPublish === undefined)
       throw Error(

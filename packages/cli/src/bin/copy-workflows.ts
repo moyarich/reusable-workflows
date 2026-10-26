@@ -14,7 +14,9 @@ const schemaPath = arg(
   "--schema",
   "packages/cli/src/copy-files-to-another-repository/config.schema.json",
 );
-const parsedConfig: unknown = parse(readFileSync(configPath, "utf8"));
+const parsedConfig: unknown = parse(readFileSync(configPath, "utf8"), {
+  merge: true,
+});
 const schema = JSON.parse(readFileSync(schemaPath, "utf8"));
 const ajv = new Ajv2020({ allErrors: true, strict: false });
 const validate = ajv.compile(schema);
@@ -24,12 +26,24 @@ if (!validate(parsedConfig))
   );
 const config = parsedConfig as Record<string, unknown> & {
   source: { repository: string };
-  repositories: Array<{ name: string; branch: string }>;
+  defaults?: { branch?: string };
+  repositories: Array<{ name: string; branch?: string }>;
 };
 const repositories = config.repositories as Array<{
   name: string;
-  branch: string;
+  branch?: string;
 }>;
+for (const repository of config.repositories as Array<{
+  name: string;
+  profile?: string;
+}>) {
+  if (repository.profile !== undefined) {
+    const profiles =
+      (config as { profiles?: Record<string, unknown> }).profiles ?? {};
+    if (!Object.hasOwn(profiles, repository.profile))
+      throw Error("Unknown copier profile: " + repository.profile);
+  }
+}
 const names = repositories.map((r) => r.name);
 if (new Set(names).size !== names.length)
   throw Error("Duplicate copier destination");
@@ -41,7 +55,11 @@ if (argv.includes("--plan")) {
     (r) => !requested || r.name === requested,
   );
   const matrix = {
-    include: targets.map((r) => ({ name: r.name, branch: r.branch })),
+    include: targets.map((r) => {
+      const branch = r.branch ?? config.defaults?.branch;
+      if (!branch) throw Error("Missing branch for " + r.name);
+      return { name: r.name, branch };
+    }),
   };
   const output =
     "matrix=" +

@@ -9,7 +9,7 @@
     "source": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["repository", "directory", "include"],
+      "required": ["repository", "directory", "allow"],
       "properties": {
         "repository": {
           "$ref": "#/$defs/repository"
@@ -17,11 +17,11 @@
         "directory": {
           "const": ".github/workflows"
         },
-        "include": {
+        "allow": {
           "$ref": "#/$defs/patterns",
           "minItems": 1
         },
-        "exclude": {
+        "ignore": {
           "$ref": "#/$defs/patterns"
         }
       }
@@ -34,7 +34,19 @@
       "minItems": 1,
       "items": {
         "$ref": "#/$defs/destination"
-      }
+      },
+      "description": "Destinations inherit defaults, then ordered profiles, then repository settings."
+    },
+    "defaults": {
+      "$ref": "#/$defs/profileSettings",
+      "description": "Shared defaults for destinations, including branch"
+    },
+    "profiles": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/profileSettings"
+      },
+      "description": "Named reusable settings assigned through repositories[].profiles"
     }
   },
   "$defs": {
@@ -54,7 +66,7 @@
     "destination": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "branch"],
+      "required": ["name"],
       "properties": {
         "name": {
           "$ref": "#/$defs/repository"
@@ -65,13 +77,12 @@
           "pattern": "^(?!.*\\\\.\\\\.)[A-Za-z0-9][A-Za-z0-9._/-]*$"
         },
         "include": {
-          "$ref": "#/$defs/patterns"
+          "$ref": "#/$defs/patterns",
+          "description": "Additive workflow filename patterns. Publishing workflows (publish*.yml) require explicit repository inclusion; YAML anchors and aliases are supported when parsed."
         },
         "exclude": {
-          "$ref": "#/$defs/patterns"
-        },
-        "create-files": {
-          "$ref": "#/$defs/patterns"
+          "$ref": "#/$defs/patterns",
+          "description": "Excluded workflows always take precedence over included workflows."
         },
         "overrides": {
           "type": "object",
@@ -84,6 +95,32 @@
               "enum": ["on", "jobs", "env", "defaults", "name", "run-name"]
             }
           }
+        },
+        "profiles": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true,
+          "description": "Ordered profile names; later profiles override earlier settings"
+        }
+      }
+    },
+    "profileSettings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "branch": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!.*\\\\.\\\\.)[A-Za-z0-9][A-Za-z0-9._/-]*$"
+        },
+        "include": {
+          "$ref": "#/$defs/patterns"
+        },
+        "exclude": {
+          "$ref": "#/$defs/patterns"
         }
       }
     }
