@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 
 import { parse } from "yaml";
-import { syncYamlValues } from "../sync-yaml-values/sync-yaml-values.ts";
+import { syncYamlValues } from "../sync-yaml-values/sync-yaml-values.js";
 
 const MAX_CHOICES = 100;
 

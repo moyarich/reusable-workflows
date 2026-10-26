@@ -8,10 +8,13 @@ Copies an already-prepared directory tree to an existing destination branch, pre
 - uses: moyarich/reusable-workflows/actions/copy-files-to-another-repository@main
   with:
     token: ${{ secrets._WORKFLOW_TOKEN }}
+    source-repository: moyarich/reusable-workflows-callers
+    source-ref: main
+    mode: pull-request
     source-directory: ${{ runner.temp }}/generated
     destination-repository: moyarich/console
     destination-branch: main
     dry-run: "true"
 ```
 
-The token must have permission to edit workflow files on the destination. The source directory must contain only files that should be copied. Do not pass a whole repository checkout. For production, pin a tested action SHA instead of `@main`. The action commits directly; it does not open a pull request.
+The token must have permission to edit workflow files on the destination. The source directory must contain only files that should be copied. Do not pass a whole repository checkout. For production, pin a tested action SHA instead of `@main`. The default `pull-request` mode pushes to a dedicated synchronization branch and creates or reuses an open pull request. Set `mode: update-branch` to commit directly to the destination branch. Dry runs never push or create pull requests. The token also needs pull-request write access in pull-request mode.

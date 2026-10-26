@@ -5,7 +5,7 @@ import {
   parseWorkspaceToolsSource,
   resolveBinDir,
   validateBinDir,
-} from "./setup-workspace-tools.ts";
+} from "./setup-workspace-tools.js";
 
 export function createSetupWorkspaceToolsCommand(): Command {
   return new Command()

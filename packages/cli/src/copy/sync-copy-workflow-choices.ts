@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { parse } from "yaml";
-import { syncYamlValues } from "../sync-yaml-values/sync-yaml-values.ts";
+import { syncYamlValues } from "../sync-yaml-values/sync-yaml-values.js";
 
 const WORKFLOW_DIRECTORY = ".github/workflows";
 const GLOB_PATTERN = /^[A-Za-z0-9_.*-]+$/;

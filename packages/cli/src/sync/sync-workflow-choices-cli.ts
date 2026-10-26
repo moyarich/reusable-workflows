@@ -1,6 +1,6 @@
 /** Create the sync-workflow-choices Commander command. */
 import { Command } from "commander";
-import { syncWorkflowChoices } from "./sync-workflow-choices.ts";
+import { syncWorkflowChoices } from "./sync-workflow-choices.js";
 
 export function createSyncWorkflowChoicesCommand(): Command {
   return new Command("sync-workflow-choices")

@@ -1,6 +1,6 @@
 /** Executable workspace source CLI entrypoint. */
 import { Command } from "commander";
-import { parseWorkspaceToolsSource } from "./setup-workspace-tools.ts";
+import { parseWorkspaceToolsSource } from "./setup-workspace-tools.js";
 
 /** Create the workspace-tools source Commander command. */
 export function createWorkspaceSourceCommand() {

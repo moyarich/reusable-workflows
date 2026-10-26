@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import Ajv2020 from "ajv/dist/2020.js";
 
 import { parse } from "yaml";
-import { generateWorkflows } from "../copy-files-to-another-repository/generate.ts";
+import { generateWorkflows } from "../copy-files-to-another-repository/generate.js";
 
 interface Options {
   config: string;
@@ -30,7 +30,10 @@ interface CopierConfig extends Record<string, unknown> {
   repositories: Repository[];
 }
 
-export const createCopyWorkflow = (opts: Options) => {
+export const copyWorkflow = (opts: Options) => {
+  const requestedRepository =
+    opts.repository === "all" ? "" : (opts.repository ?? "");
+  const selectedWorkflow = opts.workflow === "all" ? "" : opts.workflow;
   const parsedConfig: unknown = parse(readFileSync(opts.config, "utf8"), {
     merge: true,
   });
@@ -57,14 +60,14 @@ export const createCopyWorkflow = (opts: Options) => {
   if (new Set(names).size !== names.length) {
     throw new Error("Duplicate copier destination");
   }
-  if (opts.repository && !names.includes(opts.repository)) {
+  if (requestedRepository && !names.includes(requestedRepository)) {
     throw new Error("Requested repository is not in the allowlist");
   }
 
   if (opts.plan) {
     const matrix = {
       include: repositories
-        .filter((r) => !opts.repository || r.name === opts.repository)
+        .filter((r) => !requestedRepository || r.name === requestedRepository)
         .map((r) => {
           const branch = r.branch ?? config.defaults?.branch;
           if (!branch) throw new Error(`Missing branch for ${r.name}`);
@@ -82,7 +85,7 @@ export const createCopyWorkflow = (opts: Options) => {
     return;
   }
 
-  if (!opts.repository || !opts.output) {
+  if (!requestedRepository || !opts.output) {
     throw new Error("--repository and --output are required");
   }
 
@@ -102,10 +105,10 @@ export const createCopyWorkflow = (opts: Options) => {
   const publishFile = opts.destinationPublishFile;
   const files = generateWorkflows({
     config,
-    repository: opts.repository,
+    repository: requestedRepository,
     sourceRoot: resolve(opts.sourceRoot),
     output: resolve(opts.output),
-    workflow: opts.workflow,
+    workflow: selectedWorkflow,
     existingFiles,
     destinationPublish:
       publishFile && existsSync(publishFile)
@@ -113,6 +116,6 @@ export const createCopyWorkflow = (opts: Options) => {
         : undefined,
   });
   process.stdout.write(
-    `${JSON.stringify({ repository: opts.repository, files })}\n`,
+    `${JSON.stringify({ repository: requestedRepository, files })}\n`,
   );
 };

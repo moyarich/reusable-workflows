@@ -14,7 +14,12 @@ export default tseslint.config(
     ],
   },
   {
-    files: ["src/**/*.{js,mjs,ts}", "tests/**/*.{js,mjs,ts}", "vite.config.ts"],
+    files: [
+      "src/**/*.{js,mjs,ts}",
+      "packages/**/*.{js,mjs,ts}",
+      "tests/**/*.{js,mjs,ts}",
+      "vite.config.ts",
+    ],
     ...js.configs.recommended,
     rules: {
       ...js.configs.recommended.rules,
@@ -23,6 +28,11 @@ export default tseslint.config(
   },
   ...tseslint.configs.recommended.map((config) => ({
     ...config,
-    files: ["src/**/*.ts", "tests/**/*.ts", "vite.config.ts"],
+    files: [
+      "src/**/*.ts",
+      "packages/**/*.ts",
+      "tests/**/*.ts",
+      "vite.config.ts",
+    ],
   })),
 );

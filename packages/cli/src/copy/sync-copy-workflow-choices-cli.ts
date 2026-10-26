@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { syncCopyWorkflowChoices } from "./sync-copy-workflow-choices.ts";
+import { syncCopyWorkflowChoices } from "./sync-copy-workflow-choices.js";
 
 export function createSyncCopyWorkflowChoicesCommand(): Command {
   return new Command("copy-workflow-choices")

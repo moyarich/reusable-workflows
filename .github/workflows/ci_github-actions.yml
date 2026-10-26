@@ -71,6 +71,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          test -f actions/cli/index.mjs
+          test -f actions/cli/copy-files-config.schema.json
+          node actions/cli/index.mjs --help
+          node actions/cli/index.mjs copy-workflow --config .github/copy-files-config.yml --plan
           test -f actions/setup-workspace-tools/index.mjs
           test -f actions/release-draft-sync/index.mjs
           test -f actions/validate-release-identity/index.mjs

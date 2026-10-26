@@ -1,6 +1,15 @@
 name: Copy files to another repository
 description: Copy a prepared directory tree into another GitHub repository and commit changed files.
 inputs:
+  source-repository:
+    description: Source owner/repository recorded in synchronization pull requests.
+    required: true
+  source-ref:
+    description: Source ref recorded in synchronization pull requests.
+    default: main
+  mode:
+    description: pull-request or update-branch.
+    default: pull-request
   token:
     description: Token with contents write and workflow-file permissions in the destination.
     required: true
@@ -23,6 +32,9 @@ inputs:
     required: false
     default: "chore: synchronize repository files"
 outputs:
+  pull-request-url:
+    description: URL of the created or reused synchronization pull request.
+    value: ${{ steps.copy.outputs.pull-request-url }}
   changed:
     description: Whether any files differ.
     value: ${{ steps.copy.outputs.changed }}
@@ -35,6 +47,9 @@ runs:
     - id: copy
       shell: bash
       env:
+        COPY_SOURCE_REPO: ${{ inputs.source-repository }}
+        COPY_SOURCE_REF: ${{ inputs.source-ref }}
+        COPY_MODE: ${{ inputs.mode }}
         COPY_TOKEN: ${{ inputs.token }}
         COPY_SOURCE: ${{ inputs.source-directory }}
         COPY_DEST: ${{ inputs.destination-repository }}

@@ -53,22 +53,34 @@ jobs:
       matrix: ${{ steps.config.outputs.matrix }}
       source-repository: ${{ steps.config.outputs.source_repository }}
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout caller configuration and local runtime
+        uses: actions/checkout@v7
         with:
+          sparse-checkout: |
+            /.github/copy-files-config.yml
+            /actions/cli/
+            /package.json
+          sparse-checkout-cone-mode: false
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
-          cache: npm
-      - run: npm ci --no-audit --no-fund
-      - name: Build reusable workflow CLI
-        run: npm run build:cli
+      - name: Checkout shared action runtimes
+        if: github.repository != 'moyarich/reusable-workflows'
+        uses: actions/checkout@v7
+        with:
+          repository: moyarich/reusable-workflows
+          ref: main
+          path: .workflow-tools
+          sparse-checkout: actions/cli
+          persist-credentials: false
       - id: config
         name: Validate copier config and plan destinations
         env:
           REQUESTED_REPOSITORY: ${{ inputs.repository }}
+          WORKFLOW_CLI: ${{ github.repository == 'moyarich/reusable-workflows' && 'actions/cli/index.mjs' || '.workflow-tools/actions/cli/index.mjs' }}
         run: >-
-          node packages/cli/dist/bin/cli.mjs copy-workflow
+          node "$WORKFLOW_CLI" copy-workflow
           --config .github/copy-files-config.yml
           --repository "$REQUESTED_REPOSITORY" --plan
       - name: Summarize copy plan
@@ -100,7 +112,7 @@ jobs:
               echo
               echo "| Repository | Branch |"
               echo "| --- | --- |"
-              jq -r '.include[] | "| \`" + .name + "\` | \`" + .branch + "\` |"' <<< "$MATRIX"
+              jq -r '.include[] | "| `" + .name + "` | `" + .branch + "` |"' <<< "$MATRIX"
             else
               echo
               echo "Configuration planning failed; consult the validation logs."
@@ -109,17 +121,30 @@ jobs:
 
   copy:
     needs: plan
+    if: needs.plan.result == 'success' && needs.plan.outputs.matrix != ''
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       max-parallel: 2
-      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix || '{"include":[]}') }}
     steps:
-      - name: Checkout copier and local action
+      - name: Checkout local runtime and configuration
+        if: github.repository == 'moyarich/reusable-workflows'
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            /actions/
+            /.github/copy-files-config.yml
+            /package.json
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - name: Checkout shared action runtime
+        if: github.repository != 'moyarich/reusable-workflows'
         uses: actions/checkout@v7
         with:
           repository: moyarich/reusable-workflows
-          ref: ${{ github.repository == 'moyarich/reusable-workflows' && github.ref_name || 'main' }}
+          ref: main
+          sparse-checkout: actions
           persist-credentials: false
       - name: Checkout canonical source workflows
         uses: actions/checkout@v7
@@ -127,22 +152,20 @@ jobs:
           repository: ${{ needs.plan.outputs.source-repository }}
           ref: main
           path: source-workflows
+          sparse-checkout: .github/workflows
           persist-credentials: false
       - name: Checkout caller configuration
+        if: github.repository != 'moyarich/reusable-workflows'
         uses: actions/checkout@v7
         with:
           repository: ${{ github.repository }}
           path: caller-config
+          sparse-checkout: /.github/copy-files-config.yml
+          sparse-checkout-cone-mode: false
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
-          cache: npm
-      - run: npm ci --no-audit --no-fund
-      - name: Build reusable workflow CLI
-        run: npm run build:cli
-      - name: Test workflow generation
-        run: npx --no-install vitest run packages/cli/tests/copy-workflow-generation.test.ts
       - name: Read destination workflow inventory
         env:
           GH_TOKEN: ${{ secrets.workflow-token }}
@@ -164,9 +187,10 @@ jobs:
         env:
           DEST_REPO: ${{ matrix.name }}
           SELECTED_WORKFLOW: ${{ inputs.workflow }}
+          CALLER_CONFIG: ${{ github.repository == 'moyarich/reusable-workflows' && '.github/copy-files-config.yml' || 'caller-config/.github/copy-files-config.yml' }}
         shell: bash
         run: |
-          args=(--config caller-config/.github/copy-files-config.yml
+          args=(--config "$CALLER_CONFIG"
             --source-root source-workflows
             --repository "$DEST_REPO" --workflow "$SELECTED_WORKFLOW"
             --output "$RUNNER_TEMP/generated"
@@ -174,7 +198,7 @@ jobs:
           if [[ -f "$RUNNER_TEMP/destination-publish.yml" ]]; then
             args+=(--destination-publish-file "$RUNNER_TEMP/destination-publish.yml")
           fi
-          node packages/cli/dist/bin/cli.mjs copy-workflow "${args[@]}"
+          node actions/cli/index.mjs copy-workflow "${args[@]}"
       - id: sync
         name: Copy generated workflows to destination
         uses: ./actions/copy-files-to-another-repository

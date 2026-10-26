@@ -4,14 +4,14 @@ import { appendFileSync } from "node:fs";
 import { resolve } from "node:path";
 import process from "node:process";
 
-import { chromePublish } from "./chrome-publish.ts";
-import { firefoxPublish } from "./firefox-publish.ts";
-import { validate, type Store } from "./manifest.ts";
-import { packageExtension } from "./package-extension.ts";
+import { chromePublish } from "./chrome-publish.js";
+import { firefoxPublish } from "./firefox-publish.js";
+import { validate, type Store } from "./manifest.js";
+import { packageExtension } from "./package-extension.js";
 
-export { chromePublish } from "./chrome-publish.ts";
-export { firefoxPublish } from "./firefox-publish.ts";
-export { packageExtension } from "./package-extension.ts";
+export { chromePublish } from "./chrome-publish.js";
+export { firefoxPublish } from "./firefox-publish.js";
+export { packageExtension } from "./package-extension.js";
 
 const STORES = ["chrome", "firefox", "all"] as const satisfies readonly Store[];
 

@@ -1,10 +1,10 @@
-import { Command, InvalidArgumentError, Option } from "commander";
+import { Command, Option } from "commander";
 import {
   DEFAULT_WORKFLOW,
   parseFileList,
   parseIncluded,
   syncReleaseChoices,
-} from "./sync-release-choices.ts";
+} from "./sync-release-choices.js";
 
 /** Create the sync-release-choices Commander command. */
 export function createSyncReleaseChoicesCommand(): Command {

@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { runSyncReleaseSummary } from "./sync-release-summary.ts";
+import { runSyncReleaseSummary } from "./sync-release-summary.js";
 
 /** Create the release package synchronization summary command. */
 export function createSyncReleaseSummaryCommand(): Command {

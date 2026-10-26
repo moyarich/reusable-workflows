@@ -35,31 +35,21 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
-          cache: npm
-      - run: npm ci --no-audit --no-fund
-      - name: Build reusable workflow CLI
-        run: npm run build:cli
       - name: Resolve canonical source
         id: canonical
         shell: bash
         run: |
-          node - <<'NODE' >> "$GITHUB_OUTPUT"
-          const fs = require('node:fs');
-          const yaml = require('yaml');
-          const source = yaml.parse(fs.readFileSync('.github/copy-files-config.yml', 'utf8')).source;
-          if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(source.repository)) throw Error('Invalid source repository');
-          console.log('repository=' + source.repository);
-          NODE
+          node actions/cli/index.mjs copy-workflow --config .github/copy-files-config.yml --plan
       - name: Checkout canonical workflows
         uses: actions/checkout@v7
         with:
-          repository: ${{ steps.canonical.outputs.repository }}
+          repository: ${{ steps.canonical.outputs.source_repository }}
           ref: main
           path: canonical-source
           persist-credentials: false
       - name: Update workflow choices from destination inventory
         run: >-
-          node packages/cli/dist/bin/cli.mjs sync-workflow-choices
+          node actions/cli/index.mjs sync-workflow-choices
           --source .github/copy-files-config.yml
           --values-path repositories
           --value-field name
@@ -69,12 +59,12 @@ jobs:
           --input repository
       - name: Generate workflow choices from canonical source
         run: >-
-          node packages/cli/dist/bin/cli.mjs copy-workflow-choices
+          node actions/cli/index.mjs copy-workflow-choices
           --config .github/copy-files-config.yml
           --source-directory canonical-source/.github/workflows
           --workflow .github/workflows/copy-files-to-another-repository.yml
       - name: Format workflow
-        run: npx --no-install prettier --write .github/workflows/copy-files-to-another-repository.yml
+        run: npx --yes prettier@3.6.2 --write .github/workflows/copy-files-to-another-repository.yml
       - name: Commit synchronization
         env:
           WORKFLOW_TOKEN: ${{ secrets._WORKFLOW_TOKEN }}
@@ -107,38 +97,28 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
-          cache: npm
-      - run: npm ci --no-audit --no-fund
-      - name: Build reusable workflow CLI
-        run: npm run build:cli
       - name: Resolve canonical source
         id: canonical
         shell: bash
         run: |
-          node - <<'NODE' >> "$GITHUB_OUTPUT"
-          const fs = require('node:fs');
-          const yaml = require('yaml');
-          const source = yaml.parse(fs.readFileSync('.github/copy-files-config.yml', 'utf8')).source;
-          if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(source.repository)) throw Error('Invalid source repository');
-          console.log('repository=' + source.repository);
-          NODE
+          node actions/cli/index.mjs copy-workflow --config .github/copy-files-config.yml --plan
       - name: Checkout canonical workflows
         uses: actions/checkout@v7
         with:
-          repository: ${{ steps.canonical.outputs.repository }}
+          repository: ${{ steps.canonical.outputs.source_repository }}
           ref: main
           path: canonical-source
           persist-credentials: false
       - name: Verify canonical workflow choices
         run: >-
-          node packages/cli/dist/bin/cli.mjs copy-workflow-choices
+          node actions/cli/index.mjs copy-workflow-choices
           --config .github/copy-files-config.yml
           --source-directory canonical-source/.github/workflows
           --workflow .github/workflows/copy-files-to-another-repository.yml
           --check
       - name: Verify generated choices match configuration
         run: >-
-          node packages/cli/dist/bin/cli.mjs sync-workflow-choices
+          node actions/cli/index.mjs sync-workflow-choices
           --source .github/copy-files-config.yml
           --values-path repositories
           --value-field name

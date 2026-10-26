@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/moyarich/reusable-workflows/main/actions/copy-files-to-another-repository/config.schema.json",
+  "title": "Canonical workflow copy configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["source", "repositories"],
+  "properties": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "directory", "allow"],
+      "properties": {
+        "repository": {
+          "$ref": "#/$defs/repository"
+        },
+        "directory": {
+          "const": ".github/workflows"
+        },
+        "allow": {
+          "$ref": "#/$defs/patterns",
+          "minItems": 1
+        },
+        "ignore": {
+          "$ref": "#/$defs/patterns"
+        }
+      }
+    },
+    "destination-directory": {
+      "const": ".github/workflows"
+    },
+    "repositories": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/destination"
+      },
+      "description": "Destinations inherit defaults, then ordered profiles, then repository settings."
+    },
+    "defaults": {
+      "$ref": "#/$defs/profileSettings",
+      "description": "Shared defaults for destinations, including branch"
+    },
+    "profiles": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/profileSettings"
+      },
+      "description": "Named reusable settings assigned through repositories[].profiles"
+    }
+  },
+  "$defs": {
+    "repository": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+    },
+    "patterns": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[^/\\\\]+$"
+      }
+    },
+    "destination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/repository"
+        },
+        "branch": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!.*\\\\.\\\\.)[A-Za-z0-9][A-Za-z0-9._/-]*$"
+        },
+        "include": {
+          "$ref": "#/$defs/patterns",
+          "description": "Additive workflow filename patterns. Publishing workflows (publish*.yml) require explicit repository inclusion; YAML anchors and aliases are supported when parsed."
+        },
+        "exclude": {
+          "$ref": "#/$defs/patterns",
+          "description": "Excluded workflows always take precedence over included workflows."
+        },
+        "overrides": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^\\.github/workflows/[^/]+\\.ya?ml$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "propertyNames": {
+              "enum": ["on", "jobs", "env", "defaults", "name", "run-name"]
+            }
+          }
+        },
+        "profiles": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true,
+          "description": "Ordered profile names; later profiles override earlier settings"
+        }
+      }
+    },
+    "profileSettings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "branch": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!.*\\\\.\\\\.)[A-Za-z0-9][A-Za-z0-9._/-]*$"
+        },
+        "include": {
+          "$ref": "#/$defs/patterns"
+        },
+        "exclude": {
+          "$ref": "#/$defs/patterns"
+        }
+      }
+    }
+  }
+}

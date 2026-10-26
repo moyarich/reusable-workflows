@@ -11,17 +11,18 @@
     "dev": "npm run dev --workspace @moyarich/reusable-workflows-playground",
     "build:playground": "npm run build --workspace @moyarich/reusable-workflows-playground",
     "build:cli": "npm run build -w @moyarich/reusable-workflows-cli",
-    "check:cli-dist": "npm run build:actions && git diff --exit-code -- actions/",
+    "check:pack": "npm run check:pack --workspace @moyarich/reusable-workflows-cli",
+    "build:actions": "npm run build -w @moyarich/reusable-workflows-actions && npm run build:workflow-runtime -w @moyarich/reusable-workflows-cli",
+    "build:all": "npm run build:cli && npm run build:actions",
+    "check:actions": "npm run build:actions && node --input-type=module -e \"import { execFileSync } from 'node:child_process'; const changes = execFileSync('git', ['status', '--porcelain', '--untracked-files=all', '--', 'actions/'], { encoding: 'utf8' }); if (changes.trim()) { console.error(changes); process.exitCode = 1; }\"",
     "typecheck": "npm run typecheck --workspaces --if-present && tsc -p tsconfig.tests.json --noEmit",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "npm run lint -- --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "checks": "npm run format:check && npm run lint && npm run typecheck",
-    "build:package": "npm run build:cli",
-    "build:actions": "npm run build -w @moyarich/reusable-workflows-actions",
-    "build:all": "npm run build:cli && npm run build:actions",
-    "test": "vitest run"
+    "test": "vitest run",
+    "sync:workflow-choices": "node actions/cli/index.mjs sync-workflow-choices"
   },
   "engines": {
     "node": ">=24"
@@ -42,6 +43,8 @@
     "typescript-eslint": "^8.70.0",
     "@types/node": "^24.3.1",
     "@eslint/js": "^10.0.1",
-    "eslint": "^10.0.0"
+    "eslint": "^10.0.0",
+    "@moyarich/vite-plugin-package-bin": "git+https://github.com/moyarich/vite-package-bin.git",
+    "@moyarich/vite-github-actions": "git+https://github.com/moyarich/vite-github-actions.git"
   }
 }

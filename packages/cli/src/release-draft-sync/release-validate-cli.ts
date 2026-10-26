@@ -1,7 +1,7 @@
 /** Executable release metadata validation CLI entrypoint. */
 import { Command } from "commander";
 import { readFileSync } from "node:fs";
-import { validateReleaseMarker } from "./identity.ts";
+import { validateReleaseMarker } from "./identity.js";
 
 /** Create the release metadata validation Commander command. */
 export function createReleaseValidateCommand() {

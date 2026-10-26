@@ -94,8 +94,8 @@ jobs:
     name: Synchronize selected destinations
     uses: ./.github/workflows/reusable_copy-files-to-another-repository.yml
     with:
-      repository: ${{ inputs.repository == 'all' && '' || inputs.repository }}
-      workflow: ${{ inputs.workflow == 'all' && '' || inputs.workflow }}
+      repository: ${{ inputs.repository }}
+      workflow: ${{ inputs.workflow }}
       dry-run: ${{ inputs.dry-run }}
       mode: ${{ inputs.mode }}
     secrets:

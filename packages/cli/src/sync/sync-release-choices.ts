@@ -5,7 +5,7 @@ import { isMap, parseDocument } from "yaml";
 import {
   syncYamlValues,
   type YamlUpdate,
-} from "../sync-yaml-values/sync-yaml-values.ts";
+} from "../sync-yaml-values/sync-yaml-values.js";
 import { InvalidArgumentError } from "commander";
 
 const WORKFLOW_PREFIX = ".github/workflows/";
