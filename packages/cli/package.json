@@ -21,7 +21,7 @@
     "lint": "eslint .",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "test": "vitest run",
-    "test:copy-workflows": "vitest run src/tests/copy-files-to-another-repository/copy-workflow-generation.",
+    "test:copy-workflows": "vitest run tests/copy-files-to-another-repository/copy-workflow-generation.",
     "build:workflow-runtime": "vite build --config vite.workflow.config.ts"
   },
   "dependencies": {
