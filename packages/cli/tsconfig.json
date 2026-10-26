@@ -14,5 +14,5 @@
     }
   },
   "include": ["src/**/*.ts", "plugins/**/*.ts"],
-  "exclude": ["src/tests/**", "dist", "node_modules"]
+  "exclude": ["dist", "node_modules"]
 }
