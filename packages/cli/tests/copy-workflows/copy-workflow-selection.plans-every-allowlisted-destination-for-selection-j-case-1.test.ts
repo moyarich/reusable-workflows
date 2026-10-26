@@ -29,7 +29,7 @@ beforeEach(() => {
         allow: ["*.yml"],
       },
       defaults: { branch: "main", include: ["*.yml"] },
-      repositories: [{ name: "example/one" }, { name: "example/two" }],
+      repositories: [{ name: "example/one", profiles: ["npm"] }, { name: "example/two" }],
     }),
   );
   options = {
@@ -60,8 +60,8 @@ describe("copy workflow selection", () => {
     const repository = "";
     copyWorkflow({ ...options, repository, plan: true });
     expect(matrix().include).toEqual([
-      { name: "example/one", branch: "main" },
-      { name: "example/two", branch: "main" },
+      { name: "example/one", branch: "main", profiles: ["npm"] },
+      { name: "example/two", branch: "main", profiles: [] },
     ]);
   });
 });
