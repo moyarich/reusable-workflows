@@ -110,9 +110,9 @@ jobs:
               echo
               echo "### Destinations"
               echo
-              echo "| Repository | Branch |"
-              echo "| --- | --- |"
-              jq -r '.include[] | "| `" + .name + "` | `" + .branch + "` |"' <<< "$MATRIX"
+              echo "| Repository | Branch | Profile |"
+              echo "| --- | --- | --- |"
+              jq -r '.include[] | "| `" + .name + "` | `" + .branch + "` | " + (if ((.profiles // []) | length) == 0 then "—" else ((.profiles | map("`" + . + "`")) | join(", ")) end) + " |"' <<< "$MATRIX"
             else
               echo
               echo "Configuration planning failed; consult the validation logs."
@@ -172,7 +172,18 @@ jobs:
           DEST_REPO: ${{ matrix.name }}
           DEST_BRANCH: ${{ matrix.branch }}
         run: |
-          gh api "repos/$DEST_REPO/contents/.github/workflows?ref=$DEST_BRANCH" --jq '[.[] | select(.type == "file") | .name]' > "$RUNNER_TEMP/existing-workflows.json"
+          # A destination may not have workflows yet. Only treat a missing folder
+          # as empty; do not hide authentication or repository errors.
+          status="$(gh api -i "repos/$DEST_REPO/contents/.github/workflows?ref=$DEST_BRANCH" > "$RUNNER_TEMP/inventory-response" 2>"$RUNNER_TEMP/inventory-error" && echo 200 || echo failed)"
+          if [[ "$status" == 200 ]]; then
+            sed -n '/^\\r$/,$p' "$RUNNER_TEMP/inventory-response" | sed '1d' | jq '[.[] | select(.type == "file") | .name]' > "$RUNNER_TEMP/existing-workflows.json"
+          elif gh api "repos/$DEST_REPO/git/ref/heads/$DEST_BRANCH" >/dev/null 2>&1; then
+            echo '[]' > "$RUNNER_TEMP/existing-workflows.json"
+            echo "::notice::Destination has no .github/workflows directory; it will be created when workflows are copied."
+          else
+            cat "$RUNNER_TEMP/inventory-error" >&2
+            exit 1
+          fi
       - name: Read existing destination publisher
         env:
           GH_TOKEN: ${{ secrets.workflow-token }}
