@@ -9,7 +9,6 @@ source:
     - "ci.yml"
     - "delete-release-tag.yml"
     - "history-cleanup.yml"
-    - "issue-dependencies_*.yml"
     - "pages.yml"
     - "prepare-release-pr.yml"
     - "publish*.yml"
@@ -24,6 +23,7 @@ source:
     - "reusable_*.yml"
     - "smoke-test_*.yml"
     - "check-dist.yml"
+    - "issue-dependencies_*.yml"
 destination-directory: .github/workflows
 defaults:
   branch: main
