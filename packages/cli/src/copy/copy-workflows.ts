@@ -4,10 +4,11 @@ import Ajv2020 from "ajv/dist/2020.js";
 
 import { parse } from "yaml";
 import { generateWorkflows } from "../copy-files-to-another-repository/generate.js";
+import configSchema from "../copy-files-to-another-repository/config.schema.json" with { type: "json" };
 
 interface Options {
   config: string;
-  schema: string;
+  schema?: string;
   repository?: string;
   plan?: boolean;
   output?: string;
@@ -38,7 +39,7 @@ export const copyWorkflow = (opts: Options) => {
     merge: true,
   });
   const ajv = new Ajv2020({ allErrors: true, strict: false });
-  const validate = ajv.compile(JSON.parse(readFileSync(opts.schema, "utf8")));
+  const validate = ajv.compile(opts.schema ? JSON.parse(readFileSync(opts.schema, "utf8")) : configSchema);
   if (!validate(parsedConfig)) {
     throw new Error(
       `Invalid copier configuration: ${ajv.errorsText(validate.errors)}`,
