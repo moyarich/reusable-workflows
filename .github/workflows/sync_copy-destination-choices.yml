@@ -6,18 +6,14 @@ on:
     paths:
       - .github/copy-files-config.yml
       - .github/workflows/copy-files-to-another-repository.yml
-      - packages/cli/src/workflow-choices/**
-      - packages/cli/src/bin/sync-workflow-choices.ts
-      - packages/cli/src/bin/sync-copy-workflow-choices.ts
-      - .github/workflows/sync-copy-destination-choices.yml
+      - "packages/cli/**"
+      - .github/workflows/sync_copy-destination-choices.yml
   pull_request:
     paths:
       - .github/copy-files-config.yml
       - .github/workflows/copy-files-to-another-repository.yml
-      - packages/cli/src/workflow-choices/**
-      - packages/cli/src/bin/sync-workflow-choices.ts
-      - packages/cli/src/bin/sync-copy-workflow-choices.ts
-      - .github/workflows/sync-copy-destination-choices.yml
+      - "packages/cli/**"
+      - .github/workflows/sync_copy-destination-choices.yml
   workflow_dispatch:
 
 permissions:
@@ -41,6 +37,8 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - name: Build reusable workflow CLI
+        run: npm run build:cli
       - name: Resolve canonical source
         id: canonical
         shell: bash
@@ -61,8 +59,7 @@ jobs:
           persist-credentials: false
       - name: Update workflow choices from destination inventory
         run: >-
-          node --experimental-strip-types
-          packages/cli/src/bin/sync-workflow-choices.ts
+          node packages/cli/dist/bin/cli.mjs sync-workflow-choices
           --source .github/copy-files-config.yml
           --values-path repositories
           --value-field name
@@ -72,8 +69,7 @@ jobs:
           --input repository
       - name: Generate workflow choices from canonical source
         run: >-
-          node --experimental-strip-types
-          packages/cli/src/bin/sync-copy-workflow-choices.ts
+          node packages/cli/dist/bin/cli.mjs copy-workflow-choices
           --config .github/copy-files-config.yml
           --source-directory canonical-source/.github/workflows
           --workflow .github/workflows/copy-files-to-another-repository.yml
@@ -113,6 +109,8 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - name: Build reusable workflow CLI
+        run: npm run build:cli
       - name: Resolve canonical source
         id: canonical
         shell: bash
@@ -133,16 +131,14 @@ jobs:
           persist-credentials: false
       - name: Verify canonical workflow choices
         run: >-
-          node --experimental-strip-types
-          packages/cli/src/bin/sync-copy-workflow-choices.ts
+          node packages/cli/dist/bin/cli.mjs copy-workflow-choices
           --config .github/copy-files-config.yml
           --source-directory canonical-source/.github/workflows
           --workflow .github/workflows/copy-files-to-another-repository.yml
           --check
       - name: Verify generated choices match configuration
         run: >-
-          node --experimental-strip-types
-          packages/cli/src/bin/sync-workflow-choices.ts
+          node packages/cli/dist/bin/cli.mjs sync-workflow-choices
           --source .github/copy-files-config.yml
           --values-path repositories
           --value-field name

@@ -100,7 +100,7 @@ jobs:
           ref: main
           persist-credentials: false
 
-      - name: Checkout reusable workflow CLI sources
+      - name: Checkout reusable workflow CLI package
         uses: actions/checkout@v7
         with:
           repository: moyarich/reusable-workflows
@@ -108,8 +108,16 @@ jobs:
           path: .workflow-cli
           persist-credentials: false
 
-      - name: Install YAML tooling
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Install CLI dependencies
         run: npm ci --prefix .workflow-cli --no-audit --no-fund
+
+      - name: Build reusable workflow CLI
+        run: npm run build:cli --prefix .workflow-cli
 
       - name: Sync selected workflow choices
         id: choices
@@ -119,7 +127,7 @@ jobs:
           PUBLISH_PACKAGES_JSON: ${{ needs.discover-publish.outputs.packages }}
           WORKFLOW_FILE: ${{ inputs.workflow-file }}
           WORKFLOW_FILES: ${{ inputs.workflow-files }}
-        run: node --experimental-strip-types .workflow-cli/packages/cli/src/bin/sync-release-choices.ts
+        run: node .workflow-cli/packages/cli/dist/bin/cli.mjs sync-release-choices
 
       - name: Format updated workflow selectors
         if: steps.choices.outcome == 'success'
@@ -186,4 +194,4 @@ jobs:
           COMMIT_STATUS: ${{ steps.commit.outcome }}
           SYNC_RESULT: ${{ steps.commit.outputs.result }}
           COMMIT_SHA: ${{ steps.commit.outputs.sha }}
-        run: node --experimental-strip-types .workflow-cli/packages/cli/src/bin/sync-release-summary.ts
+        run: node .workflow-cli/packages/cli/dist/bin/cli.mjs sync-release-summary

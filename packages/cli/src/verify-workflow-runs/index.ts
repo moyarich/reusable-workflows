@@ -1,7 +1,16 @@
 /** GitHub API and runner output adapter for workflow verification. */
+import { appendFileSync, realpathSync } from "node:fs";
+import { basename } from "node:path";
+import { pathToFileURL } from "node:url";
 import type { WorkflowRun } from "./select-run.js";
 import { selectRun, validateRun } from "./select-run.js";
-type VerifyOptions = {
+
+const REPOSITORY_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
+const SHA_PATTERN = /^[0-9a-f]{40}$/i;
+const WORKFLOW_PATH_PATTERN = /^\.github\/workflows\/[A-Za-z0-9_.-]+\.ya?ml$/;
+const PAGE_SIZE = 100;
+
+export interface VerifyOptions {
   workflows: string[];
   repository: string;
   token: string;
@@ -10,8 +19,16 @@ type VerifyOptions = {
   event: string;
   apiRoot: string;
   request?: typeof fetch;
-};
-import { appendFileSync } from "node:fs";
+}
+
+export interface VerifiedRun {
+  path: string;
+  id: number;
+  url: string;
+  conclusion: string | null;
+  head_sha: string;
+  attempt: number;
+}
 
 export async function verify({
   workflows,
@@ -22,54 +39,53 @@ export async function verify({
   event,
   apiRoot,
   request = fetch,
-}: VerifyOptions) {
-  if (!repository.match(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/))
+}: VerifyOptions): Promise<VerifiedRun[]> {
+  if (!REPOSITORY_PATTERN.test(repository)) {
     throw new Error("Invalid repository");
-  if (!/^[0-9a-f]{40}$/i.test(sha)) throw new Error("Invalid exact commit SHA");
+  }
+  if (!SHA_PATTERN.test(sha)) throw new Error("Invalid exact commit SHA");
   if (!branch) throw new Error("Branch is required");
   if (
     !workflows.length ||
-    workflows.some(
-      (w) => !/^\.github\/workflows\/[A-Za-z0-9_.-]+\.ya?ml$/.test(w),
-    )
-  )
+    !workflows.every((w) => WORKFLOW_PATH_PATTERN.test(w))
+  ) {
     throw new Error(
       "Required workflow paths must be .github/workflows/*.yml or *.yaml",
     );
-  const output: Array<{
-    path: string;
-    id: number;
-    url: string;
-    conclusion: string | null;
-    head_sha: string;
-    attempt: number;
-  }> = [];
+  }
+
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+  };
+  const output: VerifiedRun[] = [];
+
   for (const path of workflows) {
-    const name = path.split("/").at(-1);
     const runs: WorkflowRun[] = [];
+
     for (let page = 1; ; page++) {
       const url = new URL(
-        `${apiRoot}/repos/${repository}/actions/workflows/${name}/runs`,
+        `${apiRoot}/repos/${repository}/actions/workflows/${basename(path)}/runs`,
       );
-      url.searchParams.set("event", event);
-      url.searchParams.set("head_sha", sha);
-      url.searchParams.set("per_page", "100");
-      url.searchParams.set("page", String(page));
-      const response = await request(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/vnd.github+json",
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
-      });
-      if (!response.ok)
+      url.search = new URLSearchParams({
+        event,
+        head_sha: sha,
+        per_page: String(PAGE_SIZE),
+        page: String(page),
+      }).toString();
+
+      const response = await request(url, { headers });
+      if (!response.ok) {
         throw new Error(`GitHub API returned ${response.status} for ${path}`);
-      const batch =
-        ((await response.json()) as { workflow_runs?: WorkflowRun[] })
-          .workflow_runs ?? [];
-      runs.push(...batch);
-      if (batch.length < 100) break;
+      }
+      const { workflow_runs = [] } = (await response.json()) as {
+        workflow_runs?: WorkflowRun[];
+      };
+      runs.push(...workflow_runs);
+      if (workflow_runs.length < PAGE_SIZE) break;
     }
+
     const run = validateRun(
       selectRun(runs, { path, sha, branch, event }),
       path,
@@ -83,38 +99,44 @@ export async function verify({
       attempt: run.run_attempt,
     });
   }
+
   return output;
 }
 
-if (
-  process.argv[1] &&
-  import.meta.url === new URL(`file://${process.argv[1]}`).href
-) {
+const isMain =
+  !!process.argv[1] &&
+  import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href;
+
+if (isMain) {
   try {
+    const env = process.env;
     const results = await verify({
-      workflows: (process.env.VERIFY_WORKFLOWS ?? "")
+      workflows: (env.VERIFY_WORKFLOWS ?? "")
         .split(",")
-        .map((s) => s.trim()),
-      repository: (process.env.GITHUB_REPOSITORY ?? "").trim(),
-      token: (process.env.GH_TOKEN ?? "").trim(),
-      sha: (process.env.VERIFY_SHA ?? "").trim(),
-      branch: (process.env.VERIFY_BRANCH ?? "").trim(),
-      event: (process.env.VERIFY_EVENT ?? "").trim() || "pull_request",
-      apiRoot: process.env.GITHUB_API_URL || "https://api.github.com",
+        .map((s) => s.trim())
+        .filter(Boolean),
+      repository: (env.GITHUB_REPOSITORY ?? "").trim(),
+      token: (env.GH_TOKEN ?? "").trim(),
+      sha: (env.VERIFY_SHA ?? "").trim(),
+      branch: (env.VERIFY_BRANCH ?? "").trim(),
+      event: (env.VERIFY_EVENT ?? "").trim() || "pull_request",
+      apiRoot: env.GITHUB_API_URL || "https://api.github.com",
     });
-    const resultJson = JSON.stringify(results);
-    if (process.env.GITHUB_OUTPUT)
-      appendFileSync(process.env.GITHUB_OUTPUT, `result-json=${resultJson}\n`);
-    if (process.env.GITHUB_STEP_SUMMARY) {
+
+    if (env.GITHUB_OUTPUT) {
       appendFileSync(
-        process.env.GITHUB_STEP_SUMMARY,
-        "## Required workflow verification\n\n" +
-          results
-            .map(
-              (r) =>
-                `- [${r.path}](${r.url}): **${r.conclusion}** on \`${r.head_sha}\`\n`,
-            )
-            .join(""),
+        env.GITHUB_OUTPUT,
+        `result-json=${JSON.stringify(results)}\n`,
+      );
+    }
+    if (env.GITHUB_STEP_SUMMARY) {
+      const lines = results.map(
+        (r) =>
+          `- [${r.path}](${r.url}): **${r.conclusion}** on \`${r.head_sha}\`\n`,
+      );
+      appendFileSync(
+        env.GITHUB_STEP_SUMMARY,
+        `## Required workflow verification\n\n${lines.join("")}`,
       );
     }
   } catch (error) {

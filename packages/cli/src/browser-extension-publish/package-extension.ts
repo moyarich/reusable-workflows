@@ -3,7 +3,7 @@ import { readFileSync, mkdirSync, existsSync } from "node:fs";
 import { resolve, join, dirname } from "node:path";
 import { execFileSync } from "node:child_process";
 import process from "node:process";
-import { safeDir } from "./manifest.js";
+import { safeDir } from "./manifest.ts";
 
 /** Package an extension directory and verify its ZIP archive. */
 export function packageExtension(

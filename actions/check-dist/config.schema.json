@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/moyarich/reusable-workflows/main/.github/reusable-configurations/check-dist-config.schema.json",
+  "$id": "https://raw.githubusercontent.com/moyarich/reusable-workflows/main/actions/check-dist/config.schema.json",
   "title": "Check distribution configuration",
   "type": "object",
   "additionalProperties": false,

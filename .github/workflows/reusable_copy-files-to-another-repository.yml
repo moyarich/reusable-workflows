@@ -61,14 +61,15 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - name: Build reusable workflow CLI
+        run: npm run build:cli
       - id: config
         name: Validate copier config and plan destinations
         env:
           REQUESTED_REPOSITORY: ${{ inputs.repository }}
         run: >-
-          node --experimental-strip-types packages/cli/src/bin/copy-workflows.ts
+          node packages/cli/dist/bin/cli.mjs copy-workflow
           --config .github/copy-files-config.yml
-          --schema packages/cli/src/copy-files-to-another-repository/config.schema.json
           --repository "$REQUESTED_REPOSITORY" --plan
       - name: Summarize copy plan
         if: always()
@@ -138,8 +139,10 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - name: Build reusable workflow CLI
+        run: npm run build:cli
       - name: Test workflow generation
-        run: npx --no-install vitest run tests/copy-workflow-generation.test.ts
+        run: npx --no-install vitest run packages/cli/tests/copy-workflow-generation.test.ts
       - name: Read destination workflow inventory
         env:
           GH_TOKEN: ${{ secrets.workflow-token }}
@@ -164,7 +167,6 @@ jobs:
         shell: bash
         run: |
           args=(--config caller-config/.github/copy-files-config.yml
-            --schema packages/cli/src/copy-files-to-another-repository/config.schema.json
             --source-root source-workflows
             --repository "$DEST_REPO" --workflow "$SELECTED_WORKFLOW"
             --output "$RUNNER_TEMP/generated"
@@ -172,7 +174,7 @@ jobs:
           if [[ -f "$RUNNER_TEMP/destination-publish.yml" ]]; then
             args+=(--destination-publish-file "$RUNNER_TEMP/destination-publish.yml")
           fi
-          node --experimental-strip-types packages/cli/src/bin/copy-workflows.ts "${args[@]}"
+          node packages/cli/dist/bin/cli.mjs copy-workflow "${args[@]}"
       - id: sync
         name: Copy generated workflows to destination
         uses: ./actions/copy-files-to-another-repository

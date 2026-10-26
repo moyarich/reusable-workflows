@@ -1,4 +1,11 @@
-import { chmodSync, existsSync, readFileSync, statSync } from "node:fs";
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  statSync,
+} from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -20,3 +27,10 @@ for (const [name, file] of Object.entries(manifest.bin ?? {}) as [
   }
   chmodSync(target, statSync(target).mode | 0o755);
 }
+
+// Publish the schema alongside the executable that reads it.
+mkdirSync(resolve(root, "dist/schemas"), { recursive: true });
+copyFileSync(
+  resolve(root, "src/copy-files-to-another-repository/config.schema.json"),
+  resolve(root, "dist/schemas/copy-files-config.schema.json"),
+);

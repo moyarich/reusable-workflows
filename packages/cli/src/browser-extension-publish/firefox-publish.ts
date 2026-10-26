@@ -2,7 +2,7 @@
 import { mkdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import process from "node:process";
-import { validate, safeDir } from "./manifest.js";
+import { validate, safeDir } from "./manifest.ts";
 
 /** Validate an extension and submit it to Firefox Add-ons for signing. */
 export function firefoxPublish(

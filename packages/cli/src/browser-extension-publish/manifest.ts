@@ -2,9 +2,9 @@ import { readFileSync } from "node:fs";
 import { resolve, relative, join } from "node:path";
 import process from "node:process";
 /** Public store API. */
-import { validateManifest } from "./manifest-rules.js";
-import type { Store } from "./manifest-rules.js";
-export type { Store } from "./manifest-rules.js";
+import { validateManifest } from "./manifest-rules.ts";
+import type { Store } from "./manifest-rules.ts";
+export type { Store } from "./manifest-rules.ts";
 /** Public safe dir API. */
 export function safeDir(value: string) {
   const root = process.cwd();

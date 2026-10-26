@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
-import process from "node:process";
+import process$1 from "node:process";
 // ../cli/src/release-draft-sync/identity.ts
 var versionedMarker = /<!--\s*release-draft-sync:(v\d+)\b([\s\S]*?)-->/g;
 var legacyTarget = /<!--\s*release-draft-sync:target=([^\s>]+)\s*-->/;
@@ -67,37 +67,50 @@ function validateReleaseMarker(body, expected) {
 	else if (expected.target && marker.target && marker.target !== expected.target && marker.target !== expected.package) throw new Error("Legacy release target mismatch: " + marker.target);
 	return marker;
 }
+// ../cli/src/validate-release-identity/release-lookup.ts
+function findReleaseByTag(raw, tag) {
+	const pages = JSON.parse(raw);
+	if (!Array.isArray(pages)) throw new Error("GitHub releases response must be an array");
+	return pages.flat().find((value) => value !== null && typeof value === "object" && value.tag_name === tag);
+}
 // ../cli/src/validate-release-identity/index.ts
-/** Commander-powered CLI command and feature implementation. @module */
+/** GitHub release identity validation action adapter. */
 var input = (name) => {
 	const key = "INPUT_" + name.toUpperCase();
-	return process.env[key] ?? process.env[key.replaceAll("-", "_")] ?? "";
+	return process$1.env[key] ?? process$1.env[key.replaceAll("-", "_")] ?? "";
 };
-try {
+/** Run identity validation using GitHub CLI and GitHub Actions outputs. */
+function runAction() {
 	const tag = input("release-tag");
 	if (!tag) throw new Error("release-tag is required");
-	const raw = execFileSync("gh", [
+	const repository = process$1.env.GITHUB_REPOSITORY;
+	if (!repository || !/^[\w.-]+\/[\w.-]+$/.test(repository)) throw new Error("Invalid GitHub repository");
+	const release = findReleaseByTag(execFileSync("gh", [
 		"api",
 		"--paginate",
 		"--slurp",
-		"repos/" + process.env.GITHUB_REPOSITORY + "/releases?per_page=100"
-	], { encoding: "utf8" });
-	const release = JSON.parse(raw).flat().find((item) => item.tag_name === tag);
+		"repos/" + repository + "/releases?per_page=100"
+	], { encoding: "utf8" }), tag);
 	if (!release) {
 		if (input("required") === "true") throw new Error("No GitHub Release for tag: " + tag);
 		console.log("No release exists for tag " + tag + "; skipping marker validation.");
-	} else {
-		const marker = validateReleaseMarker(release.body || "", {
-			tag,
-			package: input("package-name"),
-			version: input("version"),
-			target: input("target")
-		});
-		console.log("Release " + tag + " metadata format: " + marker.format);
-		if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, "format=" + marker.format + "\n");
+		return;
 	}
+	const marker = validateReleaseMarker(release.body || "", {
+		tag,
+		package: input("package-name"),
+		version: input("version"),
+		target: input("target")
+	});
+	console.log("Release " + tag + " metadata format: " + marker.format);
+	if (process$1.env.GITHUB_OUTPUT) appendFileSync(process$1.env.GITHUB_OUTPUT, "format=" + marker.format + "\n");
+}
+// ../cli/src/validate-release-identity/action-entry.ts
+/** Executable entrypoint for release identity validation action. */
+try {
+	runAction();
 } catch (error) {
-	console.error("::error::" + error.message);
+	console.error("::error::" + (error instanceof Error ? error.message : String(error)));
 	process.exitCode = 1;
 }
 export {};

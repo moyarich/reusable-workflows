@@ -1,51 +1,10 @@
-import { appendFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+import { assertRun, normalizeWorkflowInputs, parseRequiredWorkflows, } from "./dispatch-rules.js";
+import { appendFileSync, realpathSync } from "node:fs";
 const env = (name) => process.env[name] ?? "";
-const apiRoot = env("GITHUB_API_URL") || "https://api.github.com";
+const apiRoot = "https://api.github.com";
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-export function normalizeInputs(json, shaInput, sha) {
-    const values = JSON.parse(json || "{}");
-    if (!values || Array.isArray(values) || typeof values !== "object")
-        throw new Error("Workflow inputs must be a JSON object");
-    const normalized = {};
-    for (const [key, value] of Object.entries(values)) {
-        if (typeof value !== "string" &&
-            typeof value !== "number" &&
-            typeof value !== "boolean")
-            throw new Error(`Input ${key} must be a string, number or boolean`);
-        normalized[key] = String(value);
-    }
-    if (shaInput) {
-        if (!/^[A-Za-z_][A-Za-z0-9_-]*$/.test(shaInput))
-            throw new Error("Invalid SHA input name");
-        normalized[shaInput] = sha;
-    }
-    return normalized;
-}
-
-/** Parse workflow-specific workflow_dispatch inputs, keyed by workflow filename. */
-export function normalizeWorkflowInputs(json, shaInput, sha) {
-  const value = JSON.parse(json || "{}");
-  if (value === null || Array.isArray(value) || typeof value !== "object")
-    throw new Error("workflow_inputs must be a JSON object keyed by workflow filename");
-  const inputs = {};
-  for (const [name, config] of Object.entries(value)) {
-    if (!/^[\w.-]+\.ya?ml$/.test(name))
-      throw new Error("Invalid workflow_inputs filename: " + name);
-    inputs[name] = normalizeInputs(JSON.stringify(config), shaInput, sha);
-  }
-  return inputs;
-}
-
-export function assertRun(run, { id, sha, branch, workflow, }) {
-    if (run.id !== id ||
-        run.event !== "workflow_dispatch" ||
-        run.path !== `.github/workflows/${workflow}` ||
-        run.head_sha !== sha ||
-        run.head_branch !== branch)
-        throw new Error("Dispatched run ID, workflow, branch or SHA does not match");
-    return run;
-}
-export async function dispatchAndWait({ repository, workflow, branch, sha, token, inputs = {}, timeoutSeconds = 300, pollSeconds = 15, request = fetch, pause = sleep, root = apiRoot, }) {
+export async function dispatchAndWait({ repository, workflow, branch, sha, token, inputs = {}, timeoutSeconds = 300, pollSeconds = 15, request = fetch, pause = sleep, root = env("GITHUB_API_URL") || apiRoot, }) {
     if (!/^[\w.-]+\/[\w.-]+$/.test(repository))
         throw new Error("Invalid repository");
     if (!/^[\w.-]+\.ya?ml$/.test(workflow))
@@ -111,58 +70,43 @@ export async function dispatchAndWait({ repository, workflow, branch, sha, token
         await pause(Math.min(pollSeconds * 1000, Math.max(0, deadline - Date.now())));
     }
 }
-export function parseRequiredWorkflows(required_workflows) {
-  const names = required_workflows.split(",").map((name) => name.trim()).filter(Boolean);
-  if (!names.length || names.some((name) => !/^[\w.-]+\.ya?ml$/.test(name)))
-    throw new Error("Provide one or more valid workflow filenames");
-  if (new Set(names).size !== names.length)
-    throw new Error("Duplicate workflow filenames are not allowed");
-  return names;
-}
-
 export async function dispatchRequiredWorkflows(options) {
-  const names = parseRequiredWorkflows(options.required_workflows);
-  const results = [];
-  for (const workflow of names) {
-    const result = await dispatchAndWait({
-      ...options,
-      workflow,
-      inputs: options.workflow_inputs?.[workflow] ?? options.inputs ?? {},
-    });
-    results.push({ workflow, ...result });
-  }
-  return results;
+    const names = parseRequiredWorkflows(options.required_workflows);
+    const results = [];
+    for (const workflow of names) {
+        const result = await dispatchAndWait({
+            ...options,
+            workflow,
+            inputs: options.workflow_inputs?.[workflow] ?? options.inputs ?? {},
+        });
+        results.push({ workflow, ...result });
+    }
+    return results;
 }
-
-if (
-  process.argv[1] &&
-  import.meta.url === new URL(`file://${process.argv[1]}`).href
-) {
-  try {
-    const results = await dispatchRequiredWorkflows({
-      repository: env("GITHUB_REPOSITORY"),
-      required_workflows: env("REQUIRED_WORKFLOWS"),
-      branch: env("DISPATCH_BRANCH"),
-      sha: env("DISPATCH_SHA"),
-      token: env("GH_TOKEN"),
-      workflow_inputs: normalizeWorkflowInputs(
-        env("WORKFLOW_INPUTS"),
-        env("DISPATCH_SHA_INPUT"),
-        env("DISPATCH_SHA"),
-      ),
-      timeoutSeconds: Number(env("DISPATCH_TIMEOUT") || 300),
-      pollSeconds: Number(env("DISPATCH_POLL_INTERVAL") || 15),
-    });
-    if (env("GITHUB_OUTPUT"))
-      appendFileSync(env("GITHUB_OUTPUT"), `workflow-results=${JSON.stringify(results)}\n`);
-    if (env("GITHUB_STEP_SUMMARY"))
-      appendFileSync(
-        env("GITHUB_STEP_SUMMARY"),
-        "## Required workflow runs\n\n" +
-          results.map((r) => `- [${r.workflow}](${r.url}): **${r.conclusion}**\n`).join(""),
-      );
-  } catch (error) {
-    console.error(`::error::${error instanceof Error ? error.message : String(error)}`);
-    process.exitCode = 1;
-  }
+const isMain = !!process.argv[1] &&
+    import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href;
+if (isMain) {
+    try {
+        const results = await dispatchRequiredWorkflows({
+            repository: env("GITHUB_REPOSITORY"),
+            required_workflows: env("REQUIRED_WORKFLOWS"),
+            branch: env("DISPATCH_BRANCH"),
+            sha: env("DISPATCH_SHA"),
+            token: env("GH_TOKEN"),
+            workflow_inputs: normalizeWorkflowInputs(env("WORKFLOW_INPUTS"), env("DISPATCH_SHA_INPUT"), env("DISPATCH_SHA")),
+            timeoutSeconds: Number(env("DISPATCH_TIMEOUT") || 300),
+            pollSeconds: Number(env("DISPATCH_POLL_INTERVAL") || 15),
+        });
+        if (env("GITHUB_OUTPUT"))
+            appendFileSync(env("GITHUB_OUTPUT"), `workflow-results=${JSON.stringify(results)}\n`);
+        if (env("GITHUB_STEP_SUMMARY"))
+            appendFileSync(env("GITHUB_STEP_SUMMARY"), "## Required workflow runs\n\n" +
+                results
+                    .map((r) => `- [${r.workflow}](${r.url}): **${r.conclusion}**\n`)
+                    .join(""));
+    }
+    catch (error) {
+        console.error(`::error::${error instanceof Error ? error.message : String(error)}`);
+        process.exitCode = 1;
+    }
 }

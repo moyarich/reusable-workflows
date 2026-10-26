@@ -13,17 +13,10 @@ export default defineConfig({
     minify: false,
     rollupOptions: {
       input: {
-        cli: resolve(root, "src/cli.ts"),
-        "workspace-source": resolve(root, "src/bin/workspace-source-entry.ts"),
-        "release-validate": resolve(root, "src/bin/release-validate-entry.ts"),
-        browser: resolve(root, "src/bin/browser-entry.ts"),
-        "setup-workspace-tools": resolve(
-          root,
-          "src/setup-workspace-tools/bin-entry.ts",
-        ),
+        cli: resolve(root, "src/bin/cli-entries.ts"),
       },
       output: {
-        entryFileNames: "[name].mjs",
+        entryFileNames: "bin/[name].mjs",
         chunkFileNames: "chunks/[name]-[hash].mjs",
         banner: (chunk) => (chunk.isEntry ? "#!/usr/bin/env node" : ""),
       },

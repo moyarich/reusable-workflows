@@ -12,7 +12,7 @@ The monorepo contains two build workspaces and **one publishable npm package**.
 ## Authored sources
 
 - Reusable TypeScript and JavaScript live in `packages/cli/src/<feature>/`.
-- The CLI entry point is `packages/cli/src/cli.ts`; public imports use the `exports` in `packages/cli/package.json`.
+- The CLI entry point is `packages/cli/src/bin/cli-entries.ts`; public imports use the `exports` in `packages/cli/package.json`.
 - Action manifests and other authored Action resources live in `packages/actions/actions/<action-name>/`.
 - The private Actions build uses `packages/actions/vite.config.ts` and `packages/actions/scripts/`.
 
@@ -38,24 +38,25 @@ It must be safe to delete the entire root `actions/` folder and run `npm run bui
 
 `check-dist` uses separate distribution targets: `actions/` for GitHub Actions and `packages/cli/dist/` for the npm CLI. Only `packages/cli` is eligible for npm publication.
 
-## Commander binaries
+## Combined Commander CLI
 
-The public npm package exposes individual CLI entry files under `packages/cli/src/bin/`.
-Each utility owns its own Commander command; shared logic stays in `packages/cli/src/<feature>/`.
-The combined `reusable-workflows-cli` command reuses these command factories.
+The npm package exposes one executable, `reusable-workflows-cli`, built from
+`packages/cli/src/bin/cli-entries.ts` into `dist/bin/cli.mjs`.
+Each utility owns its own command factory; the combined CLI registers them.
+GitHub Actions retain their dedicated action entry points and build independently.
 
 ```sh
-# Published package is scoped; this selects the intended npm package explicitly.
-npx --yes --package @moyarich/reusable-workflows-cli reusable-workflows-cli --help
-npx --yes --package @moyarich/reusable-workflows-cli reusable-workflows-cli workspace-source --source registry:npm:latest
-
-# Dedicated binaries are exposed through package.json bin:
-npx --yes --package @moyarich/reusable-workflows-cli reusable-workflows-workspace-source --source registry:npm:latest
-npx --yes --package @moyarich/reusable-workflows-cli reusable-workflows-release-validate --file CHANGELOG.md
-npx --yes --package @moyarich/reusable-workflows-cli reusable-workflows-browser --help
-npx --yes --package @moyarich/reusable-workflows-cli reusable-workflows-setup-workspace-tools --help
+npx @moyarich/reusable-workflows-cli --help
+npx @moyarich/reusable-workflows-cli workspace-source --source registry:npm:latest
+npx @moyarich/reusable-workflows-cli release-validate --help
+npx @moyarich/reusable-workflows-cli browser --help
+npx @moyarich/reusable-workflows-cli setup-workspace-tools --help
+npx @moyarich/reusable-workflows-cli copy-workflow --help
+npx @moyarich/reusable-workflows-cli copy-workflow-choices --help
+npx @moyarich/reusable-workflows-cli sync-workflow-choices --help
+npx @moyarich/reusable-workflows-cli sync-release-choices --help
+npx @moyarich/reusable-workflows-cli sync-release-summary
 ```
 
-`npx reusable-workflows-cli` by itself refers to the **unscoped** package name and will not select the scoped `@moyarich/reusable-workflows-cli` package. Use the explicit `--package` form above unless an unscoped npm package is published separately.
-
-The npm package build produces `dist/cli.mjs` and each declared `dist/<name>.mjs`; CI checks that all bin targets exist.
+Workflows build the package before invoking `node packages/cli/dist/bin/cli.mjs`
+with the appropriate subcommand. They never execute TypeScript sources.

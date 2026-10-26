@@ -4,12 +4,7 @@
   "type": "module",
   "description": "Commander CLI for reusable workflows",
   "bin": {
-    "reusable-workflows-cli": "dist/cli.mjs",
-    "reusable-workflows": "dist/cli.mjs",
-    "reusable-workflows-workspace-source": "dist/workspace-source.mjs",
-    "reusable-workflows-release-validate": "dist/release-validate.mjs",
-    "reusable-workflows-browser": "dist/browser.mjs",
-    "reusable-workflows-setup-workspace-tools": "dist/setup-workspace-tools.mjs"
+    "reusable-workflows-cli": "dist/bin/cli.mjs"
   },
   "files": [
     "dist"
@@ -20,13 +15,14 @@
     "check:pack": "npm pack --dry-run",
     "lint": "eslint .",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
-    "test:copy-workflows": "vitest run ../../tests/copy-workflow-generation.test.ts",
-    "sync:workflow-choices": "node --experimental-strip-types src/bin/sync-workflow-choices.ts"
+    "test": "vitest run",
+    "test:copy-workflows": "vitest run tests/copy-workflow-generation.test.ts",
+    "sync:workflow-choices": "node dist/bin/cli.mjs sync-workflow-choices"
   },
   "dependencies": {
+    "ajv": "^8.17.1",
     "commander": "^14.0.0",
-    "yaml": "^2.9.1",
-    "ajv": "^8.17.1"
+    "yaml": "^2.9.1"
   },
   "engines": {
     "node": ">=24"
@@ -55,6 +51,7 @@
   },
   "types": "./dist/types/index.d.ts",
   "devDependencies": {
+    "@types/node": "^24.19.2",
     "unplugin-dts": "^1.1.2"
   }
 }

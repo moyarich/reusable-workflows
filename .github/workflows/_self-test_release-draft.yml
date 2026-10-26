@@ -8,9 +8,8 @@ on:
       - "actions/release-draft-sync/**"
       - "actions/validate-release-identity/**"
       - "actions/_assets/**"
-      - "tests/release-identity-marker.test.mjs"
+      - "packages/cli/tests/release-identity-marker.test.mjs"
       - "tests/release-draft-auto-version.test.mjs"
-      - ".github/workflows/_self-test_release-draft.yml"
       - ".github/workflows/release-draft.yml"
       - ".github/release-drafter-template.yml"
       - "CHANGELOG.md"
@@ -20,9 +19,8 @@ on:
       - ".github/workflows/_self-test_release-draft.yml"
       - "actions/release-draft-sync/**"
       - "actions/validate-release-identity/**"
-      - "tests/release-identity-marker.test.mjs"
+      - "packages/cli/tests/release-identity-marker.test.mjs"
       - "tests/release-draft-auto-version.test.mjs"
-      - ".github/workflows/_self-test_release-draft.yml"
       - ".github/workflows/release-draft.yml"
       - ".github/release-drafter-template.yml"
       - "CHANGELOG.md"
@@ -57,7 +55,7 @@ jobs:
           node-version: "24"
       - name: Install test dependencies
         run: npm install --no-package-lock --no-audit --no-fund
-      - run: npx --no-install vitest run tests/release-identity-marker.test.mjs tests/release-draft-auto-version.test.mjs
+      - run: npx --no-install vitest run packages/cli/tests/release-identity-marker.test.mjs tests/release-draft-auto-version.test.mjs
         id: contracts
       - name: Write contract summary
         if: always()
