@@ -29,6 +29,7 @@ beforeEach(() => {
         allow: ["*.yml"],
       },
       defaults: { branch: "main", include: ["*.yml"] },
+      profiles: { npm: { include: ["publish.yml"] } },
       repositories: [
         { name: "example/one", profiles: ["npm"] },
         { name: "example/two" },
