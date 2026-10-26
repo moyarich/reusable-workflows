@@ -10,25 +10,10 @@ import { copyWorkflow } from "./copy-workflows.js";
  */
 function resolveDefaultSchema(): string {
   const executableDirectory = dirname(resolve(process.argv[1] ?? "."));
-  const candidates = [
-    resolve(executableDirectory, "../schemas/copy-files-config.schema.json"),
-    resolve(
-      executableDirectory,
-      "../copy-files-to-another-repository/config.schema.json",
-    ),
-    resolve(
-      process.cwd(),
-      "packages/cli/src/copy-files-to-another-repository/config.schema.json",
-    ),
-    resolve(
-      process.cwd(),
-      "src/copy-files-to-another-repository/config.schema.json",
-    ),
-  ];
-  const schema = candidates.find((candidate) => existsSync(candidate));
-  if (!schema) {
+  const schema = resolve(executableDirectory, "../copy-files-to-another-repository/config.schema.json");
+  if (!existsSync(schema)) {
     throw new Error(
-      "Cannot locate copy-files-config.schema.json; pass --schema <path> or rebuild the CLI runtime assets",
+      "Cannot locate copier schema at " + schema + "; pass --schema <path> or rebuild the CLI runtime assets",
     );
   }
   return schema;
