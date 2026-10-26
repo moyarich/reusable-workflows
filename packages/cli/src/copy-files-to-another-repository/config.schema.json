@@ -4,12 +4,19 @@
   "title": "Canonical workflow copy configuration",
   "type": "object",
   "additionalProperties": false,
-  "required": ["source", "repositories"],
+  "required": [
+    "source",
+    "repositories"
+  ],
   "properties": {
     "source": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["repository", "directory", "allow"],
+      "required": [
+        "repository",
+        "directory",
+        "allow"
+      ],
       "properties": {
         "repository": {
           "$ref": "#/$defs/repository"
@@ -35,7 +42,7 @@
       "items": {
         "$ref": "#/$defs/destination"
       },
-      "description": "Destinations inherit defaults, then a named profile, then their own settings."
+      "description": "Destinations inherit defaults, then ordered profiles, then repository settings."
     },
     "defaults": {
       "$ref": "#/$defs/profileSettings",
@@ -46,7 +53,7 @@
       "additionalProperties": {
         "$ref": "#/$defs/profileSettings"
       },
-      "description": "Named reusable settings assigned through repositories[].profile"
+      "description": "Named reusable settings assigned through repositories[].profiles"
     }
   },
   "$defs": {
@@ -66,7 +73,9 @@
     "destination": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name"],
+      "required": [
+        "name"
+      ],
       "properties": {
         "name": {
           "$ref": "#/$defs/repository"
@@ -92,14 +101,25 @@
           "additionalProperties": {
             "type": "object",
             "propertyNames": {
-              "enum": ["on", "jobs", "env", "defaults", "name", "run-name"]
+              "enum": [
+                "on",
+                "jobs",
+                "env",
+                "defaults",
+                "name",
+                "run-name"
+              ]
             }
           }
         },
-        "profile": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Name of an entry in profiles; unknown profiles are rejected"
+        "profiles": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true,
+          "description": "Ordered profile names; later profiles override earlier settings"
         }
       }
     },
