@@ -1,4 +1,4 @@
-name: Copy canonical workflow callers
+name: Copy files to another repository
 run-name: >-
   Copy callers · ${{ inputs.repository == 'all' && 'all destinations' ||
   inputs.repository }} · ${{ inputs.dry-run && 'preview' || (inputs.mode ==
