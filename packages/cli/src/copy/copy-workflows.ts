@@ -39,7 +39,9 @@ export const copyWorkflow = (opts: Options) => {
     merge: true,
   });
   const ajv = new Ajv2020({ allErrors: true, strict: false });
-  const validate = ajv.compile(opts.schema ? JSON.parse(readFileSync(opts.schema, "utf8")) : configSchema);
+  const validate = ajv.compile(
+    opts.schema ? JSON.parse(readFileSync(opts.schema, "utf8")) : configSchema,
+  );
   if (!validate(parsedConfig)) {
     throw new Error(
       `Invalid copier configuration: ${ajv.errorsText(validate.errors)}`,
