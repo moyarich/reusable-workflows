@@ -47,6 +47,7 @@
       "default": "./index.js"
     },
     "./package.json": "./package.json",
+    "./schemas/copy-files-config.schema.json": "./dist/copy-files-to-another-repository/config.schema.json",
     "./schemas/*": "./dist/schemas/*",
     "./*.js": {
       "types": "./dist/*.d.ts",
