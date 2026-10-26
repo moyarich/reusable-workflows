@@ -33,15 +33,14 @@ const repositories = config.repositories as Array<{
   name: string;
   branch?: string;
 }>;
+const profiles = (config as { profiles?: Record<string, unknown> }).profiles ?? {};
 for (const repository of config.repositories as Array<{
   name: string;
-  profile?: string;
+  profiles?: string[];
 }>) {
-  if (repository.profile !== undefined) {
-    const profiles =
-      (config as { profiles?: Record<string, unknown> }).profiles ?? {};
-    if (!Object.hasOwn(profiles, repository.profile))
-      throw Error("Unknown copier profile: " + repository.profile);
+  for (const profile of repository.profiles ?? []) {
+    if (!Object.hasOwn(profiles, profile))
+      throw Error("Unknown copier profile: " + profile);
   }
 }
 const names = repositories.map((r) => r.name);
