@@ -144,7 +144,8 @@ export function generateWorkflows(opts: GenerateOptions): string[] {
     if (!Object.hasOwn(profiles, name))
       throw Error("Unknown copier profile: " + name);
     const settings = profiles[name];
-    if (!object(settings)) throw Error("Copier profile must be a mapping: " + name);
+    if (!object(settings))
+      throw Error("Copier profile must be a mapping: " + name);
     return settings;
   });
   // Profiles are applied in declared order; repository settings are last.
