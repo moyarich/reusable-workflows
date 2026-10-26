@@ -174,9 +174,8 @@ jobs:
         run: |
           # A destination may not have workflows yet. Only treat a missing folder
           # as empty; do not hide authentication or repository errors.
-          status="$(gh api -i "repos/$DEST_REPO/contents/.github/workflows?ref=$DEST_BRANCH" > "$RUNNER_TEMP/inventory-response" 2>"$RUNNER_TEMP/inventory-error" && echo 200 || echo failed)"
-          if [[ "$status" == 200 ]]; then
-            sed -n '/^\\r$/,$p' "$RUNNER_TEMP/inventory-response" | sed '1d' | jq '[.[] | select(.type == "file") | .name]' > "$RUNNER_TEMP/existing-workflows.json"
+          if gh api "repos/$DEST_REPO/contents/.github/workflows?ref=$DEST_BRANCH" --jq '[.[] | select(.type == "file") | .name]' > "$RUNNER_TEMP/existing-workflows.json" 2>"$RUNNER_TEMP/inventory-error"; then
+            echo "Read existing workflow inventory."
           elif gh api "repos/$DEST_REPO/git/ref/heads/$DEST_BRANCH" >/dev/null 2>&1; then
             echo '[]' > "$RUNNER_TEMP/existing-workflows.json"
             echo "::notice::Destination has no .github/workflows directory; it will be created when workflows are copied."
