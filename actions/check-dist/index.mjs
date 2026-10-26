@@ -1,4 +1,5 @@
-import { a as __toCommonJS, i as __require, n as __esmMin, o as __toESM, r as __exportAll, t as __commonJSMin } from "../_assets/rolldown-runtime-C1I3wEg2.mjs";
+import { a as __toCommonJS, i as __require, n as __esmMin, o as __toESM, r as __exportAll, t as __commonJSMin } from "../_chunks/rolldown-runtime-C1I3wEg2.mjs";
+import path from "node:path";
 import fs from "node:fs";
 // ../../node_modules/yaml/dist/nodes/identity.js
 var require_identity = /* @__PURE__ */ __commonJSMin(((exports) => {
@@ -13624,9 +13625,25 @@ function required(env, name) {
 	if (!value) throw new Error("Missing " + name);
 	return value;
 }
+/** Discover local npm workspaces without Workspace Tools or generated actions. */
+function discoverLocalPackages() {
+	const root = process.cwd();
+	const manifest = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+	const patterns = Array.isArray(manifest.workspaces) ? manifest.workspaces : manifest.workspaces?.packages ?? [];
+	const found = /* @__PURE__ */ new Map();
+	for (const pattern of patterns.filter((value) => !value.startsWith("!"))) for (const file of fs.globSync(pattern.replaceAll("\\", "/").replace(/\/$/, "") + "/package.json", { cwd: root })) {
+		const directory = path.posix.dirname(file.replace(/\\/g, "/"));
+		const pkg = JSON.parse(fs.readFileSync(path.join(root, file), "utf8"));
+		if (pkg.name && pkg.scripts?.build) found.set(directory, {
+			name: pkg.name,
+			directory
+		});
+	}
+	return [...found.values()].sort((a, b) => a.directory.localeCompare(b.directory));
+}
 /** Read CI inputs and emit GitHub outputs; called only by the CLI entrypoint. */
 function runSelection(env = process.env) {
-	const report = JSON.parse(required(env, "DISCOVERED"));
+	const report = env.DISCOVERED ? JSON.parse(env.DISCOVERED) : { included: discoverLocalPackages() };
 	const configPath = required(env, "CONFIG_FILE");
 	const parsedConfig = fs.existsSync(configPath) ? (0, import_dist.parse)(fs.readFileSync(configPath, "utf8")) : {};
 	const validation = validateSchema(check_dist_config_schema_default, parsedConfig, "check-dist configuration");

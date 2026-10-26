@@ -59,22 +59,8 @@ on:
 permissions: {}
 
 jobs:
-  discover-packages:
-    name: Discover workspace packages
-    permissions:
-      contents: read
-    uses: ./.github/workflows/reusable_discover-packages.yml
-    with:
-      packages-directory: packages
-      use-workspaces: true
-      require-build-script: true
-      include-private: true
-      include-root-package: ${{ inputs.include-root-package }}
-      workspace-tools-source: ${{ inputs.workspace-tools-source }}
-
   select-packages:
     name: Select distributions
-    needs: discover-packages
     runs-on: ubuntu-latest
     permissions: {}
     outputs:
@@ -86,11 +72,19 @@ jobs:
         uses: actions/checkout@v7
         with:
           persist-credentials: false
+      - name: Bootstrap check-dist action from source
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-package-lock --no-audit --no-fund
+          npm run build:actions
+          test -f actions/check-dist/action.yml
+          test -f actions/check-dist/index.mjs
+
       - name: Select and validate distribution packages
         id: select
         uses: ./actions/check-dist
         with:
-          discovered: ${{ needs.discover-packages.outputs.packages }}
           package: ${{ inputs.package }}
           dist-path: ${{ inputs.dist-path }}
           config-path: ${{ inputs.config-path }}
@@ -180,7 +174,16 @@ jobs:
       - name: Rebuild distribution
         env:
           BUILD_COMMAND: ${{ matrix.buildCommand }}
-        run: bash -euo pipefail -c "$BUILD_COMMAND"
+          DIST_PATH: ${{ steps.resolve.outputs.dist-path }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The root actions directory is entirely generated. Clear stale outputs
+          # so removed entrypoints and helpers are included in the repair diff.
+          if [[ "$DIST_PATH" == "actions" || "$DIST_PATH" == "actions/" ]]; then
+            rm -rf -- actions
+          fi
+          bash -euo pipefail -c "$BUILD_COMMAND"
 
       - name: Compare distribution
         id: compare
@@ -200,7 +203,7 @@ jobs:
             echo "CI-only distribution: build output exists; Git comparison skipped."
             exit 0
           fi
-          git add -f -- "$DIST_PATH"
+          git add -f -A -- "$DIST_PATH"
           if git diff --cached --quiet -- "$DIST_PATH"; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "Distribution matches committed output."

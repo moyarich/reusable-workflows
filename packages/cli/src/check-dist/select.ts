@@ -1,5 +1,6 @@
 /** CLI adapter for distribution selection and GitHub Actions outputs. */
 import fs from "node:fs";
+import path from "node:path";
 import { parse } from "yaml";
 import { validateSchema } from "../validate-schema/validate-schema.js";
 import configSchema from "../schemas/check-dist-config.schema.json" with { type: "json" };
@@ -13,11 +14,44 @@ function required(env: NodeJS.ProcessEnv, name: string): string {
   return value;
 }
 
+/** Discover local npm workspaces without Workspace Tools or generated actions. */
+function discoverLocalPackages(): Package[] {
+  const root = process.cwd();
+  const manifest = JSON.parse(
+    fs.readFileSync(path.join(root, "package.json"), "utf8"),
+  ) as {
+    workspaces?: string[] | { packages?: string[] };
+  };
+  const patterns = Array.isArray(manifest.workspaces)
+    ? manifest.workspaces
+    : (manifest.workspaces?.packages ?? []);
+  const found = new Map<string, Package>();
+  for (const pattern of patterns.filter((value) => !value.startsWith("!"))) {
+    for (const file of fs.globSync(
+      pattern.replaceAll("\\", "/").replace(/\/$/, "") + "/package.json",
+      { cwd: root },
+    )) {
+      const directory = path.posix.dirname(file.replace(/\\/g, "/"));
+      const pkg = JSON.parse(
+        fs.readFileSync(path.join(root, file), "utf8"),
+      ) as {
+        name?: string;
+        scripts?: { build?: string };
+      };
+      if (pkg.name && pkg.scripts?.build)
+        found.set(directory, { name: pkg.name, directory });
+    }
+  }
+  return [...found.values()].sort((a, b) =>
+    a.directory.localeCompare(b.directory),
+  );
+}
+
 /** Read CI inputs and emit GitHub outputs; called only by the CLI entrypoint. */
 export function runSelection(env: NodeJS.ProcessEnv = process.env): void {
-  const report = JSON.parse(required(env, "DISCOVERED")) as {
-    included: Package[];
-  };
+  const report = env.DISCOVERED
+    ? (JSON.parse(env.DISCOVERED) as { included: Package[] })
+    : { included: discoverLocalPackages() };
   const configPath = required(env, "CONFIG_FILE");
   const parsedConfig: unknown = fs.existsSync(configPath)
     ? parse(fs.readFileSync(configPath, "utf8"))

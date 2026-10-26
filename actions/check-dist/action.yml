@@ -2,8 +2,8 @@ name: Select distribution packages
 description: Validate per-repository distribution configuration and produce a matrix.
 inputs:
   discovered:
-    description: JSON package discovery report
-    required: true
+    description: Optional package discovery report; defaults to local npm workspace discovery
+    required: false
   package:
     description: Package name, directory, or all
     default: all

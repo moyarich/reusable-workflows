@@ -8,11 +8,5 @@
     "outDir": "dist"
   },
   "include": ["src/**/*.ts"],
-  "exclude": [
-    "src/bin/**",
-    "src/**/action-entry.ts",
-    "src/browser-extension-publish/entry.ts",
-    "dist",
-    "node_modules"
-  ]
+  "exclude": ["src/bin/**", "src/**/action-entry.ts", "dist", "node_modules"]
 }

@@ -20,7 +20,7 @@ npm run build:actions
 npm run check:cli-dist
 ```
 
-The `@moyarich/vite-github-actions` plugin generates the action distribution after bundling. The build stages temporary JS bundles under `packages/actions/dist/.bundles` (not under root `actions/`), recreates the root distribution directory if absent, copies source action metadata and composite runtimes, and prepares the generated distribution for the existing check-dist workflow. Vite-generated shared assets are copied to `actions/_assets/`.
+The `@moyarich/vite-github-actions` plugin generates the action distribution after bundling. The plugin stages temporary bundles in `.vite-github-actions-build`, then copies compiled entries, action metadata, and explicitly mapped JSON schemas into root `actions/`. It preserves the existing action metadata paths, and may emit shared chunks under `actions/_chunks/`. The generated directory should be treated as build output; clean stale files before regeneration when required.
 
 A useful destructive recovery test in a **clean disposable checkout or worktree** is:
 
@@ -32,9 +32,15 @@ npm run check:cli-dist
 
 Do not delete root `actions/` in an active checkout without first ensuring no local edits are needed. GitHub workflows that use `./actions/<name>` need the generated files present in the checked-out revision or rebuilt before invocation; regeneration does not make a missing action automatically usable before checkout/setup.
 
-When adding an action, add metadata under `packages/actions/actions/<name>/`, the runtime implementation under `packages/cli/src/` when needed, and register its bundling or copied runtime mapping in `packages/actions/vite.config.ts`. Generated output should never contain code that exists only in root `actions/`.
+When adding an action, add metadata under `packages/actions/actions/<name>/`, the runtime implementation under `packages/cli/src/` when needed, and follow the standard `packages/cli/src/<feature>/action-entry.ts` convention. The Vite glob discovers these entries automatically; add special static assets to `copy` mappings only when necessary. Generated output should never contain code that exists only in root `actions/`.
 
 The root `npm run build:actions` command then asks `packages/cli` to build its
 self-contained workflow runtime into `actions/cli/`. The Actions workspace does
 not build the combined CLI. The CLI npm build separately writes `dist/bin/cli.mjs`
 and includes `dist/` in its npm package.
+
+Compiled actions use `packages/cli/src/<feature>/action-entry.ts` as their Vite
+entry point. Reusable modules do not execute action code when imported. The
+build emits `actions/<feature>/index.mjs`; action metadata and workflows execute
+these built files. Composite actions containing only inline scripts need no
+TypeScript entry point.

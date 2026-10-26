@@ -124,11 +124,7 @@ export async function resolveWorkspaces({
   return report;
 }
 
-if (
-  process.argv[1] &&
-  path.resolve(process.argv[1]) ===
-    path.resolve(new URL(import.meta.url).pathname)
-) {
+export async function runResolveWorkspacesAction(): Promise<void> {
   const args = Object.fromEntries(
     process.argv
       .slice(2)
@@ -138,7 +134,7 @@ if (
         return [a.slice(2, i), a.slice(i + 1)];
       }),
   );
-  resolveWorkspaces({
+  await resolveWorkspaces({
     cwd: args.cwd ?? process.cwd(),
     packageSelector: args.package ?? "all",
     range: args.range ?? "caret",

@@ -1,4 +1,3 @@
-import { pathToFileURL } from "node:url";
 import type { WorkflowRun } from "./dispatch-rules.js";
 import {
   assertRun,
@@ -18,7 +17,7 @@ type DispatchOptions = {
   pause?: (ms: number) => Promise<void>;
   root?: string;
 };
-import { appendFileSync, realpathSync } from "node:fs";
+import { appendFileSync } from "node:fs";
 
 const env = (name: string) => process.env[name] ?? "";
 const apiRoot = "https://api.github.com";
@@ -133,11 +132,7 @@ export async function dispatchRequiredWorkflows(
   return results;
 }
 
-const isMain =
-  !!process.argv[1] &&
-  import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href;
-
-if (isMain) {
+export async function runWorkflowDispatchAction(): Promise<void> {
   try {
     const results = await dispatchRequiredWorkflows({
       repository: env("GITHUB_REPOSITORY"),
