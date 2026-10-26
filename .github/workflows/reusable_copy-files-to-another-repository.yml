@@ -70,6 +70,41 @@ jobs:
           --config .github/copy-files-config.yml
           --schema packages/cli/src/copy-files-to-another-repository/config.schema.json
           --repository "$REQUESTED_REPOSITORY" --plan
+      - name: Summarize copy plan
+        if: always()
+        env:
+          PLAN_RESULT: ${{ steps.config.outcome }}
+          MATRIX: ${{ steps.config.outputs.matrix }}
+          SOURCE: ${{ steps.config.outputs.source_repository }}
+          TARGET: ${{ inputs.repository }}
+          WORKFLOW: ${{ inputs.workflow }}
+          DRY_RUN: ${{ inputs.dry-run }}
+          MODE: ${{ inputs.mode }}
+        shell: bash
+        run: |
+          {
+            echo "## Canonical workflow copy — plan"
+            echo
+            echo "| Parameter | Value |"
+            echo "| --- | --- |"
+            echo "| Status | \`$PLAN_RESULT\` |"
+            echo "| Source | \`${SOURCE:-unknown}\` |"
+            echo "| Selection | \`${TARGET:-all}\` |"
+            echo "| Workflow | \`${WORKFLOW:-all}\` |"
+            echo "| Mode | \`$MODE\` |"
+            echo "| Dry run | \`$DRY_RUN\` |"
+            if [[ "$PLAN_RESULT" == success && -n "$MATRIX" ]]; then
+              echo
+              echo "### Destinations"
+              echo
+              echo "| Repository | Branch |"
+              echo "| --- | --- |"
+              jq -r '.include[] | "| \`" + .name + "\` | \`" + .branch + "\` |"' <<< "$MATRIX"
+            else
+              echo
+              echo "Configuration planning failed; consult the validation logs."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
   copy:
     needs: plan
@@ -138,7 +173,8 @@ jobs:
             args+=(--destination-publish-file "$RUNNER_TEMP/destination-publish.yml")
           fi
           node --experimental-strip-types packages/cli/src/bin/copy-workflows.ts "${args[@]}"
-      - name: Copy generated workflows to destination
+      - id: sync
+        name: Copy generated workflows to destination
         uses: ./actions/copy-files-to-another-repository
         with:
           token: ${{ secrets.workflow-token }}
@@ -150,3 +186,46 @@ jobs:
           mode: ${{ inputs.mode }}
           dry-run: ${{ inputs.dry-run }}
           commit-message: "chore(ci): sync shared workflow callers from ${{ needs.plan.outputs.source-repository }}"
+      - name: Summarize destination synchronization
+        if: always()
+        shell: bash
+        env:
+          REPOSITORY: ${{ matrix.name }}
+          BRANCH: ${{ matrix.branch }}
+          WORKFLOW: ${{ inputs.workflow }}
+          MODE: ${{ inputs.mode }}
+          DRY_RUN: ${{ inputs.dry-run }}
+          RESULT: ${{ steps.sync.outcome }}
+          CHANGED: ${{ steps.sync.outputs.changed }}
+          COMMITTED: ${{ steps.sync.outputs.committed }}
+          PR_URL: ${{ steps.sync.outputs.pull-request-url }}
+        run: |
+          {
+            echo "## Canonical workflow copy — destination"
+            echo
+            echo "| Parameter | Value |"
+            echo "| --- | --- |"
+            echo "| Repository | \`$REPOSITORY\` |"
+            echo "| Branch | \`$BRANCH\` |"
+            echo "| Workflow | \`${WORKFLOW:-all}\` |"
+            echo "| Mode | \`$MODE\` |"
+            echo "| Dry run | \`$DRY_RUN\` |"
+            echo "| Result | \`$RESULT\` |"
+            echo "| Changed | \`${CHANGED:-unknown}\` |"
+            echo "| Committed | \`${COMMITTED:-false}\` |"
+            if [[ -n "$PR_URL" ]]; then
+              echo "| Destination PR | [View pull request]($PR_URL) |"
+            fi
+            echo
+            if [[ "$RESULT" != success ]]; then
+              echo "Synchronization did not complete; review the job logs."
+            elif [[ "$CHANGED" == false ]]; then
+              echo "No changes: destination already matches the generated workflows."
+            elif [[ "$DRY_RUN" == true ]]; then
+              echo "Preview only — no changes committed."
+            elif [[ "$MODE" == pull-request ]]; then
+              echo "Updates were pushed to the destination review branch."
+            else
+              echo "Updates were pushed directly to the destination branch."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
