@@ -7,7 +7,6 @@ source:
   allow:
     - "ci_*.yml"
     - "ci.yml"
-    - "check-dist.yml"
     - "delete-release-tag.yml"
     - "history-cleanup.yml"
     - "issue-dependencies_*.yml"
@@ -24,6 +23,7 @@ source:
     - "_self-test_*.yml"
     - "reusable_*.yml"
     - "smoke-test_*.yml"
+    - "check-dist.yml"
 destination-directory: .github/workflows
 defaults:
   branch: main
