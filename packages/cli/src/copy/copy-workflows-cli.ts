@@ -1,25 +1,29 @@
-import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { Command } from "commander";
 import { copyWorkflow } from "./copy-workflows.js";
 
-// Bundled executables use the published schema; source invocations use the original.
-const defaultSchema = fileURLToPath(
-  [
-    new URL(
-      /* @vite-ignore */ "./copy-files-config.schema.json",
-      import.meta.url,
-    ),
-    new URL(
-      /* @vite-ignore */ "../schemas/copy-files-config.schema.json",
-      import.meta.url,
-    ),
-    new URL(
-      /* @vite-ignore */ "../copy-files-to-another-repository/config.schema.json",
-      import.meta.url,
-    ),
-  ].find((path) => existsSync(path))!,
-);
+/**
+ * Resolve the schema at invocation time, not module import time.
+ * Vite bundles the CLI into dist/bin/cli.mjs, where source-relative
+ * import.meta.url asset paths cannot be relied upon.
+ */
+function resolveDefaultSchema(): string {
+  const executableDirectory = dirname(resolve(process.argv[1] ?? "."));
+  const candidates = [
+    resolve(executableDirectory, "../schemas/copy-files-config.schema.json"),
+    resolve(executableDirectory, "../copy-files-to-another-repository/config.schema.json"),
+    resolve(process.cwd(), "packages/cli/src/copy-files-to-another-repository/config.schema.json"),
+    resolve(process.cwd(), "src/copy-files-to-another-repository/config.schema.json"),
+  ];
+  const schema = candidates.find((candidate) => existsSync(candidate));
+  if (!schema) {
+    throw new Error(
+      "Cannot locate copy-files-config.schema.json; pass --schema <path> or rebuild the CLI runtime assets",
+    );
+  }
+  return schema;
+}
 
 /** Create the copy-workflow Commander command. */
 export function createCopyWorkflowCommand(): Command {
@@ -29,7 +33,7 @@ export function createCopyWorkflowCommand(): Command {
       "copier config file",
       ".github/copy-files-config.yml",
     )
-    .option("--schema <path>", "JSON schema for the config", defaultSchema)
+    .option("--schema <path>", "JSON schema for the config")
     .option(
       "--repository <name>",
       "destination repository (must be allowlisted; empty or all selects all during planning)",
@@ -46,7 +50,9 @@ export function createCopyWorkflowCommand(): Command {
     )
     .option("--source-root <path>", "source repository root", ".")
     .option("--workflow <name>", "workflow name or all", "")
-    .action(copyWorkflow);
+    .action((opts) =>
+      copyWorkflow({ ...opts, schema: opts.schema ?? resolveDefaultSchema() }),
+    );
 }
 
 /** Invoke the CLI explicitly. */
