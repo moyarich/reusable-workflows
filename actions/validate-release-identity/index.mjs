@@ -1,5 +1,5 @@
-import { appendFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
+import { appendFileSync } from "node:fs";
 import process$1 from "node:process";
 // ../cli/src/release-draft-sync/identity.ts
 var versionedMarker = /<!--\s*release-draft-sync:(v\d+)\b([\s\S]*?)-->/g;

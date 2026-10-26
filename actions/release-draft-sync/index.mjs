@@ -1,5 +1,5 @@
-import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import process$1 from "node:process";
 // ../cli/src/release-draft-sync/commit-rules.ts
 /** Format a git log into stable, deduplicated release-note bullets. */

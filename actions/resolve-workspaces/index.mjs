@@ -1,5 +1,5 @@
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 // ../cli/src/resolve-workspaces/workspace-rules.ts
 function globRegex(glob) {
 	let pattern = "^";
