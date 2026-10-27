@@ -18,22 +18,28 @@ beforeAll(async () => {
     },
   });
 });
-afterEach(async () => { await github.reset(); });
-afterAll(async () => { await github?.close(); });
+afterEach(async () => {
+  await github.reset();
+});
+afterAll(async () => {
+  await github?.close();
+});
 
 it("fails closed for missing required CI in a real stateful GitHub emulator", async () => {
   const response = await fetch(`${github.url}/repos/${repo}`);
   expect(response.status).toBe(200);
 
-  await expect(verify({
-    workflows: [".github/workflows/ci_cli.yml"],
-    repository: repo,
-    token: "fixture-token",
-    sha,
-    branch: "release/prepare-fixture",
-    event: "pull_request",
-    apiRoot: github.url,
-  })).rejects.toThrow();
+  await expect(
+    verify({
+      workflows: [".github/workflows/ci_cli.yml"],
+      repository: repo,
+      token: "fixture-token",
+      sha,
+      branch: "release/prepare-fixture",
+      event: "pull_request",
+      apiRoot: github.url,
+    }),
+  ).rejects.toThrow();
 
   const releases = await fetch(`${github.url}/repos/${repo}/releases`);
   expect(releases.status).toBe(200);
