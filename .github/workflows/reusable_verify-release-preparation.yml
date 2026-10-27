@@ -35,7 +35,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Require successful designated pull request CI
-        uses: $/actions/verify-workflow-runs
+        uses: ./actions/verify-workflow-runs
         with:
           workflows: ${{ inputs.required-workflows }}
           sha: ${{ github.event.pull_request.head.sha }}
