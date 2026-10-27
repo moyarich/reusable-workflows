@@ -34,8 +34,17 @@ jobs:
           ref: ${{ github.event.pull_request.merge_commit_sha }}
           fetch-depth: 0
           persist-credentials: false
+      - name: Checkout version-matched reusable workflow actions
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .github/reusable-workflows-runtime
+          persist-credentials: false
+          sparse-checkout: actions
+          sparse-checkout-cone-mode: false
       - name: Require successful designated pull request CI
-        uses: ./actions/verify-workflow-runs
+        uses: ./.github/reusable-workflows-runtime/actions/verify-workflow-runs
         with:
           workflows: ${{ inputs.required-workflows }}
           sha: ${{ github.event.pull_request.head.sha }}
