@@ -21,4 +21,33 @@ jobs:
       - name: Install isolated emulator for integration verification
         run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund emulate@0.12.3
       - name: Exercise real GitHub API emulator
-        run: npx --no-install vitest run --config vitest.emulate.config.mjs
+        id: emulate
+        run: npx --no-install vitest run --config vitest.emulate.config.mjs --reporter=default --reporter=json --outputFile=emulate-results.json
+      - name: GitHub Emulate test summary
+        if: ${{ always() }}
+        env:
+          TEST_OUTCOME: ${{ steps.emulate.outcome }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, appendFileSync, existsSync } from 'node:fs';
+          const file = 'emulate-results.json';
+          const rows = ['## GitHub Emulate integration tests', '',
+            'Result: ' + (process.env.TEST_OUTCOME === 'success' ? 'Passed' : 'Failed or not completed'), ''];
+          if (existsSync(file)) {
+            try {
+              const result = JSON.parse(readFileSync(file, 'utf8'));
+              rows.push('| Metric | Count |', '| --- | ---: |');
+              for (const [label, count] of [
+                ['Suites', result.numTotalTestSuites], ['Passed', result.numPassedTests],
+                ['Failed', result.numFailedTests], ['Pending', result.numPendingTests],
+                ['Total', result.numTotalTests],
+              ]) rows.push('| ' + label + ' | ' + (count ?? 0) + ' |');
+              for (const suite of result.testResults ?? []) {
+                for (const test of suite.assertionResults ?? []) {
+                  if (test.status === 'failed') rows.push('- Failed: ' + (test.fullName || test.title));
+                }
+              }
+            } catch (error) { rows.push('Could not parse Vitest results: ' + error.message); }
+          } else { rows.push('No JSON report generated; inspect installation and test logs.'); }
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY, rows.join('\n') + '\n');
+          NODE
