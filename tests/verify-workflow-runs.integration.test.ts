@@ -102,6 +102,36 @@ describe("GitHub workflow verification API integration", () => {
     ).rejects.toThrow("No matching run");
   });
 
+  it("requires every designated workflow to pass", async () => {
+    const second = ".github/workflows/ci_actionlint.yml";
+    const request: typeof fetch = async (input) => {
+      const url = new URL(String(input));
+      const path = url.pathname.includes("ci_actionlint.yml") ? second : PATH;
+      const status = path === second ? "failure" : "success";
+      return new Response(JSON.stringify({
+        workflow_runs: [successfulRun({ path, conclusion: status })],
+      }), { status: 200 });
+    };
+    await expect(verify({
+      workflows: [PATH, second],
+      repository: "moyarich/moyaforge",
+      token: "fixture-token",
+      sha: SHA,
+      branch: BRANCH,
+      event: "pull_request",
+      apiRoot: "http://127.0.0.1:4001",
+      request,
+    })).rejects.toThrow("Latest run for " + second);
+  });
+
+  it("rejects mismatched event type and workflow path", async () => {
+    const api = emulateRuns([[
+      successfulRun({ event: "push" }),
+      successfulRun({ path: ".github/workflows/another.yml" }),
+    ]]);
+    await expect(run(api.request)).rejects.toThrow("No matching run");
+  });
+
   it("surfaces GitHub API errors instead of permitting release", async () => {
     const request: typeof fetch = async () =>
       new Response("unavailable", { status: 503 });
