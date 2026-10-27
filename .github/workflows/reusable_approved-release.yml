@@ -31,7 +31,7 @@ jobs:
       actions: read
       statuses: read
       pull-requests: read
-    uses: ./.github/workflows/reusable_verify-release-preparation.yml
+    uses: $/.github/workflows/reusable_verify-release-preparation.yml
     with:
       expected-base: ${{ inputs.expected-base }}
       required-workflows: ${{ inputs.required-workflows }}
@@ -81,7 +81,7 @@ jobs:
     if: ${{ needs.plan.result == 'success' }}
     permissions:
       contents: write
-    uses: ./.github/workflows/reusable_release.yml
+    uses: $/.github/workflows/reusable_release.yml
     with:
       show-input-summary: false
       version: ${{ needs.plan.outputs.version }}
