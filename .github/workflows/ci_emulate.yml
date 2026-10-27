@@ -1,0 +1,24 @@
+name: CI / GitHub Emulate integration
+on:
+  pull_request:
+    paths:
+      - "tests/**/*.emulate.mjs"
+      - "vitest.emulate.config.mjs"
+      - ".github/workflows/ci_emulate.yml"
+      - "packages/cli/src/verify-workflow-runs/**"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - run: npm ci --include=optional --no-audit --no-fund
+      - name: Install isolated emulator for integration verification
+        run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund emulate@0.12.3
+      - name: Exercise real GitHub API emulator
+        run: npx --no-install vitest run --config vitest.emulate.config.mjs
