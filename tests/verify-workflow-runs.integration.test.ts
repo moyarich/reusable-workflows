@@ -25,10 +25,13 @@ function emulateRuns(pages: WorkflowRun[][]) {
     const url = new URL(String(input));
     requests.push(url);
     const page = Number(url.searchParams.get("page") || "1");
-    return new Response(JSON.stringify({ workflow_runs: pages[page - 1] ?? [] }), {
-      status: 200,
-      headers: { "content-type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ workflow_runs: pages[page - 1] ?? [] }),
+      {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      },
+    );
   };
   return { request, requests };
 }
@@ -48,15 +51,26 @@ function run(request: typeof fetch) {
 
 describe("GitHub workflow verification API integration", () => {
   it("selects the successful run for the exact branch, commit and event", async () => {
-    const api = emulateRuns([[
-      successfulRun({ id: 3, head_sha: "b".repeat(40) }),
-      successfulRun({ id: 5, head_branch: "main" }),
-      successfulRun({ id: 12 }),
-    ]]);
-    await expect(run(api.request)).resolves.toEqual([
-      { path: PATH, id: 12, url: "https://github.test/actions/runs/12", conclusion: "success", head_sha: SHA, attempt: 1 },
+    const api = emulateRuns([
+      [
+        successfulRun({ id: 3, head_sha: "b".repeat(40) }),
+        successfulRun({ id: 5, head_branch: "main" }),
+        successfulRun({ id: 12 }),
+      ],
     ]);
-    expect(api.requests[0]?.pathname).toBe("/repos/moyarich/moyaforge/actions/workflows/ci_cli.yml/runs");
+    await expect(run(api.request)).resolves.toEqual([
+      {
+        path: PATH,
+        id: 12,
+        url: "https://github.test/actions/runs/12",
+        conclusion: "success",
+        head_sha: SHA,
+        attempt: 1,
+      },
+    ]);
+    expect(api.requests[0]?.pathname).toBe(
+      "/repos/moyarich/moyaforge/actions/workflows/ci_cli.yml/runs",
+    );
     expect(api.requests[0]?.searchParams.get("head_sha")).toBe(SHA);
     expect(api.requests[0]?.searchParams.get("event")).toBe("pull_request");
   });
@@ -64,8 +78,18 @@ describe("GitHub workflow verification API integration", () => {
   it("rejects a newer failed or pending attempt instead of accepting stale success", async () => {
     const older = successfulRun();
     for (const latest of [
-      successfulRun({ id: 13, run_attempt: 2, status: "completed", conclusion: "failure" }),
-      successfulRun({ id: 13, run_attempt: 2, status: "in_progress", conclusion: null }),
+      successfulRun({
+        id: 13,
+        run_attempt: 2,
+        status: "completed",
+        conclusion: "failure",
+      }),
+      successfulRun({
+        id: 13,
+        run_attempt: 2,
+        status: "in_progress",
+        conclusion: null,
+      }),
     ]) {
       const api = emulateRuns([[older, latest]]);
       await expect(run(api.request)).rejects.toThrow(/Latest run .* is /);
@@ -73,12 +97,14 @@ describe("GitHub workflow verification API integration", () => {
   });
 
   it("rejects runs from a different commit even if successful", async () => {
-    await expect(run(emulateRuns([[successfulRun({ head_sha: "b".repeat(40) })]]).request))
-      .rejects.toThrow("No matching run");
+    await expect(
+      run(emulateRuns([[successfulRun({ head_sha: "b".repeat(40) })]]).request),
+    ).rejects.toThrow("No matching run");
   });
 
   it("surfaces GitHub API errors instead of permitting release", async () => {
-    const request: typeof fetch = async () => new Response("unavailable", { status: 503 });
+    const request: typeof fetch = async () =>
+      new Response("unavailable", { status: 503 });
     await expect(run(request)).rejects.toThrow("GitHub API returned 503");
   });
 });
