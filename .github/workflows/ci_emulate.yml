@@ -2,7 +2,8 @@ name: CI / GitHub Emulate integration
 on:
   pull_request:
     paths:
-      - "tests/**/*.emulate.mjs"
+      - "**/*.emulate.ts"
+      - "**/*.emulate.mjs"
       - "vitest.emulate.config.mjs"
       - ".github/workflows/ci_emulate.yml"
       - "packages/cli/src/verify-workflow-runs/**"
