@@ -66,17 +66,32 @@ describe("copy action publication modes", () => {
   });
   it("reports an existing PR title and link during dry-run without writes", () => {
     remoteBranch = true;
-    openPr = JSON.stringify({ url: "https://github.com/example/destination/pull/29", title: "Existing synchronization PR" });
+    openPr = JSON.stringify({
+      url: "https://github.com/example/destination/pull/29",
+      title: "Existing synchronization PR",
+    });
     const result = copyFiles({ ...options, dryRun: true });
-    expect(result).toMatchObject({ committed: false, pullRequestUrl: "https://github.com/example/destination/pull/29", pullRequestTitle: "Existing synchronization PR", pullRequestStatus: "existing" });
+    expect(result).toMatchObject({
+      committed: false,
+      pullRequestUrl: "https://github.com/example/destination/pull/29",
+      pullRequestTitle: "Existing synchronization PR",
+      pullRequestStatus: "existing",
+    });
     expect(pushes()).toHaveLength(0);
     expect(calls("git").some((args) => args.includes("commit"))).toBe(false);
   });
   it("updates the existing pull request branch instead of creating another PR", () => {
     remoteBranch = true;
-    openPr = JSON.stringify({ url: "https://github.com/example/destination/pull/29", title: "Existing synchronization PR" });
+    openPr = JSON.stringify({
+      url: "https://github.com/example/destination/pull/29",
+      title: "Existing synchronization PR",
+    });
     const result = copyFiles(options);
-    expect(result).toMatchObject({ committed: true, pullRequestStatus: "existing", pullRequestTitle: "Existing synchronization PR" });
+    expect(result).toMatchObject({
+      committed: true,
+      pullRequestStatus: "existing",
+      pullRequestTitle: "Existing synchronization PR",
+    });
     expect(pushes()).toHaveLength(1);
     expect(calls("gh").some((args) => args.includes("create"))).toBe(false);
   });
