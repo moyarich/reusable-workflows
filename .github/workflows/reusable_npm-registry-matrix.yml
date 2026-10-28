@@ -29,7 +29,7 @@ jobs:
           repository: moyarich/reusable-workflows
           ref: main
           path: .github/reusable-registry-config
-          sparse-checkout: config/package-registries.yml
+          sparse-checkout: .github/reusable-configurations/package-registries.yml
           sparse-checkout-cone-mode: false
           persist-credentials: false
       - name: Resolve configured registries
@@ -41,11 +41,12 @@ jobs:
         run: |
           set -euo pipefail
           ruby -ryaml -rjson -ruri <<'RUBY'
-          defaults_path = '.github/reusable-registry-config/config/package-registries.yml'
+          defaults_path = '.github/reusable-registry-config/.github/reusable-configurations/package-registries.yml'
           defaults = YAML.safe_load_file(defaults_path).fetch('registries')
           path = ENV.fetch('REGISTRIES_FILE', '')
           abort 'Invalid registries-file path' if path.start_with?('/') || path.split('/').include?('..')
-          overrides = path != '' && File.file?(path) ? YAML.safe_load_file(path).fetch('registries', {}) : {}
+          abort "Caller registries-file not found: #{path}" if path != '' && !File.file?(path)
+          overrides = path == '' ? {} : YAML.safe_load_file(path).fetch('registries', {})
           abort 'Registry maps must be objects' unless defaults.is_a?(Hash) && overrides.is_a?(Hash)
           registries = defaults.merge(overrides) do |name, base, extra|
             abort "Invalid registry settings: #{name}" unless base.is_a?(Hash) && extra.is_a?(Hash)

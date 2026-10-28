@@ -2,7 +2,7 @@ name: "Self-test · Extension registry"
 on:
   pull_request:
     paths:
-      - config/vscode-registries.yml
+      - .github/reusable-configurations/vscode-registries.yml
       - .github/workflows/reusable_vscode-publish.yml
       - .github/workflows/_self-test_extension-registry.yml
 permissions:
@@ -22,7 +22,7 @@ jobs:
         shell: bash
         run: |
           ruby -ryaml -ruri <<'RUBY'
-          defaults = YAML.safe_load_file('config/vscode-registries.yml').fetch('registries')
+          defaults = YAML.safe_load_file('.github/reusable-configurations/vscode-registries.yml').fetch('registries')
           abort 'Missing extension defaults' unless defaults.is_a?(Hash) && defaults.size >= 2
           defaults.each do |name, entry|
             abort 'Redundant token-secret' if entry.key?('token-secret')

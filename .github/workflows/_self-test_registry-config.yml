@@ -2,7 +2,7 @@ name: "Self-test · Registry configuration"
 on:
   pull_request:
     paths:
-      - config/package-registries.yml
+      - .github/reusable-configurations/package-registries.yml
       - .github/workflows/reusable_npm-publish.yml
       - .github/workflows/reusable_npm-registry-matrix.yml
       - .github/workflows/reusable_registry-publication-check.yml
@@ -30,7 +30,7 @@ jobs:
         run: |
           set -euo pipefail
           ruby -ryaml -ruri <<'RUBY'
-          defaults = YAML.safe_load_file('config/package-registries.yml').fetch('registries')
+          defaults = YAML.safe_load_file('.github/reusable-configurations/package-registries.yml').fetch('registries')
           abort 'Defaults must be a mapping with multiple destinations' unless defaults.is_a?(Hash) && defaults.size >= 2
           defaults.each do |name, entry|
             abort "Invalid registry name: #{name}" unless name.match?(/^[a-z][a-z0-9_-]*$/)
