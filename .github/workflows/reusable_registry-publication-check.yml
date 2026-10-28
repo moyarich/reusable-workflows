@@ -45,7 +45,7 @@ jobs:
           ref: main
           path: .github/reusable-registry-config
           persist-credentials: false
-          sparse-checkout: config/package-registries.yml
+          sparse-checkout: .github/reusable-configurations/package-registries.yml
           sparse-checkout-cone-mode: false
       - uses: actions/setup-node@v7
         with:
@@ -67,7 +67,7 @@ jobs:
           ruby -ryaml -rjson -ruri <<'RUBY'
           require 'open3'
           require 'tmpdir'
-          fallback = '.github/reusable-registry-config/config/package-registries.yml'
+          fallback = '.github/reusable-registry-config/.github/reusable-configurations/package-registries.yml'
           package_selector = ENV.fetch('PACKAGE_NAME')
           if File.file?(File.join(package_selector, 'package.json'))
             package_selector = JSON.parse(File.read(File.join(package_selector, 'package.json'))).fetch('name')
