@@ -235,6 +235,8 @@ jobs:
           CHANGED: ${{ steps.sync.outputs.changed }}
           COMMITTED: ${{ steps.sync.outputs.committed }}
           PR_URL: ${{ steps.sync.outputs.pull-request-url }}
+          PR_TITLE: ${{ steps.sync.outputs.pull-request-title }}
+          PR_STATUS: ${{ steps.sync.outputs.pull-request-status }}
         run: |
           {
             echo "## Canonical workflow copy — destination"
@@ -250,7 +252,8 @@ jobs:
             echo "| Changed | \`${CHANGED:-unknown}\` |"
             echo "| Committed | \`${COMMITTED:-false}\` |"
             if [[ -n "$PR_URL" ]]; then
-              echo "| Destination PR | [View pull request]($PR_URL) |"
+              echo "| Destination PR | [${PR_TITLE:-View pull request}]($PR_URL) |"
+              echo "| PR status | \`${PR_STATUS:-unknown}\` |"
             fi
             echo
             if [[ "$RESULT" != success ]]; then

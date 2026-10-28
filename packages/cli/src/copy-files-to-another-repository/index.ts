@@ -69,6 +69,8 @@ export function copyFiles(options: CopyOptions): {
   committed: boolean;
   summary: string;
   pullRequestUrl?: string;
+  pullRequestTitle?: string;
+  pullRequestStatus?: "existing" | "created";
 } {
   validateOptions(options);
   const temp = mkdtempSync(join(tmpdir(), "copy-repository-"));
@@ -104,23 +106,25 @@ export function copyFiles(options: CopyOptions): {
       env: { ...process.env, GH_TOKEN: options.token },
       stdio: ["ignore", "pipe", "pipe"],
     });
-  const existingPullRequest = (): string =>
-    github(
-      "pr",
-      "list",
-      "--repo",
-      options.repository,
-      "--base",
-      options.branch,
-      "--head",
-      pullRequestBranch,
-      "--state",
-      "open",
-      "--json",
-      "url",
-      "--jq",
-      ".[0].url // empty",
-    ).trim();
+  const existingPullRequest = (): { url?: string; title?: string } =>
+    JSON.parse(
+      github(
+        "pr",
+        "list",
+        "--repo",
+        options.repository,
+        "--base",
+        options.branch,
+        "--head",
+        pullRequestBranch,
+        "--state",
+        "open",
+        "--json",
+        "url,title",
+        "--jq",
+        ".[0] // {}",
+      ).trim(),
+    );
   try {
     execFileSync(
       "git",
@@ -139,6 +143,8 @@ export function copyFiles(options: CopyOptions): {
     );
     let existingBranch = false;
     let pullRequestUrl: string | undefined;
+    let pullRequestTitle: string | undefined;
+    let pullRequestStatus: "existing" | "created" | undefined;
     if (mode === "pull-request") {
       existingBranch = Boolean(
         authenticatedGit(
@@ -149,7 +155,10 @@ export function copyFiles(options: CopyOptions): {
         ).trim(),
       );
       if (existingBranch) {
-        pullRequestUrl = existingPullRequest() || undefined;
+        const existing = existingPullRequest();
+        pullRequestUrl = existing.url;
+        pullRequestTitle = existing.title;
+        if (pullRequestUrl) pullRequestStatus = "existing";
         if (!pullRequestUrl) {
           // A retained branch from a merged or closed PR must not be reused.
           pullRequestBranch += "-" + randomUUID().slice(0, 8);
@@ -184,9 +193,24 @@ export function copyFiles(options: CopyOptions): {
     git("add", "-A");
     const changed = git("diff", "--cached", "--name-only").trim().length > 0;
     const summary = changed ? git("diff", "--cached", "--stat") : "No changes";
-    if (options.dryRun) return { changed, committed: false, summary };
+    if (options.dryRun)
+      return {
+        changed,
+        committed: false,
+        summary,
+        pullRequestUrl,
+        pullRequestTitle,
+        pullRequestStatus,
+      };
     if (!changed) {
-      return { changed, committed: false, summary, pullRequestUrl };
+      return {
+        changed,
+        committed: false,
+        summary,
+        pullRequestUrl,
+        pullRequestTitle,
+        pullRequestStatus,
+      };
     }
     git("config", "user.name", "github-actions[bot]");
     git(
@@ -218,7 +242,18 @@ export function copyFiles(options: CopyOptions): {
             `Synchronize prepared files from ${options.sourceRepository} at ${options.sourceRef}.`,
           ).trim()
         : undefined;
-    return { changed: true, committed: true, summary, pullRequestUrl };
+    if (mode === "pull-request" && pullRequestStatus !== "existing") {
+      pullRequestTitle = options.message;
+      pullRequestStatus = "created";
+    }
+    return {
+      changed: true,
+      committed: true,
+      summary,
+      pullRequestUrl,
+      pullRequestTitle,
+      pullRequestStatus,
+    };
   } finally {
     rmSync(temp, { recursive: true, force: true });
   }
@@ -247,12 +282,24 @@ export function runCopyAction(): void {
         result.committed +
         "\npull-request-url=" +
         (result.pullRequestUrl ?? "") +
+        "\npull-request-title=" +
+        (result.pullRequestTitle ?? "") +
+        "\npull-request-status=" +
+        (result.pullRequestStatus ?? "") +
         "\n",
     );
   }
   if (process.env.GITHUB_STEP_SUMMARY)
     appendFileSync(
       process.env.GITHUB_STEP_SUMMARY,
-      "### " + process.env.COPY_DEST + "\n```\n" + result.summary + "\n```\n",
+      "### " +
+        process.env.COPY_DEST +
+        "\n" +
+        (result.pullRequestUrl
+          ? `PR: [${result.pullRequestTitle ?? "Existing pull request"}](${result.pullRequestUrl}) (${result.pullRequestStatus})\n\n`
+          : "") +
+        "```\n" +
+        result.summary +
+        "\n```\n",
     );
 }
