@@ -145,6 +145,9 @@ jobs:
           NODE_AUTH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          # setup-node configures npmjs.org; the caller lockfile may also
+          # resolve packages from npm.pkg.github.com, which needs its own auth entry.
+          printf '\n//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}\n' >> "$NPM_CONFIG_USERCONFIG"
           install_log="$(mktemp)"
           if npm ci --ignore-scripts 2>&1 | tee "$install_log"; then
             rm -f "$install_log"
