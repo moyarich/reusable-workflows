@@ -49,7 +49,7 @@ function copyFiles(options) {
 			"pipe"
 		]
 	});
-	const existingPullRequest = () => github("pr", "list", "--repo", options.repository, "--base", options.branch, "--head", pullRequestBranch, "--state", "open", "--json", "url", "--jq", ".[0].url // empty").trim();
+	const existingPullRequest = () => JSON.parse(github("pr", "list", "--repo", options.repository, "--base", options.branch, "--head", pullRequestBranch, "--state", "open", "--json", "url,title", "--jq", ".[0] // {}").trim());
 	try {
 		execFileSync("git", [
 			"-c",
@@ -68,10 +68,15 @@ function copyFiles(options) {
 		] });
 		let existingBranch = false;
 		let pullRequestUrl;
+		let pullRequestTitle;
+		let pullRequestStatus;
 		if (mode === "pull-request") {
 			existingBranch = Boolean(authenticatedGit("ls-remote", "--heads", "origin", "refs/heads/" + pullRequestBranch).trim());
 			if (existingBranch) {
-				pullRequestUrl = existingPullRequest() || void 0;
+				const existing = existingPullRequest();
+				pullRequestUrl = existing.url;
+				pullRequestTitle = existing.title;
+				if (pullRequestUrl) pullRequestStatus = "existing";
 				if (!pullRequestUrl) {
 					pullRequestBranch += "-" + randomUUID().slice(0, 8);
 					existingBranch = false;
@@ -96,28 +101,25 @@ function copyFiles(options) {
 		git("add", "-A");
 		const changed = git("diff", "--cached", "--name-only").trim().length > 0;
 		const summary = changed ? git("diff", "--cached", "--stat") : "No changes";
-		if (options.dryRun) return {
-			changed,
-			committed: false,
-			summary
-		};
+		if (options.dryRun) return { changed, committed: false, summary, pullRequestUrl, pullRequestTitle, pullRequestStatus };
 		if (!changed) return {
 			changed,
 			committed: false,
 			summary,
-			pullRequestUrl
+			pullRequestUrl,
+			pullRequestTitle,
+			pullRequestStatus
 		};
 		git("config", "user.name", "github-actions[bot]");
 		git("config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com");
 		git("commit", "-m", options.message);
 		authenticatedGit("push", "origin", "HEAD:" + (mode === "pull-request" ? pullRequestBranch : options.branch));
 		pullRequestUrl = mode === "pull-request" ? pullRequestUrl || github("pr", "create", "--repo", options.repository, "--base", options.branch, "--head", pullRequestBranch, "--title", options.message, "--body", `Synchronize prepared files from ${options.sourceRepository} at ${options.sourceRef}.`).trim() : void 0;
-		return {
-			changed: true,
-			committed: true,
-			summary,
-			pullRequestUrl
-		};
+		if (mode === "pull-request" && pullRequestStatus !== "existing") {
+			pullRequestTitle = options.message;
+			pullRequestStatus = "created";
+		}
+		return { changed: true, committed: true, summary, pullRequestUrl, pullRequestTitle, pullRequestStatus };
 	} finally {
 		rmSync(temp, {
 			recursive: true,
@@ -139,8 +141,8 @@ function runCopyAction() {
 		dryRun: dryRun === "true",
 		message: process.env.COPY_MESSAGE ?? "chore: synchronize repository files"
 	});
-	if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, "changed=" + result.changed + "\ncommitted=" + result.committed + "\npull-request-url=" + (result.pullRequestUrl ?? "") + "\n");
-	if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, "### " + process.env.COPY_DEST + "\n```\n" + result.summary + "\n```\n");
+	if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, "changed=" + result.changed + "\ncommitted=" + result.committed + "\npull-request-url=" + (result.pullRequestUrl ?? "") + "\npull-request-title=" + (result.pullRequestTitle ?? "") + "\npull-request-status=" + (result.pullRequestStatus ?? "") + "\n");
+	if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, "### " + process.env.COPY_DEST + "\n" + (result.pullRequestUrl ? `PR: [${result.pullRequestTitle ?? "Existing pull request"}](${result.pullRequestUrl}) (${result.pullRequestStatus})\n\n` : "") + "```\n" + result.summary + "\n```\n");
 }
 // ../cli/src/copy-files-to-another-repository/action-entry.ts
 runCopyAction();
