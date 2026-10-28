@@ -29,7 +29,7 @@ jobs:
           repository: moyarich/reusable-workflows
           ref: main
           path: .github/reusable-registry-config
-          sparse-checkout: config/package-registries.yml
+          sparse-checkout: .github/reusable-configurations/package-registries.yml
           sparse-checkout-cone-mode: false
           persist-credentials: false
       - name: Resolve configured registries
@@ -41,7 +41,7 @@ jobs:
         run: |
           set -euo pipefail
           ruby -ryaml -rjson -ruri <<'RUBY'
-          defaults_path = '.github/reusable-registry-config/config/package-registries.yml'
+          defaults_path = '.github/reusable-registry-config/.github/reusable-configurations/package-registries.yml'
           defaults = YAML.safe_load_file(defaults_path).fetch('registries')
           path = ENV.fetch('REGISTRIES_FILE', '')
           abort 'Invalid registries-file path' if path.start_with?('/') || path.split('/').include?('..')
