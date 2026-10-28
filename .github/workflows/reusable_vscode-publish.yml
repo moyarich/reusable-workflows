@@ -216,6 +216,7 @@ jobs:
           abort "Missing bundled extension registry defaults: #{defaults_file}" unless File.file?(defaults_file)
           requested_file = ENV.fetch('REGISTRIES_FILE', '')
           abort 'Invalid registries-file path' if requested_file.start_with?('/') || requested_file.split('/').include?('..')
+          abort "Caller registries-file not found: #{requested_file}" if requested_file != '' && !File.file?(requested_file)
           base = YAML.safe_load_file(defaults_file).fetch('registries')
           abort 'Default extension registries must be a mapping' unless base.is_a?(Hash)
           overrides = if requested_file != '' && File.file?(requested_file)
