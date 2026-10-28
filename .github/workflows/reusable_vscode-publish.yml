@@ -201,7 +201,7 @@ jobs:
           ref: main
           path: .github/reusable-extension-registry-config
           persist-credentials: false
-          sparse-checkout: config/vscode-registries.yml
+          sparse-checkout: .github/reusable-configurations/vscode-registries.yml
           sparse-checkout-cone-mode: false
       - name: Resolve extension registry aliases
         id: registries
@@ -212,7 +212,7 @@ jobs:
         run: |
           set -euo pipefail
           ruby -ryaml -rjson -ruri <<'RUBY'
-          defaults_file = '.github/reusable-extension-registry-config/config/vscode-registries.yml'
+          defaults_file = '.github/reusable-extension-registry-config/.github/reusable-configurations/vscode-registries.yml'
           abort "Missing bundled extension registry defaults: #{defaults_file}" unless File.file?(defaults_file)
           requested_file = ENV.fetch('REGISTRIES_FILE', '')
           abort 'Invalid registries-file path' if requested_file.start_with?('/') || requested_file.split('/').include?('..')
