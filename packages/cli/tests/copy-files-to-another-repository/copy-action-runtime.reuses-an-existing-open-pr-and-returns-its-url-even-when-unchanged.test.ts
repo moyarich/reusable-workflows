@@ -60,9 +60,14 @@ const pushes = () => calls("git").filter((args) => args.includes("push"));
 describe("copy action publication modes", () => {
   it("reuses an existing open PR and returns its URL even when unchanged", () => {
     remoteBranch = true;
-    openPr = JSON.stringify({ url: "https://github.com/example/destination/pull/4", title: "Sync workflows" });
+    openPr = JSON.stringify({
+      url: "https://github.com/example/destination/pull/4",
+      title: "Sync workflows",
+    });
     changed = false;
-    expect(copyFiles(options).pullRequestUrl).toBe("https://github.com/example/destination/pull/4");
+    expect(copyFiles(options).pullRequestUrl).toBe(
+      "https://github.com/example/destination/pull/4",
+    );
     expect(calls("git").some((args) => args.includes("fetch"))).toBe(false);
     expect(calls("gh").some((args) => args[1] === "create")).toBe(false);
     expect(pushes()).toHaveLength(0);
