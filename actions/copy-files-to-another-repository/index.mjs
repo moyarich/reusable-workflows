@@ -101,7 +101,14 @@ function copyFiles(options) {
 		git("add", "-A");
 		const changed = git("diff", "--cached", "--name-only").trim().length > 0;
 		const summary = changed ? git("diff", "--cached", "--stat") : "No changes";
-		if (options.dryRun) return { changed, committed: false, summary, pullRequestUrl, pullRequestTitle, pullRequestStatus };
+		if (options.dryRun) return {
+			changed,
+			committed: false,
+			summary,
+			pullRequestUrl,
+			pullRequestTitle,
+			pullRequestStatus
+		};
 		if (!changed) return {
 			changed,
 			committed: false,
@@ -119,7 +126,14 @@ function copyFiles(options) {
 			pullRequestTitle = options.message;
 			pullRequestStatus = "created";
 		}
-		return { changed: true, committed: true, summary, pullRequestUrl, pullRequestTitle, pullRequestStatus };
+		return {
+			changed: true,
+			committed: true,
+			summary,
+			pullRequestUrl,
+			pullRequestTitle,
+			pullRequestStatus
+		};
 	} finally {
 		rmSync(temp, {
 			recursive: true,

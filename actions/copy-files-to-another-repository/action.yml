@@ -35,12 +35,6 @@ outputs:
   pull-request-url:
     description: URL of the created or reused synchronization pull request.
     value: ${{ steps.copy.outputs.pull-request-url }}
-  pull-request-title:
-    description: Title of the existing or newly created synchronization pull request.
-    value: ${{ steps.copy.outputs.pull-request-title }}
-  pull-request-status:
-    description: Whether the synchronization PR already existed or was created.
-    value: ${{ steps.copy.outputs.pull-request-status }}
   changed:
     description: Whether any files differ.
     value: ${{ steps.copy.outputs.changed }}
