@@ -67,11 +67,13 @@ function copyFiles(options) {
 			"pipe"
 		] });
 		let existingBranch = false;
+		let existingBranchSha;
 		let pullRequestUrl;
 		let pullRequestTitle;
 		let pullRequestStatus;
 		if (mode === "pull-request") {
-			existingBranch = Boolean(authenticatedGit("ls-remote", "--heads", "origin", "refs/heads/" + pullRequestBranch).trim());
+			existingBranchSha = authenticatedGit("ls-remote", "--heads", "origin", "refs/heads/" + pullRequestBranch).trim().split(/\s+/)[0] || void 0;
+			existingBranch = Boolean(existingBranchSha);
 			if (existingBranch) {
 				const existing = existingPullRequest();
 				pullRequestUrl = existing.url;
@@ -82,10 +84,8 @@ function copyFiles(options) {
 					existingBranch = false;
 				}
 			}
-			if (existingBranch) {
-				authenticatedGit("fetch", "--depth", "1", "origin", "refs/heads/" + pullRequestBranch);
-				git("checkout", "-B", pullRequestBranch, "FETCH_HEAD");
-			} else git("checkout", "-b", pullRequestBranch);
+			// Reconstruct from current base to avoid stale history and unrelated bot commits.
+			git("checkout", "-b", pullRequestBranch);
 		}
 		for (const name of readdirSync(options.sourceDirectory)) {
 			if (name === ".git") throw new Error("Refusing to copy .git");
@@ -120,7 +120,7 @@ function copyFiles(options) {
 		git("config", "user.name", "github-actions[bot]");
 		git("config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com");
 		git("commit", "-m", options.message);
-		authenticatedGit("push", "origin", "HEAD:" + (mode === "pull-request" ? pullRequestBranch : options.branch));
+		authenticatedGit("push", ...(mode === "pull-request" && existingBranch && existingBranchSha ? [`--force-with-lease=refs/heads/${pullRequestBranch}:${existingBranchSha}`] : []), "origin", "HEAD:" + (mode === "pull-request" ? pullRequestBranch : options.branch));
 		pullRequestUrl = mode === "pull-request" ? pullRequestUrl || github("pr", "create", "--repo", options.repository, "--base", options.branch, "--head", pullRequestBranch, "--title", options.message, "--body", `Synchronize prepared files from ${options.sourceRepository} at ${options.sourceRef}.`).trim() : void 0;
 		if (mode === "pull-request" && pullRequestStatus !== "existing") {
 			pullRequestTitle = options.message;
