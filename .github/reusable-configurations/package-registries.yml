@@ -1,6 +1,6 @@
 # Built-in registries. Caller registries-file extends or overrides by key.
 install-registry: https://npm.pkg.github.com
-install-scope: "@moyarich"
+install-scope: '@moyarich'
 registries:
   npm:
     url: https://registry.npmjs.org
