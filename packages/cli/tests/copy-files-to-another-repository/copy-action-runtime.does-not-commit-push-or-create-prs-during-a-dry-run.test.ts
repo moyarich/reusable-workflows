@@ -93,6 +93,10 @@ describe("copy action publication modes", () => {
       pullRequestTitle: "Existing synchronization PR",
     });
     expect(pushes()).toHaveLength(1);
+    expect(pushes()[0]).toContain("--force-with-lease=refs/heads/automation/copy-workflows-" +
+      // The generated suffix is deterministic; assert the token is the remote SHA.
+      pushes()[0].find((part) => part.startsWith("--force-with-lease="))!.split(":")[0].split("copy-workflows-")[1] + ":abc");
+    expect(calls("git").some((args) => args.includes("fetch"))).toBe(false);
     expect(calls("gh").some((args) => args.includes("create"))).toBe(false);
   });
 });
