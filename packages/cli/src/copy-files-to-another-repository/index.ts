@@ -147,9 +147,15 @@ export function copyFiles(options: CopyOptions): {
     let pullRequestTitle: string | undefined;
     let pullRequestStatus: "existing" | "created" | undefined;
     if (mode === "pull-request") {
-      existingBranchSha = authenticatedGit(
-        "ls-remote", "--heads", "origin", "refs/heads/" + pullRequestBranch,
-      ).trim().split(/\s+/)[0] || undefined;
+      existingBranchSha =
+        authenticatedGit(
+          "ls-remote",
+          "--heads",
+          "origin",
+          "refs/heads/" + pullRequestBranch,
+        )
+          .trim()
+          .split(/\s+/)[0] || undefined;
       existingBranch = Boolean(existingBranchSha);
       if (existingBranch) {
         const existing = existingPullRequest();
@@ -210,7 +216,9 @@ export function copyFiles(options: CopyOptions): {
     authenticatedGit(
       "push",
       ...(mode === "pull-request" && existingBranch && existingBranchSha
-        ? [`--force-with-lease=refs/heads/${pullRequestBranch}:${existingBranchSha}`]
+        ? [
+            `--force-with-lease=refs/heads/${pullRequestBranch}:${existingBranchSha}`,
+          ]
         : []),
       "origin",
       "HEAD:" + (mode === "pull-request" ? pullRequestBranch : options.branch),

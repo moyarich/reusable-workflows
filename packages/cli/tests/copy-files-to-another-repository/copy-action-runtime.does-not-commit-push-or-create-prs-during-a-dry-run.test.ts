@@ -93,9 +93,13 @@ describe("copy action publication modes", () => {
       pullRequestTitle: "Existing synchronization PR",
     });
     expect(pushes()).toHaveLength(1);
-    expect(pushes()[0].some((arg) =>
-      /^--force-with-lease=refs\/heads\/automation\/copy-workflows-[a-f0-9]{16}:abc$/.test(arg),
-    )).toBe(true);
+    expect(
+      pushes()[0].some((arg) =>
+        /^--force-with-lease=refs\/heads\/automation\/copy-workflows-[a-f0-9]{16}:abc$/.test(
+          arg,
+        ),
+      ),
+    ).toBe(true);
     expect(calls("git").some((args) => args.includes("fetch"))).toBe(false);
     expect(calls("gh").some((args) => args.includes("create"))).toBe(false);
   });
