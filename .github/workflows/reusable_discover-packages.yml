@@ -113,6 +113,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 jobs:
   discover:
@@ -134,13 +135,38 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: "24"
-          registry-url: https://registry.npmjs.org
+          # Match config/package-registries.yml install-registry and install-scope.
+          registry-url: https://npm.pkg.github.com
           scope: "@moyarich"
 
       - name: Install local Workspace Tools build dependencies
         if: ${{ inputs.workspace-tools-source == 'checkout:current' || ((inputs.workspace-tools-source == 'auto' || inputs.workspace-tools-source == '') && github.repository == 'moyarich/workspace-tools') }}
         shell: bash
-        run: npm ci --ignore-scripts
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          install_log="$(mktemp)"
+          if npm ci --ignore-scripts 2>&1 | tee "$install_log"; then
+            rm -f "$install_log"
+          else
+            if grep -Eq 'E401|E403|authentication token not provided|permission_denied: read_package' "$install_log"; then
+              echo "::error title=GitHub Packages authentication failed::Cannot install caller dependencies from GitHub Packages. Ensure the calling job grants packages: read and its GITHUB_TOKEN is authorized for the package. For cross-repository private packages, grant this repository Actions access in the package settings."
+              {
+                echo "### Dependency installation failed: GitHub Packages access"
+                echo
+                echo "The caller's \`npm ci\` could not download a dependency (HTTP 401/403)."
+                echo "Grant the calling job \`packages: read\` and authorize the consuming repository to download the package in GitHub Packages settings."
+                echo
+                echo "This install runs when \`workspace-tools-source\` selects \`checkout:current\` (or \`auto\` in workspace-tools)."
+                echo "If building local Workspace Tools is not intentional, select \`auto\`."
+              } >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "::error title=Workspace Tools dependency installation failed::npm ci --ignore-scripts failed; inspect the npm error above."
+            fi
+            rm -f "$install_log"
+            exit 1
+          fi
 
       - name: Checkout version-matched reusable workflow actions
         uses: actions/checkout@v7
