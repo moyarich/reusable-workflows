@@ -84,7 +84,6 @@ function copyFiles(options) {
 					existingBranch = false;
 				}
 			}
-			// Reconstruct from current base to avoid stale history and unrelated bot commits.
 			git("checkout", "-b", pullRequestBranch);
 		}
 		for (const name of readdirSync(options.sourceDirectory)) {
@@ -120,7 +119,7 @@ function copyFiles(options) {
 		git("config", "user.name", "github-actions[bot]");
 		git("config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com");
 		git("commit", "-m", options.message);
-		authenticatedGit("push", ...(mode === "pull-request" && existingBranch && existingBranchSha ? [`--force-with-lease=refs/heads/${pullRequestBranch}:${existingBranchSha}`] : []), "origin", "HEAD:" + (mode === "pull-request" ? pullRequestBranch : options.branch));
+		authenticatedGit("push", ...mode === "pull-request" && existingBranch && existingBranchSha ? [`--force-with-lease=refs/heads/${pullRequestBranch}:${existingBranchSha}`] : [], "origin", "HEAD:" + (mode === "pull-request" ? pullRequestBranch : options.branch));
 		pullRequestUrl = mode === "pull-request" ? pullRequestUrl || github("pr", "create", "--repo", options.repository, "--base", options.branch, "--head", pullRequestBranch, "--title", options.message, "--body", `Synchronize prepared files from ${options.sourceRepository} at ${options.sourceRef}.`).trim() : void 0;
 		if (mode === "pull-request" && pullRequestStatus !== "existing") {
 			pullRequestTitle = options.message;
