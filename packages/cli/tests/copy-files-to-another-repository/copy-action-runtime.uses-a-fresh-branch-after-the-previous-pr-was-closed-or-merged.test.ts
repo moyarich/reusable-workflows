@@ -31,7 +31,7 @@ beforeEach(() => {
   };
   changed = true;
   remoteBranch = false;
-  openPr = "";
+  openPr = "{}";
   subprocess.mockReset();
   subprocess.mockImplementation((command: string, args: string[]) => {
     if (command === "git") {
@@ -60,6 +60,7 @@ const pushes = () => calls("git").filter((args) => args.includes("push"));
 describe("copy action publication modes", () => {
   it("uses a fresh branch after the previous PR was closed or merged", () => {
     remoteBranch = true;
+    openPr = "{}";
     copyFiles(options);
     expect(calls("git").some((args) => args.includes("fetch"))).toBe(false);
     expect(pushes()[0].at(-1)).toMatch(

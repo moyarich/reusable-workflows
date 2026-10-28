@@ -31,7 +31,7 @@ beforeEach(() => {
   };
   changed = true;
   remoteBranch = false;
-  openPr = "";
+  openPr = "{}";
   subprocess.mockReset();
   subprocess.mockImplementation((command: string, args: string[]) => {
     if (command === "git") {
@@ -60,8 +60,8 @@ const pushes = () => calls("git").filter((args) => args.includes("push"));
 describe("copy action publication modes", () => {
   it("updates an existing PR branch without creating a second PR", () => {
     remoteBranch = true;
-    openPr = "https://github.com/example/destination/pull/4";
-    expect(copyFiles(options).pullRequestUrl).toBe(openPr);
+    openPr = JSON.stringify({ url: "https://github.com/example/destination/pull/4", title: "Sync workflows" });
+    expect(copyFiles(options).pullRequestUrl).toBe("https://github.com/example/destination/pull/4");
     expect(pushes()).toHaveLength(1);
     expect(calls("gh").some((args) => args[1] === "create")).toBe(false);
   });
