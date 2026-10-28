@@ -135,7 +135,8 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: "24"
-          registry-url: https://registry.npmjs.org
+          # Match config/package-registries.yml install-registry and install-scope.
+          registry-url: https://npm.pkg.github.com
           scope: "@moyarich"
 
       - name: Install local Workspace Tools build dependencies
@@ -145,9 +146,6 @@ jobs:
           NODE_AUTH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          # setup-node configures npmjs.org; the caller lockfile may also
-          # resolve packages from npm.pkg.github.com, which needs its own auth entry.
-          printf '\n//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}\n' >> "$NPM_CONFIG_USERCONFIG"
           install_log="$(mktemp)"
           if npm ci --ignore-scripts 2>&1 | tee "$install_log"; then
             rm -f "$install_log"
