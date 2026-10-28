@@ -73,6 +73,7 @@ jobs:
   discover:
     permissions:
       contents: read
+      packages: read
     uses: $/.github/workflows/reusable_discover-packages.yml
     with:
       packages-directory: packages
