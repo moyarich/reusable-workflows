@@ -227,7 +227,7 @@ jobs:
           ref: main
           path: .github/reusable-registry-config
           persist-credentials: false
-          sparse-checkout: config/package-registries.yml
+          sparse-checkout: .github/reusable-configurations/package-registries.yml
           sparse-checkout-cone-mode: false
 
       - name: Resolve registry configuration
@@ -240,7 +240,7 @@ jobs:
         run: |
           set -euo pipefail
           ruby -ryaml -rjson -ruri <<'RUBY'
-          fallback = '.github/reusable-registry-config/config/package-registries.yml'
+          fallback = '.github/reusable-registry-config/.github/reusable-configurations/package-registries.yml'
           requested = ENV.fetch('CONFIG_FILE', '').strip
           base_document = YAML.safe_load_file(fallback)
           defaults = base_document.fetch('registries')
