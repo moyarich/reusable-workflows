@@ -142,18 +142,21 @@ export function copyFiles(options: CopyOptions): {
       { stdio: ["ignore", "pipe", "pipe"] },
     );
     let existingBranch = false;
+    let existingBranchSha: string | undefined;
     let pullRequestUrl: string | undefined;
     let pullRequestTitle: string | undefined;
     let pullRequestStatus: "existing" | "created" | undefined;
     if (mode === "pull-request") {
-      existingBranch = Boolean(
+      existingBranchSha =
         authenticatedGit(
           "ls-remote",
           "--heads",
           "origin",
           "refs/heads/" + pullRequestBranch,
-        ).trim(),
-      );
+        )
+          .trim()
+          .split(/\s+/)[0] || undefined;
+      existingBranch = Boolean(existingBranchSha);
       if (existingBranch) {
         const existing = existingPullRequest();
         pullRequestUrl = existing.url;
@@ -165,18 +168,9 @@ export function copyFiles(options: CopyOptions): {
           existingBranch = false;
         }
       }
-      if (existingBranch) {
-        authenticatedGit(
-          "fetch",
-          "--depth",
-          "1",
-          "origin",
-          "refs/heads/" + pullRequestBranch,
-        );
-        git("checkout", "-B", pullRequestBranch, "FETCH_HEAD");
-      } else {
-        git("checkout", "-b", pullRequestBranch);
-      }
+      // Reconstruct from the freshly cloned base to avoid stale PR history,
+      // unrelated bot commits, and conflicts after the destination advances.
+      git("checkout", "-b", pullRequestBranch);
     }
     for (const name of readdirSync(options.sourceDirectory)) {
       if (name === ".git") throw new Error("Refusing to copy .git");
@@ -221,6 +215,11 @@ export function copyFiles(options: CopyOptions): {
     git("commit", "-m", options.message);
     authenticatedGit(
       "push",
+      ...(mode === "pull-request" && existingBranch && existingBranchSha
+        ? [
+            `--force-with-lease=refs/heads/${pullRequestBranch}:${existingBranchSha}`,
+          ]
+        : []),
       "origin",
       "HEAD:" + (mode === "pull-request" ? pullRequestBranch : options.branch),
     );
