@@ -2,6 +2,8 @@
 
 `.github/reusable-configurations/package-registries.yml` provides built-in publishing destinations. A calling repository may **extend or override** these entries with its own `registries-file` path, relative to the checkout. The workflow uses the bundled defaults if the caller's file is absent.
 
+For example, the calling workflow can set `with: { registries-file: .github/package-registries.yml }`. This path is resolved from the caller checkout, not from the shared workflow repository. When the input is omitted, the bundled file supplies defaults; when a path is provided but does not exist, the workflow fails rather than silently using defaults. Registry entries from the caller extend or override the built-in entries by key.
+
 The map key is the registry selector. No separate `alias` field is needed.
 
 ```yaml
