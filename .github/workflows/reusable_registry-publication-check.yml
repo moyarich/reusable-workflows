@@ -77,7 +77,8 @@ jobs:
           abort 'Package name unresolved' if package_selector.nil? || package_selector == ''
           defaults = YAML.safe_load_file(fallback).fetch('registries')
           file = ENV.fetch('REGISTRY_FILE', '')
-          additional = file != '' && File.file?(file) ? YAML.safe_load_file(file).fetch('registries', {}) : {}
+          abort "Caller registries-file not found: #{file}" if file != '' && !File.file?(file)
+          additional = file == '' ? {} : YAML.safe_load_file(file).fetch('registries', {})
           abort 'Registry mapping expected' unless defaults.is_a?(Hash) && additional.is_a?(Hash)
           entries = defaults.merge(additional) { |_, base, extension| base.merge(extension) }
           selection = ENV.fetch('REGISTRY_SELECTION')
