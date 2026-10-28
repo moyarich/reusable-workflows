@@ -23,7 +23,7 @@ Specify `registry: company` for one target or `registry: all` for every enabled 
 
 `backend` names the publication adapter expected by the configured version of workspace-tools. `query` describes how package publication should be checked. `token-source` is the exact secret identifier used by the matrix publishing job through `secrets[matrix.target.tokenSource]`. With `secrets: inherit`, a caller's repository secret such as `_NPM_TOKEN` can be used directly as `token-source: _NPM_TOKEN`. When forwarding an explicit secret (for example `npm-token: ${{ secrets._NPM_TOKEN }}`), use `token-source: npm-token` instead. `token-source: github-token` selects the built-in `github.token`. The current single-job legacy publisher retains its original built-in credential handling. Never place tokens in this file.
 
-`config/vscode-registries.yml` is the extension publication configuration introduced by PR #104, independent of package registries. GitHub Releases and GitHub Pages are not npm package registries.
+`.github/reusable-configurations/vscode-registries.yml` is the extension publication configuration introduced by PR #104, independent of package registries. GitHub Releases and GitHub Pages are not npm package registries.
 
 Callers continue supplying standard workflow secrets (`npm-token` and, where needed, `custom-registry-token`). GitHub Packages uses the workflow's `github.token`. The `token-source` registry setting selects among these supported credential sources; no JSON secret is required. Optional alias-keyed overrides are supported for advanced custom destinations. Never commit token values to registry configuration.
 
