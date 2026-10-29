@@ -122,7 +122,7 @@ export const syncReleaseChoices = (opts: Options) => {
       { path: [...INPUT_PATH, "options"], value: options },
     ];
     console.log(
-      syncYamlValues({ file, updates })
+      syncYamlValues({ file, updates, createMissing: true })
         ? `Updated ${file}`
         : `Already current: ${file}`,
     );
