@@ -66,6 +66,7 @@ jobs:
     needs: preflight
     permissions:
       contents: read
+      packages: read
     uses: $/.github/workflows/reusable_discover-packages.yml
     with:
       packages-directory: ${{ inputs.packages-directory }}
@@ -79,6 +80,7 @@ jobs:
     needs: preflight
     permissions:
       contents: read
+      packages: read
     uses: $/.github/workflows/reusable_discover-packages.yml
     with:
       packages-directory: ${{ inputs.packages-directory }}
