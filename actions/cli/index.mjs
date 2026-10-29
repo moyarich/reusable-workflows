@@ -17259,7 +17259,7 @@ function createCopyWorkflowCommand() {
 }
 // src/sync-yaml-values/sync-yaml-values.ts
 /** Apply declarative updates to existing YAML keys while retaining unrelated content. */
-function syncYamlValues({ file, updates, check = false }) {
+function syncYamlValues({ file, updates, check = false, createMissing = false }) {
 	if (!/\.ya?ml$/.test(file) || file.startsWith("/") || file.includes("\\") || file.split("/").includes("..")) throw new Error("Invalid YAML file path");
 	if (!updates.length) throw new Error("At least one YAML update is required");
 	const original = readFileSync(file, "utf8");
@@ -17268,7 +17268,13 @@ function syncYamlValues({ file, updates, check = false }) {
 	let changed = false;
 	for (const update of updates) {
 		if (!Array.isArray(update.path) || !update.path.length || update.path.some((p) => !p)) throw new Error("Invalid YAML property path");
-		if (!document.hasIn(update.path)) throw new Error("Missing YAML property: " + update.path.join("."));
+		if (!document.hasIn(update.path)) {
+			if (!createMissing || !document.hasIn(update.path.slice(0, -1))) throw new Error("Missing YAML property: " + update.path.join("."));
+			if (check) throw new Error("YAML settings are out of sync: " + file);
+			document.setIn(update.path, update.value);
+			changed = true;
+			continue;
+		}
 		const node = document.getIn(update.path, true);
 		const current = node && typeof node === "object" && "toJSON" in node ? node.toJSON() : node;
 		if (JSON.stringify(current) === JSON.stringify(update.value)) continue;
@@ -17465,7 +17471,8 @@ var syncReleaseChoices = (opts) => {
 		];
 		console.log(syncYamlValues({
 			file,
-			updates
+			updates,
+			createMissing: true
 		}) ? `Updated ${file}` : `Already current: ${file}`);
 	}
 };
