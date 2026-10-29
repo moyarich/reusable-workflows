@@ -10,6 +10,7 @@ export interface YamlUpdateOptions {
   file: string;
   updates: YamlUpdate[];
   check?: boolean;
+  createMissing?: boolean;
 }
 
 /** Apply declarative updates to existing YAML keys while retaining unrelated content. */
@@ -17,6 +18,7 @@ export function syncYamlValues({
   file,
   updates,
   check = false,
+  createMissing = false,
 }: YamlUpdateOptions): boolean {
   if (
     !/\.ya?ml$/.test(file) ||
@@ -37,8 +39,14 @@ export function syncYamlValues({
       update.path.some((p) => !p)
     )
       throw new Error("Invalid YAML property path");
-    if (!document.hasIn(update.path))
-      throw new Error("Missing YAML property: " + update.path.join("."));
+    if (!document.hasIn(update.path)) {
+      if (!createMissing || !document.hasIn(update.path.slice(0, -1)))
+        throw new Error("Missing YAML property: " + update.path.join("."));
+      if (check) throw new Error("YAML settings are out of sync: " + file);
+      document.setIn(update.path, update.value);
+      changed = true;
+      continue;
+    }
     const node = document.getIn(update.path, true);
     const current =
       node && typeof node === "object" && "toJSON" in node
