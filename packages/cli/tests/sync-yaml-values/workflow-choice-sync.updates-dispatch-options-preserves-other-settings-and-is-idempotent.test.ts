@@ -19,13 +19,30 @@ describe("workflow choice synchronization", () => {
       process.chdir(root);
       mkdirSync(".github/workflows", { recursive: true });
       const file = ".github/workflows/release.yml";
-      writeFileSync(file, "on:\n  workflow_dispatch:\n    inputs:\n      package:\n        type: string\n");
-      const updates = [{ path: ["on", "workflow_dispatch", "inputs", "package", "options"], value: ["all", "packages/core"] }];
-      expect(() => syncYamlValues({ file, updates })).toThrow("Missing YAML property");
-      expect(() => syncYamlValues({ file, updates, check: true, createMissing: true })).toThrow("out of sync");
+      writeFileSync(
+        file,
+        "on:\n  workflow_dispatch:\n    inputs:\n      package:\n        type: string\n",
+      );
+      const updates = [
+        {
+          path: ["on", "workflow_dispatch", "inputs", "package", "options"],
+          value: ["all", "packages/core"],
+        },
+      ];
+      expect(() => syncYamlValues({ file, updates })).toThrow(
+        "Missing YAML property",
+      );
+      expect(() =>
+        syncYamlValues({ file, updates, check: true, createMissing: true }),
+      ).toThrow("out of sync");
       expect(syncYamlValues({ file, updates, createMissing: true })).toBe(true);
-      expect(parse(readFileSync(file, "utf8")).on.workflow_dispatch.inputs.package.options).toEqual(["all", "packages/core"]);
-      expect(syncYamlValues({ file, updates, createMissing: true })).toBe(false);
+      expect(
+        parse(readFileSync(file, "utf8")).on.workflow_dispatch.inputs.package
+          .options,
+      ).toEqual(["all", "packages/core"]);
+      expect(syncYamlValues({ file, updates, createMissing: true })).toBe(
+        false,
+      );
     } finally {
       process.chdir(old);
       rmSync(root, { recursive: true, force: true });
