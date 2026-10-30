@@ -42,7 +42,8 @@ beforeEach(() => {
       if (args.includes("--stat")) return "workflow.yml | 1 +\n";
       return "";
     }
-    if (command === "gh" && args[1] === "list") return openPr;
+    if (command === "gh" && args[1] === "list")
+      return args.includes("--head") ? openPr : "[]";
     if (command === "gh" && args[1] === "create")
       return "https://github.com/example/destination/pull/1\n";
     throw new Error("Unexpected subprocess: " + command);
@@ -62,7 +63,7 @@ describe("copy action publication modes", () => {
     expect(copyFiles({ ...options, dryRun: true }).committed).toBe(false);
     expect(pushes()).toHaveLength(0);
     expect(calls("git").some((args) => args.includes("commit"))).toBe(false);
-    expect(calls("gh")).toHaveLength(0);
+    expect(calls("gh").some((args) => args[1] === "create")).toBe(false);
   });
   it("reports an existing PR title and link during dry-run without writes", () => {
     remoteBranch = true;
