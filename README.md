@@ -59,7 +59,6 @@ For additional configuration, permissions, and workflow inputs, see the [Getting
 
 The copier implementation and reusable workflow live here; the **authoritative** [copier configuration](https://github.com/moyarich/reusable-workflows-callers/blob/main/.github/copy-files-config.yml), [dispatch workflow](https://github.com/moyarich/reusable-workflows-callers/blob/main/.github/workflows/copy-files-to-another-repository.yml), and [choice synchronization](https://github.com/moyarich/reusable-workflows-callers/blob/main/.github/workflows/sync_copy-destination-choices.yml) live in `reusable-workflows-callers`. The local `.github/copy-files-config.yml` is an intentionally empty compatibility shell, not an inventory. The reusable copier checks out the caller-owned configuration for planning and generating workflow copies. Destination repositories receive neither the copier dispatcher nor its sync workflow. See the [copy files guide](docs/02-guides/copy-files-to-another-repository.md).
 
-
 ## Releases
 
 See the [Changelog](CHANGELOG.md) for changes between versions or browse [GitHub Releases](https://github.com/moyarich/reusable-workflows/releases) for published releases.

@@ -9,7 +9,9 @@ describe("upstream copier compatibility shell", () => {
       new URL("../../../../.github/copy-files-config.yml", import.meta.url),
     );
     const config = YAML.parse(readFileSync(root, "utf8"));
-    expect(config.source.repository).toBe("moyarich/reusable-workflows-callers");
+    expect(config.source.repository).toBe(
+      "moyarich/reusable-workflows-callers",
+    );
     expect(config.repositories).toEqual([]);
     expect(config.source.allow).toEqual([]);
   });
