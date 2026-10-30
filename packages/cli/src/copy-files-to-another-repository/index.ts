@@ -168,6 +168,35 @@ export function copyFiles(options: CopyOptions): {
           existingBranch = false;
         }
       }
+      // A previous run may have created a suffixed branch after the stable
+      // branch was retained by a closed PR. Reuse that open PR instead of
+      // creating another one on every subsequent synchronization.
+      if (!pullRequestUrl) {
+        const candidates = JSON.parse(
+          github(
+            "pr", "list", "--repo", options.repository, "--base", options.branch,
+            "--state", "open", "--limit", "100",
+            "--json", "number,url,title,body,headRefName",
+          ).trim(),
+        ) as Array<{number: number; url: string; title: string; body: string; headRefName: string}>;
+        const match = Array.isArray(candidates) ? candidates
+          .filter((pr) =>
+            pr.headRefName.startsWith("automation/copy-workflows-") &&
+            pr.body?.includes(`Synchronize prepared files from ${options.sourceRepository} at ${options.sourceRef}.`),
+          )
+          .sort((a, b) => a.number - b.number)[0] : undefined;
+        if (match) {
+          const sha = authenticatedGit("ls-remote", "--heads", "origin", "refs/heads/" + match.headRefName).trim().split(/\\s+/)[0];
+          if (sha) {
+            pullRequestBranch = match.headRefName;
+            existingBranch = true;
+            existingBranchSha = sha;
+            pullRequestUrl = match.url;
+            pullRequestTitle = match.title;
+            pullRequestStatus = "existing";
+          }
+        }
+      }
       // Reconstruct from the freshly cloned base to avoid stale PR history,
       // unrelated bot commits, and conflicts after the destination advances.
       git("checkout", "-b", pullRequestBranch);
