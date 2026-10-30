@@ -19,6 +19,7 @@ source:
     - "upgrade-dependencies.yml"
   ignore:
     - "copy-files-to-another-repository.yml"
+    - "sync_copy-destination-choices.yml"
     - "_self-test_*.yml"
     - "reusable_*.yml"
     - "smoke-test_*.yml"
