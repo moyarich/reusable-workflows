@@ -37,59 +37,76 @@ jobs:
       required-workflows: ${{ inputs.required-workflows }}
 
   plan:
-    name: Gate automatic publishing
+    name: Validate approved package matrix
     needs: verify
     runs-on: ubuntu-latest
     permissions:
       contents: read
     outputs:
-      name: ${{ steps.package.outputs.name }}
-      directory: ${{ steps.package.outputs.directory }}
-      version: ${{ steps.package.outputs.version }}
-      release-tag: ${{ steps.package.outputs.release-tag }}
+      matrix: ${{ steps.packages.outputs.matrix }}
     steps:
-      - name: Require one explicitly approved release package
-        id: package
+      - name: Validate selected packages
+        id: packages
         env:
           PACKAGES: ${{ needs.verify.outputs.packages }}
           APPROVED_SHA: ${{ github.event.pull_request.merge_commit_sha }}
         shell: bash
         run: |
           set -euo pipefail
-          jq -e 'type == "array" and length == 1' <<< "$PACKAGES" >/dev/null || {
-            echo "::error::Automatic release currently supports exactly one approved package per preparation PR. Multi-package releases require explicit orchestration."
-            exit 1
-          }
-          jq -e '.[0] | (.name | type == "string" and length > 0)' <<< "$PACKAGES" >/dev/null
-          jq -e '.[0] | (.directory | type == "string" and test("^(packages|apps)/[A-Za-z0-9_./-]+$") and (contains("..") | not))' <<< "$PACKAGES" >/dev/null
-          jq -e '.[0] | (.version | type == "string" and test("^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"))' <<< "$PACKAGES" >/dev/null
           [[ "$APPROVED_SHA" =~ ^[a-f0-9]{40}$ ]]
-          name="$(jq -r '.[0].name' <<< "$PACKAGES")"
-          directory="$(jq -r '.[0].directory' <<< "$PACKAGES")"
-          version="$(jq -r '.[0].version' <<< "$PACKAGES")"
-          {
-            echo "name=$name"
-            echo "directory=$directory"
-            echo "version=$version"
-            echo "release-tag=$name@$version"
-          } >> "$GITHUB_OUTPUT"
-          printf '## Approved release preparation\n\nPackage: `%s`\nVersion: `%s`\nMerged SHA: `%s`\n' "$name" "$version" "$APPROVED_SHA" >> "$GITHUB_STEP_SUMMARY"
+          jq -ce '
+            if type != "array" or length == 0 then error("No approved release packages") else . end
+            | if all(.[]; (.name | type == "string" and length > 0) and
+                            (.directory | type == "string" and test("^(packages|apps)/[A-Za-z0-9_./-]+$") and (contains("..") | not)) and
+                            (.version | type == "string" and test("^[0-9]+\\\\.[0-9]+\\\\.[0-9]+(-[0-9A-Za-z.-]+)?$"))) then . else error("Invalid release package") end
+            | {include: .}
+          ' <<< "$PACKAGES" | { read -r matrix; echo "matrix=$matrix" >> "$GITHUB_OUTPUT"; }
+          echo "## Approved release package matrix" >> "$GITHUB_STEP_SUMMARY"
+          jq -r '.[] | "- \\(.name)@\\(.version) (\\(.directory))"' <<< "$PACKAGES" >> "$GITHUB_STEP_SUMMARY"
 
-  release:
-    name: Release approved package
+  draft:
+    name: "Draft · ${{ matrix.name }}@${{ matrix.version }}"
     needs: plan
     if: ${{ needs.plan.result == 'success' }}
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    permissions:
+      contents: write
+      pull-requests: read
+    uses: $/.github/workflows/reusable_release-drafter.yml
+    with:
+      show-input-summary: false
+      target-branch: ${{ inputs.expected-base }}
+      version: ${{ matrix.version }}
+      release-tag: ${{ format('{0}@{1}', matrix.name, matrix.version) }}
+      tag-prefix: ${{ format('{0}@', matrix.name) }}
+      package-name: ${{ matrix.name }}
+      package-directory: ${{ matrix.directory }}
+      target-key: ${{ matrix.name }}
+      release-name: ${{ format('{0} v{1}', matrix.name, matrix.version) }}
+      changelog-path: ${{ format('{0}/CHANGELOG.md', matrix.directory) }}
+      dry-run: ${{ inputs.dry-run }}
+
+  release:
+    name: "Release · ${{ matrix.name }}@${{ matrix.version }}"
+    needs: [plan, draft]
+    if: ${{ always() && needs.plan.result == 'success' && needs.draft.result == 'success' }}
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     permissions:
       contents: write
     uses: $/.github/workflows/reusable_release.yml
     with:
       show-input-summary: false
-      version: ${{ needs.plan.outputs.version }}
-      release-tag: ${{ needs.plan.outputs.release-tag }}
-      release-name: ${{ format('{0} v{1}', needs.plan.outputs.name, needs.plan.outputs.version) }}
-      changelog-file: ${{ format('{0}/CHANGELOG.md', needs.plan.outputs.directory) }}
+      version: ${{ matrix.version }}
+      release-tag: ${{ format('{0}@{1}', matrix.name, matrix.version) }}
+      release-name: ${{ format('{0} v{1}', matrix.name, matrix.version) }}
+      changelog-file: ${{ format('{0}/CHANGELOG.md', matrix.directory) }}
       target-ref: ${{ github.event.pull_request.merge_commit_sha }}
       create-tag: true
       draft: false
       dry-run: ${{ inputs.dry-run }}
-
