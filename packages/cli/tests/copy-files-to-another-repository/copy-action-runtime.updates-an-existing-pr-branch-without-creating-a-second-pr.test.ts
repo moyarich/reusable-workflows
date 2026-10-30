@@ -63,18 +63,30 @@ const pushes = () => calls("git").filter((args) => args.includes("push"));
 describe("copy action publication modes", () => {
   it("reuses a matching open PR on a previously suffixed branch", () => {
     matchingPrs = JSON.stringify([
-      { number: 10, url: "https://github.com/example/destination/pull/10",
-        title: "Sync workflows", headRefName: "automation/copy-workflows-old-1234",
-        body: "Synchronize prepared files from example/source at main." },
-      { number: 11, url: "https://github.com/example/destination/pull/11",
-        title: "Unrelated", headRefName: "automation/copy-workflows-other",
-        body: "Synchronize prepared files from other/source at main." },
+      {
+        number: 10,
+        url: "https://github.com/example/destination/pull/10",
+        title: "Sync workflows",
+        headRefName: "automation/copy-workflows-old-1234",
+        body: "Synchronize prepared files from example/source at main.",
+      },
+      {
+        number: 11,
+        url: "https://github.com/example/destination/pull/11",
+        title: "Unrelated",
+        headRefName: "automation/copy-workflows-other",
+        body: "Synchronize prepared files from other/source at main.",
+      },
     ]);
     remoteBranch = true;
     const result = copyFiles(options);
-    expect(result.pullRequestUrl).toBe("https://github.com/example/destination/pull/10");
+    expect(result.pullRequestUrl).toBe(
+      "https://github.com/example/destination/pull/10",
+    );
     expect(result.pullRequestStatus).toBe("existing");
-    expect(pushes()[0]).toContain("--force-with-lease=refs/heads/automation/copy-workflows-old-1234:abc");
+    expect(pushes()[0]).toContain(
+      "--force-with-lease=refs/heads/automation/copy-workflows-old-1234:abc",
+    );
     expect(calls("gh").some((args) => args[1] === "create")).toBe(false);
   });
   it("updates an existing PR branch without creating a second PR", () => {

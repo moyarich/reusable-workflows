@@ -174,19 +174,46 @@ export function copyFiles(options: CopyOptions): {
       if (!pullRequestUrl) {
         const candidates = JSON.parse(
           github(
-            "pr", "list", "--repo", options.repository, "--base", options.branch,
-            "--state", "open", "--limit", "100",
-            "--json", "number,url,title,body,headRefName",
+            "pr",
+            "list",
+            "--repo",
+            options.repository,
+            "--base",
+            options.branch,
+            "--state",
+            "open",
+            "--limit",
+            "100",
+            "--json",
+            "number,url,title,body,headRefName",
           ).trim(),
-        ) as Array<{number: number; url: string; title: string; body: string; headRefName: string}>;
-        const match = Array.isArray(candidates) ? candidates
-          .filter((pr) =>
-            pr.headRefName.startsWith("automation/copy-workflows-") &&
-            pr.body?.includes(`Synchronize prepared files from ${options.sourceRepository} at ${options.sourceRef}.`),
-          )
-          .sort((a, b) => a.number - b.number)[0] : undefined;
+        ) as Array<{
+          number: number;
+          url: string;
+          title: string;
+          body: string;
+          headRefName: string;
+        }>;
+        const match = Array.isArray(candidates)
+          ? candidates
+              .filter(
+                (pr) =>
+                  pr.headRefName.startsWith("automation/copy-workflows-") &&
+                  pr.body?.includes(
+                    `Synchronize prepared files from ${options.sourceRepository} at ${options.sourceRef}.`,
+                  ),
+              )
+              .sort((a, b) => a.number - b.number)[0]
+          : undefined;
         if (match) {
-          const sha = authenticatedGit("ls-remote", "--heads", "origin", "refs/heads/" + match.headRefName).trim().split(/\\s+/)[0];
+          const sha = authenticatedGit(
+            "ls-remote",
+            "--heads",
+            "origin",
+            "refs/heads/" + match.headRefName,
+          )
+            .trim()
+            .split(/\\s+/)[0];
           if (sha) {
             pullRequestBranch = match.headRefName;
             existingBranch = true;
