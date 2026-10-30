@@ -509,10 +509,9 @@ jobs:
           import { readFileSync, writeFileSync } from "node:fs";
 
           const versionToken = process.env.INPUT_VERSION || "$RESOLVED_VERSION";
-          const releaseName = process.env.RELEASE_NAME_INPUT.replaceAll(
-            "{{VERSION}}",
-            versionToken,
-          );
+          const releaseName = process.env.RELEASE_NAME_INPUT
+            .replaceAll("{{VERSION}}", versionToken)
+            .replaceAll("$RESOLVED_VERSION", versionToken);
           const releaseTag =
             process.env.RELEASE_TAG_INPUT ||
             `${process.env.TAG_PREFIX}${versionToken}`;
@@ -544,7 +543,7 @@ jobs:
             ? "  <!-- release-draft-sync:candidate package=" + process.env.PACKAGE_NAME + " -->\n\n"
             : "";
           const installSection = process.env.PACKAGE_NAME
-            ? "\n  ## Install\n\n  " + "\x60\x60\x60" + "sh\n  npm install " + process.env.PACKAGE_NAME + "@$RESOLVED_VERSION\n  " + "\x60\x60\x60" + "\n"
+            ? "\n  ## Install\n\n  " + "\x60\x60\x60" + "sh\n  npm install " + process.env.PACKAGE_NAME + "@" + versionToken + "\n  " + "\x60\x60\x60" + "\n"
             : "";
           const config = template
             .replaceAll("{{PACKAGE_FILTER}}", packageFilter)
