@@ -15,6 +15,11 @@ on:
         required: false
         default: all
         type: string
+      changed-packages-only:
+        description: For all-package manual drafts, skip tagged packages without implementation changes
+        required: false
+        default: false
+        type: boolean
       event-name:
         required: true
         type: string
@@ -84,6 +89,7 @@ jobs:
         env:
           EVENT_NAME: ${{ inputs.event-name }}
           INPUT_PACKAGE: ${{ inputs.package }}
+          CHANGED_PACKAGES_ONLY: ${{ inputs.changed-packages-only }}
           BEFORE_SHA: ${{ inputs.before-sha }}
           AFTER_SHA: ${{ inputs.after-sha }}
           PACKAGES_JSON: ${{ inputs.packages-json }}
@@ -98,7 +104,31 @@ jobs:
 
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             if [ "$INPUT_PACKAGE" = "all" ]; then
-              SELECTED="$PACKAGES_JSON"
+              if [ "$CHANGED_PACKAGES_ONLY" = "true" ]; then
+                SELECTED="$(
+                  PACKAGES_JSON="$PACKAGES_JSON" node --input-type=module <<'NODE'
+          import { execFileSync } from "node:child_process";
+          const packages = JSON.parse(process.env.PACKAGES_JSON || "[]");
+          const git = (...args) => execFileSync("git", args, { encoding: "utf8" }).trim();
+          const selected = packages.filter((pkg) => {
+            const prefix = pkg.directory === "." ? pkg.name : pkg.directory;
+            const tags = git("tag", "--sort=-version:refname", "--list",
+              prefix + "@*", pkg.name + "@*").split("\\n").filter(Boolean);
+            if (!tags.length) return true;
+            const files = git("diff", "--name-only", tags[0], "HEAD", "--", pkg.directory)
+              .split("\\n").filter(Boolean);
+            const directory = pkg.directory === "." ? "" : pkg.directory + "/";
+            return files.some((file) => {
+              const local = file.startsWith(directory) ? file.slice(directory.length) : file;
+              return !["package.json", "package-lock.json", "CHANGELOG.md"].includes(local);
+            });
+          });
+          process.stdout.write(JSON.stringify(selected));
+          NODE
+                )"
+              else
+                SELECTED="$PACKAGES_JSON"
+              fi
             else
               SELECTED="$(
                 jq -c --arg selector "$INPUT_PACKAGE" '
@@ -205,6 +235,7 @@ jobs:
             echo "| Setting | Value |"
             echo "| --- | --- |"
             echo "| Selected packages | **$COUNT** |"
+            echo "| Changed packages only | $CHANGED_PACKAGES_ONLY |"
             echo
             echo '~~~json'
             jq . <<< "$SELECTED"
