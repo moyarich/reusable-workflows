@@ -1,18 +1,27 @@
 import { describe, expect, it } from "vitest";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { parse } from "yaml";
 
-const workflowPath = resolve(".github/workflows/reusable_sync-release-package-choices.yml");
+const workflowPath = resolve(
+  ".github/workflows/reusable_sync-release-package-choices.yml",
+);
 const workflow = parse(readFileSync(workflowPath, "utf8")) as {
   jobs: Record<string, { steps: Array<{ name?: string; run?: string }> }>;
 };
 const step = Object.values(workflow.jobs)
   .flatMap((job) => job.steps)
   .find((item) => item.name === "Commit changed package choices");
-if (!step?.run) throw new Error("Commit changed package choices step not found");
+if (!step?.run)
+  throw new Error("Commit changed package choices step not found");
 const script = step.run;
 
 describe("release choice sync commit missing workflow handling", () => {
@@ -21,14 +30,27 @@ describe("release choice sync commit missing workflow handling", () => {
     try {
       execFileSync("git", ["init", "-q", dir]);
       execFileSync("git", ["-C", dir, "config", "user.name", "Test"]);
-      execFileSync("git", ["-C", dir, "config", "user.email", "test@example.com"]);
+      execFileSync("git", [
+        "-C",
+        dir,
+        "config",
+        "user.email",
+        "test@example.com",
+      ]);
       for (const name of existing) {
         const full = join(dir, name);
         mkdirSync(join(full, ".."), { recursive: true });
         writeFileSync(full, "name: Test\n");
       }
       execFileSync("git", ["-C", dir, "add", "."]);
-      execFileSync("git", ["-C", dir, "commit", "--allow-empty", "-qm", "Initial"]);
+      execFileSync("git", [
+        "-C",
+        dir,
+        "commit",
+        "--allow-empty",
+        "-qm",
+        "Initial",
+      ]);
       const output = join(dir, "output.txt");
       writeFileSync(output, "");
       const result = spawnSync("bash", ["-e", "-c", script], {
@@ -42,7 +64,12 @@ describe("release choice sync commit missing workflow handling", () => {
           WORKFLOW_TOKEN: "",
         },
       });
-      return { status: result.status, stdout: result.stdout, stderr: result.stderr, output: readFileSync(output, "utf8") };
+      return {
+        status: result.status,
+        stdout: result.stdout,
+        stderr: result.stderr,
+        output: readFileSync(output, "utf8"),
+      };
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
