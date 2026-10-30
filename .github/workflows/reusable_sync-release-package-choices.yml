@@ -159,7 +159,20 @@ jobs:
         run: |
           set -euo pipefail
           mapfile -t files < <(python3 -c 'import json,os; print("\n".join(json.loads(os.environ["WORKFLOW_FILES"]) or [os.environ["WORKFLOW_FILE"]]))')
-          if git diff --quiet -- "${files[@]}"; then
+          present=()
+          for file in "${files[@]}"; do
+            if [ -f "$file" ]; then
+              present+=("$file")
+            else
+              echo "::warning title=Workflow skipped::Configured workflow file '$file' does not exist; skipping commit."
+            fi
+          done
+          if [ "${#present[@]}" -eq 0 ]; then
+            echo "::notice title=No workflows to commit::All configured workflow files are missing; commit skipped."
+            echo "result=unchanged" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if git diff --quiet -- "${present[@]}"; then
             echo "Package choices are already up to date"
             echo "result=unchanged" >> "$GITHUB_OUTPUT"
             exit 0
@@ -170,7 +183,7 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- "${files[@]}"
+          git add -- "${present[@]}"
           git commit -m "chore(actions): synchronize release package choices"
           authorization="$(printf 'x-access-token:%s' "$WORKFLOW_TOKEN" | base64 -w0)"
           git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $authorization" push origin HEAD:main
