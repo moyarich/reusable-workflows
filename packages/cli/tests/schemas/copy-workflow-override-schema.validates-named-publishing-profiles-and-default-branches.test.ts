@@ -3,26 +3,14 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import YAML from "yaml";
 
-describe("copier workflow overrides schema", () => {
-  it("validates named publishing profiles and default branches", () => {
+describe("upstream copier compatibility shell", () => {
+  it("delegates destination inventory to callers without retaining destinations", () => {
     const root = fileURLToPath(
       new URL("../../../../.github/copy-files-config.yml", import.meta.url),
     );
     const config = YAML.parse(readFileSync(root, "utf8"));
-    expect(config.defaults.branch).toBe("main");
-    const expected = {
-      colorshower: "vscode",
-      "vscode-act-runner-local": "vscode",
-      JotebookSync: "vscode",
-      "element-inspector": "browser",
-    };
-    for (const [name, profile] of Object.entries(expected)) {
-      const destination = config.repositories.find(
-        (entry: { name: string }) => entry.name === "moyarich/" + name,
-      );
-      expect(destination.profiles).toEqual([profile]);
-      const files = config.profiles[profile].include;
-      expect(files).toHaveLength(1);
-    }
+    expect(config.source.repository).toBe("moyarich/reusable-workflows-callers");
+    expect(config.repositories).toEqual([]);
+    expect(config.source.allow).toEqual([]);
   });
 });
