@@ -23,7 +23,7 @@ const section = workflow
 const script = section
   ?.match(/node --input-type=module <<'NODE'\n([\s\S]*?)\n\s*NODE/)?.[1]
   ?.split("\n")
-  .map((line) => line.replace(/^          /, ""))
+  .map((line) => line.replace(/^ {10}/, ""))
   .join("\n");
 
 describe("release-draft version selection", () => {
