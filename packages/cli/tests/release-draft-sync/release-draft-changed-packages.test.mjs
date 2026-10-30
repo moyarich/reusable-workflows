@@ -119,25 +119,51 @@ describe("changed-only release-draft selection", () => {
         compatible: { peerDependencies: { "@example/core": ">=0.1.0 <1.0.0" } },
       };
       for (const [name, dependency] of Object.entries(dependencies)) {
-        writeFileSync(join(root, "packages", name, "package.json"),
-          JSON.stringify({ name: "@example/" + name, version: "0.1.0", ...dependency }));
-        writeFileSync(join(root, "packages", name, "index.ts"), "export const value = 1;\\n");
+        writeFileSync(
+          join(root, "packages", name, "package.json"),
+          JSON.stringify({
+            name: "@example/" + name,
+            version: "0.1.0",
+            ...dependency,
+          }),
+        );
+        writeFileSync(
+          join(root, "packages", name, "index.ts"),
+          "export const value = 1;\\n",
+        );
       }
-      git("add", "."); git("commit", "-m", "baseline for core dependency chain");
-      for (const name of Object.keys(dependencies)) git("tag", "packages/" + name + "@0.1.0");
-      writeFileSync(join(root, "packages", "core", "index.ts"), "export const value = 2;\\n");
-      git("add", "."); git("commit", "-m", "core implementation change");
+      git("add", ".");
+      git("commit", "-m", "baseline for core dependency chain");
+      for (const name of Object.keys(dependencies))
+        git("tag", "packages/" + name + "@0.1.0");
+      writeFileSync(
+        join(root, "packages", "core", "index.ts"),
+        "export const value = 2;\\n",
+      );
+      git("add", ".");
+      git("commit", "-m", "core implementation change");
       const chainPackages = Object.keys(dependencies).map((name) => ({
-        name: "@example/" + name, directory: "packages/" + name,
+        name: "@example/" + name,
+        directory: "packages/" + name,
       }));
-      const cascadeRun = spawnSync(process.execPath, ["--input-type=module", "-e", script], {
-        cwd: root, encoding: "utf8", env: {
-          ...process.env, PACKAGES_JSON: JSON.stringify(chainPackages), VERSION_BUMP: "minor",
+      const cascadeRun = spawnSync(
+        process.execPath,
+        ["--input-type=module", "-e", script],
+        {
+          cwd: root,
+          encoding: "utf8",
+          env: {
+            ...process.env,
+            PACKAGES_JSON: JSON.stringify(chainPackages),
+            VERSION_BUMP: "minor",
+          },
         },
-      });
+      );
       expect(cascadeRun.status, cascadeRun.stderr).toBe(0);
       expect(JSON.parse(cascadeRun.stdout).map((p) => p.name)).toEqual([
-        "@example/core", "@example/addon", "@example/consumer",
+        "@example/core",
+        "@example/addon",
+        "@example/consumer",
       ]);
     } finally {
       rmSync(root, { recursive: true, force: true });
