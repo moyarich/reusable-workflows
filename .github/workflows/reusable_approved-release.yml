@@ -62,7 +62,7 @@ jobs:
             | {include: .}
           ' <<< "$PACKAGES" | { read -r matrix; echo "matrix=$matrix" >> "$GITHUB_OUTPUT"; }
           echo "## Approved release package matrix" >> "$GITHUB_STEP_SUMMARY"
-          jq -r '.[] | "- \\(.name)@\\(.version) (\\(.directory))"' <<< "$PACKAGES" >> "$GITHUB_STEP_SUMMARY"
+          jq -r '.[] | "- " + .name + "@" + .version + " (" + .directory + ")"' <<< "$PACKAGES" >> "$GITHUB_STEP_SUMMARY"
 
   draft:
     name: "Draft · ${{ matrix.name }}@${{ matrix.version }}"
