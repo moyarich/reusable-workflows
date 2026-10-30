@@ -183,7 +183,12 @@ export function generateWorkflows(opts: GenerateOptions): string[] {
     selected = eligible.filter((f) => basename(f) === opts.workflow);
   }
   if (selected.includes(".github/workflows/publish.yml")) {
-    if (opts.destinationPublish === undefined)
+    // A new destination has no publisher to compare. Require the existing
+    // publisher content whenever the inventory is absent or lists publish.yml.
+    const hasExistingPublisher =
+      opts.existingFiles === undefined ||
+      opts.existingFiles.includes("publish.yml");
+    if (hasExistingPublisher && opts.destinationPublish === undefined)
       throw Error(
         "Destination publish.yml content required for compatibility validation",
       );
@@ -193,8 +198,10 @@ export function generateWorkflows(opts: GenerateOptions): string[] {
         "utf8",
       ),
     );
-    const destination = kind(opts.destinationPublish);
-    if (canonical !== destination)
+    const destination = opts.destinationPublish === undefined
+      ? undefined
+      : kind(opts.destinationPublish);
+    if (destination !== undefined && canonical !== destination)
       throw Error(
         "Incompatible publish.yml for " +
           repository +
