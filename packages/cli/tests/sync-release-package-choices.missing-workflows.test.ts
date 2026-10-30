@@ -8,11 +8,12 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { parse } from "yaml";
 
-const workflowPath = resolve(
-  ".github/workflows/reusable_sync-release-package-choices.yml",
+const workflowPath = new URL(
+  "../../../.github/workflows/reusable_sync-release-package-choices.yml",
+  import.meta.url,
 );
 const workflow = parse(readFileSync(workflowPath, "utf8")) as {
   jobs: Record<string, { steps: Array<{ name?: string; run?: string }> }>;
