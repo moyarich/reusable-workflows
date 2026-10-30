@@ -17,8 +17,9 @@ const workflow = readFileSync(
   ),
   "utf8",
 );
-const section = workflow
-  .split('if [ "$CHANGED_PACKAGES_ONLY" = "true" ]; then')[1];
+const section = workflow.split(
+  'if [ "$CHANGED_PACKAGES_ONLY" = "true" ]; then',
+)[1];
 const script = section
   ?.match(/node --input-type=module <<'NODE'\n([\s\S]*?)\n\s*NODE/)?.[1]
   ?.split("\n")
