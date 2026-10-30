@@ -11,8 +11,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { generateWorkflows } from "../../src/copy-files-to-another-repository/generate";
 
-describe("publisher bootstrap compatibility", () => {
-  const run = (existingFiles?: string[], destinationPublish?: string) => {
+describe("publisher copies without destination publisher dependency", () => {
+  const run = (existingFiles?: string[]) => {
     const root = mkdtempSync(join(tmpdir(), "copier-publisher-bootstrap-"));
     const sourceRoot = join(root, "source");
     const output = join(root, "generated");
@@ -31,7 +31,6 @@ describe("publisher bootstrap compatibility", () => {
         sourceRoot,
         output,
         existingFiles,
-        destinationPublish,
       });
       return {
         files,
@@ -55,27 +54,16 @@ describe("publisher bootstrap compatibility", () => {
     expect(run(["ci.yml"]).files).toEqual([".github/workflows/publish.yml"]);
   });
 
-  it("requires publisher content if the destination inventory includes publish.yml", () => {
-    expect(() => run(["publish.yml"])).toThrow(
-      "Destination publish.yml content required for compatibility validation",
-    );
+  it("copies when destination already has publish.yml", () => {
+    expect(run(["publish.yml"]).files).toEqual([".github/workflows/publish.yml"]);
   });
 
-  it("fails closed when inventory is unavailable", () => {
-    expect(() => run()).toThrow(
-      "Destination publish.yml content required for compatibility validation",
-    );
+  it("copies when destination inventory is not supplied", () => {
+    expect(run().files).toEqual([".github/workflows/publish.yml"]);
   });
 
-  it("rejects incompatible existing publishers", () => {
-    expect(() =>
-      run(["publish.yml"], "uses: reusable_vscode-publish.yml@main"),
-    ).toThrow("Incompatible publish.yml");
-  });
-
-  it("accepts a compatible existing publisher", () => {
-    expect(
-      run(["publish.yml"], "uses: reusable_npm-publish.yml@main").files,
-    ).toEqual([".github/workflows/publish.yml"]);
+  it("does not require inspection of the existing publisher", () => {
+    expect(run(["publish.yml", "release.yml"]).copied)
+      .toContain("reusable_npm-publish.yml");
   });
 });
