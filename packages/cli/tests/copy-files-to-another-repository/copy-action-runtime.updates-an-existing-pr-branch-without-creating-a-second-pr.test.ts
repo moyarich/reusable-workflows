@@ -13,6 +13,7 @@ let options: CopyOptions;
 let changed: boolean;
 let remoteBranch: boolean;
 let openPr: string;
+let matchingPrs: string;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "copy-runtime-test-"));
   const source = join(root, "source");
@@ -32,6 +33,7 @@ beforeEach(() => {
   changed = true;
   remoteBranch = false;
   openPr = "{}";
+  matchingPrs = "[]";
   subprocess.mockReset();
   subprocess.mockImplementation((command: string, args: string[]) => {
     if (command === "git") {
@@ -42,7 +44,8 @@ beforeEach(() => {
       if (args.includes("--stat")) return "workflow.yml | 1 +\n";
       return "";
     }
-    if (command === "gh" && args[1] === "list") return openPr;
+    if (command === "gh" && args[1] === "list")
+      return args.includes("--head") ? openPr : matchingPrs;
     if (command === "gh" && args[1] === "create")
       return "https://github.com/example/destination/pull/1\n";
     throw new Error("Unexpected subprocess: " + command);
@@ -58,6 +61,22 @@ const calls = (command: string) =>
     .map(([, args]) => args as string[]);
 const pushes = () => calls("git").filter((args) => args.includes("push"));
 describe("copy action publication modes", () => {
+  it("reuses a matching open PR on a previously suffixed branch", () => {
+    matchingPrs = JSON.stringify([
+      { number: 10, url: "https://github.com/example/destination/pull/10",
+        title: "Sync workflows", headRefName: "automation/copy-workflows-old-1234",
+        body: "Synchronize prepared files from example/source at main." },
+      { number: 11, url: "https://github.com/example/destination/pull/11",
+        title: "Unrelated", headRefName: "automation/copy-workflows-other",
+        body: "Synchronize prepared files from other/source at main." },
+    ]);
+    remoteBranch = true;
+    const result = copyFiles(options);
+    expect(result.pullRequestUrl).toBe("https://github.com/example/destination/pull/10");
+    expect(result.pullRequestStatus).toBe("existing");
+    expect(pushes()[0]).toContain("--force-with-lease=refs/heads/automation/copy-workflows-old-1234:abc");
+    expect(calls("gh").some((args) => args[1] === "create")).toBe(false);
+  });
   it("updates an existing PR branch without creating a second PR", () => {
     remoteBranch = true;
     openPr = JSON.stringify({
