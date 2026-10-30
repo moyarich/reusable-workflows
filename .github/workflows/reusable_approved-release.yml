@@ -58,7 +58,7 @@ jobs:
             if type != "array" or length == 0 then error("No approved release packages") else . end
             | if all(.[]; (.name | type == "string" and length > 0) and
                             (.directory | type == "string" and test("^(packages|apps)/[A-Za-z0-9_./-]+$") and (contains("..") | not)) and
-                            (.version | type == "string" and test("^[0-9]+\\\\.[0-9]+\\\\.[0-9]+(-[0-9A-Za-z.-]+)?$"))) then . else error("Invalid release package") end
+                            (.version | type == "string" and test("^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"))) then . else error("Invalid release package") end
             | {include: .}
           ' <<< "$PACKAGES" | { read -r matrix; echo "matrix=$matrix" >> "$GITHUB_OUTPUT"; }
           echo "## Approved release package matrix" >> "$GITHUB_STEP_SUMMARY"
