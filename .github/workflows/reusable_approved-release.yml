@@ -89,24 +89,3 @@ jobs:
       changelog-path: ${{ format('{0}/CHANGELOG.md', matrix.directory) }}
       dry-run: ${{ inputs.dry-run }}
 
-  release:
-    name: "Release · ${{ matrix.name }}@${{ matrix.version }}"
-    needs: [plan, draft]
-    if: ${{ always() && needs.plan.result == 'success' && needs.draft.result == 'success' }}
-    strategy:
-      fail-fast: false
-      max-parallel: 1
-      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
-    permissions:
-      contents: write
-    uses: $/.github/workflows/reusable_release.yml
-    with:
-      show-input-summary: false
-      version: ${{ matrix.version }}
-      release-tag: ${{ format('{0}@{1}', matrix.name, matrix.version) }}
-      release-name: ${{ format('{0} v{1}', matrix.name, matrix.version) }}
-      changelog-file: ${{ format('{0}/CHANGELOG.md', matrix.directory) }}
-      target-ref: ${{ github.event.pull_request.merge_commit_sha }}
-      create-tag: true
-      draft: false
-      dry-run: ${{ inputs.dry-run }}
