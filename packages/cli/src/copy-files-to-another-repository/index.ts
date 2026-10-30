@@ -213,7 +213,7 @@ export function copyFiles(options: CopyOptions): {
             "refs/heads/" + match.headRefName,
           )
             .trim()
-            .split(/\\s+/)[0];
+            .split(/\s+/)[0];
           if (sha) {
             pullRequestBranch = match.headRefName;
             existingBranch = true;
