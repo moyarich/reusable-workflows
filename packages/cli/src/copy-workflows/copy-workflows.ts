@@ -1,4 +1,4 @@
-import { appendFileSync, existsSync, readFileSync } from "node:fs";
+import { appendFileSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { validateSchema } from "../validate-schema/validate-schema.js";
 
@@ -13,7 +13,6 @@ interface Options {
   plan?: boolean;
   output?: string;
   existingFiles?: string;
-  destinationPublishFile?: string;
   sourceRoot: string;
   workflow: string;
 }
@@ -104,7 +103,6 @@ export const copyWorkflow = (opts: Options) => {
     existingFiles = parsed;
   }
 
-  const publishFile = opts.destinationPublishFile;
   const files = generateWorkflows({
     config,
     repository: requestedRepository,
@@ -112,10 +110,6 @@ export const copyWorkflow = (opts: Options) => {
     output: resolve(opts.output),
     workflow: selectedWorkflow,
     existingFiles,
-    destinationPublish:
-      publishFile && existsSync(publishFile)
-        ? readFileSync(publishFile, "utf8")
-        : undefined,
   });
   process.stdout.write(
     `${JSON.stringify({ repository: requestedRepository, files })}\n`,
