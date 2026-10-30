@@ -35,12 +35,24 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
+      - name: Check target workflow
+        id: target
+        shell: bash
+        run: |
+          if [[ -f .github/workflows/copy-files-to-another-repository.yml ]]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::warning file=.github/workflows/copy-files-to-another-repository.yml::Optional target workflow is missing; skipping choice synchronization."
+          fi
       - name: Resolve canonical source
+        if: steps.target.outputs.exists == 'true'
         id: canonical
         shell: bash
         run: |
           node actions/cli/index.mjs copy-workflow --config .github/copy-files-config.yml --plan
       - name: Checkout canonical workflows
+        if: steps.target.outputs.exists == 'true'
         uses: actions/checkout@v7
         with:
           repository: ${{ steps.canonical.outputs.source_repository }}
@@ -48,6 +60,7 @@ jobs:
           path: canonical-source
           persist-credentials: false
       - name: Update workflow choices from destination inventory
+        if: steps.target.outputs.exists == 'true'
         run: >-
           node actions/cli/index.mjs sync-workflow-choices
           --source .github/copy-files-config.yml
@@ -58,14 +71,17 @@ jobs:
           --workflow .github/workflows/copy-files-to-another-repository.yml
           --input repository
       - name: Generate workflow choices from canonical source
+        if: steps.target.outputs.exists == 'true'
         run: >-
           node actions/cli/index.mjs copy-workflow-choices
           --config .github/copy-files-config.yml
           --source-directory canonical-source/.github/workflows
           --workflow .github/workflows/copy-files-to-another-repository.yml
       - name: Format workflow
+        if: steps.target.outputs.exists == 'true'
         run: npx --yes prettier@3.6.2 --write .github/workflows/copy-files-to-another-repository.yml
       - name: Commit synchronization
+        if: steps.target.outputs.exists == 'true'
         env:
           WORKFLOW_TOKEN: ${{ secrets._WORKFLOW_TOKEN }}
           TARGET_BRANCH: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}
@@ -97,7 +113,18 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
+      - name: Check target workflow
+        id: target
+        shell: bash
+        run: |
+          if [[ -f .github/workflows/copy-files-to-another-repository.yml ]]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::warning file=.github/workflows/copy-files-to-another-repository.yml::Optional target workflow is missing; skipping choice synchronization."
+          fi
       - name: Resolve canonical source
+        if: steps.target.outputs.exists == 'true'
         id: canonical
         shell: bash
         run: |
@@ -110,6 +137,7 @@ jobs:
           path: canonical-source
           persist-credentials: false
       - name: Verify canonical workflow choices
+        if: steps.target.outputs.exists == 'true'
         run: >-
           node actions/cli/index.mjs copy-workflow-choices
           --config .github/copy-files-config.yml
@@ -117,6 +145,7 @@ jobs:
           --workflow .github/workflows/copy-files-to-another-repository.yml
           --check
       - name: Verify generated choices match configuration
+        if: steps.target.outputs.exists == 'true'
         run: >-
           node actions/cli/index.mjs sync-workflow-choices
           --source .github/copy-files-config.yml
