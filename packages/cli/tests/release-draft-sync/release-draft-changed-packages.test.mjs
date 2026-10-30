@@ -85,19 +85,27 @@ describe("changed-only release-draft selection", () => {
       writeFileSync(
         join(root, "packages", "unchanged", "package.json"),
         JSON.stringify({
-          name: "@example/unchanged", version: "0.1.0",
+          name: "@example/unchanged",
+          version: "0.1.0",
           peerDependencies: { "@example/changed": "^1.2.0" },
         }),
       );
       git("add", ".");
       git("commit", "-m", "update dependency");
-      const dependencyRun = spawnSync(process.execPath, ["--input-type=module", "-e", script], {
-        cwd: root, encoding: "utf8",
-        env: { ...process.env, PACKAGES_JSON: JSON.stringify(packages) },
-      });
+      const dependencyRun = spawnSync(
+        process.execPath,
+        ["--input-type=module", "-e", script],
+        {
+          cwd: root,
+          encoding: "utf8",
+          env: { ...process.env, PACKAGES_JSON: JSON.stringify(packages) },
+        },
+      );
       expect(dependencyRun.status, dependencyRun.stderr).toBe(0);
       expect(JSON.parse(dependencyRun.stdout).map((p) => p.name)).toEqual([
-        "@example/changed", "@example/unchanged", "@example/new",
+        "@example/changed",
+        "@example/unchanged",
+        "@example/new",
       ]);
     } finally {
       rmSync(root, { recursive: true, force: true });
