@@ -57,9 +57,8 @@ For additional configuration, permissions, and workflow inputs, see the [Getting
 
 ## Copy workflow callers
 
-This repository **owns the copier**: [`.github/copy-files-config.yml`](.github/copy-files-config.yml) identifies `moyarich/reusable-workflows-callers` as the canonical workflow source and lists each authorized destination and its overrides. [`.github/workflows/copy.yml`](.github/workflows/copy.yml) is the manually dispatched caller for [`reusable_copy-files-to-another-repository.yml`](.github/workflows/reusable_copy-files-to-another-repository.yml). The implementation and tests live under [`packages/cli/`](packages/cli/).
+The copier implementation and reusable workflow live here; the **authoritative** [copier configuration](https://github.com/moyarich/reusable-workflows-callers/blob/main/.github/copy-files-config.yml), [dispatch workflow](https://github.com/moyarich/reusable-workflows-callers/blob/main/.github/workflows/copy-files-to-another-repository.yml), and [choice synchronization](https://github.com/moyarich/reusable-workflows-callers/blob/main/.github/workflows/sync_copy-destination-choices.yml) live in `reusable-workflows-callers`. The local `.github/copy-files-config.yml` is an intentionally empty compatibility shell, not an inventory. The reusable copier checks out the caller-owned configuration for planning and generating workflow copies. Destination repositories receive neither the copier dispatcher nor its sync workflow. See the [copy files guide](docs/02-guides/copy-files-to-another-repository.md).
 
-Dispatch **Copy canonical workflow callers** with `dry-run: true` first. Set `repository` to an `owner/repo` from the local allowlist to test one destination; leave it empty for all. With `dry-run: false`, changes are proposed as destination PRs, not pushed directly to their base branch. The central configuration **is not distributed** to destinations. Every other repository that invokes the reusable workflow must provide its own `.github/copy-files-config.yml`. See the [copy files guide](docs/02-guides/copy-files-to-another-repository.md) for inputs, overrides, safety rules, tokens, and troubleshooting.
 
 ## Releases
 
