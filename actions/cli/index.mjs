@@ -16958,13 +16958,6 @@ function match(name, globs) {
 		return new RegExp("^" + escaped + "$").test(name);
 	});
 }
-function kind(s) {
-	if (s.includes("reusable_bulk-npm-publish.yml")) return "npm-monorepo";
-	if (s.includes("reusable_npm-publish.yml")) return "npm-single";
-	if (s.includes("reusable_vscode-publish.yml")) return "vscode";
-	if (s.includes("reusable_browser-extension-publish.yml")) return "browser";
-	return "custom";
-}
 function safeSource(root, path) {
 	if (!/^\.github\/workflows\/[^/\\]+\.yml$/.test(path) || path.includes("..")) throw Error("Unsafe source path: " + path);
 	const absolute = resolve(root, path);
@@ -17051,12 +17044,6 @@ function generateWorkflows(opts) {
 		if (!files.some((f) => basename(f) === opts.workflow)) throw Error("Workflow not included in canonical source selection: " + opts.workflow);
 		if (!eligible.some((f) => basename(f) === opts.workflow)) throw Error("Workflow excluded by destination configuration: " + opts.workflow);
 		selected = eligible.filter((f) => basename(f) === opts.workflow);
-	}
-	if (selected.includes(".github/workflows/publish.yml")) {
-		if (opts.destinationPublish === void 0) throw Error("Destination publish.yml content required for compatibility validation");
-		const canonical = kind(readFileSync(safeSource(sourceRoot, ".github/workflows/publish.yml"), "utf8"));
-		const destination = kind(opts.destinationPublish);
-		if (canonical !== destination) throw Error("Incompatible publish.yml for " + repository + ": destination=" + destination + ", canonical=" + canonical);
 	}
 	const selectors = selected.filter((f) => [
 		"publish.yml",
@@ -17237,15 +17224,13 @@ var copyWorkflow = (opts) => {
 		if (!Array.isArray(parsed) || parsed.some((x) => typeof x !== "string")) throw new Error("--existing-files must contain a JSON array of filenames");
 		existingFiles = parsed;
 	}
-	const publishFile = opts.destinationPublishFile;
 	const files = generateWorkflows({
 		config,
 		repository: requestedRepository,
 		sourceRoot: resolve(opts.sourceRoot),
 		output: resolve(opts.output),
 		workflow: selectedWorkflow,
-		existingFiles,
-		destinationPublish: publishFile && existsSync(publishFile) ? readFileSync(publishFile, "utf8") : void 0
+		existingFiles
 	});
 	process.stdout.write(`${JSON.stringify({
 		repository: requestedRepository,
@@ -17255,7 +17240,7 @@ var copyWorkflow = (opts) => {
 // src/copy-workflows/copy-workflows-cli.ts
 /** Create the copy-workflow Commander command. */
 function createCopyWorkflowCommand() {
-	return new Command("copy-workflow").option("--config <path>", "copier config file", ".github/copy-files-config.yml").option("--schema <path>", "JSON schema for the config").option("--repository <name>", "destination repository (must be allowlisted; empty or all selects all during planning)").option("--plan", "emit the job matrix instead of generating files").option("--output <path>", "output directory for generated files").option("--existing-files <path>", "JSON array of existing destination filenames").option("--destination-publish-file <path>", "destination publish workflow file").option("--source-root <path>", "source repository root", ".").option("--workflow <name>", "workflow name or all", "").action(copyWorkflow);
+	return new Command("copy-workflow").option("--config <path>", "copier config file", ".github/copy-files-config.yml").option("--schema <path>", "JSON schema for the config").option("--repository <name>", "destination repository (must be allowlisted; empty or all selects all during planning)").option("--plan", "emit the job matrix instead of generating files").option("--output <path>", "output directory for generated files").option("--existing-files <path>", "JSON array of existing destination filenames").option("--source-root <path>", "source repository root", ".").option("--workflow <name>", "workflow name or all", "").action(copyWorkflow);
 }
 // src/sync-yaml-values/sync-yaml-values.ts
 /** Apply declarative updates to existing YAML keys while retaining unrelated content. */
