@@ -37,13 +37,6 @@ function match(name: string, globs: string[]): boolean {
     return new RegExp("^" + escaped + "$").test(name);
   });
 }
-function kind(s: string): string {
-  if (s.includes("reusable_bulk-npm-publish.yml")) return "npm-monorepo";
-  if (s.includes("reusable_npm-publish.yml")) return "npm-single";
-  if (s.includes("reusable_vscode-publish.yml")) return "vscode";
-  if (s.includes("reusable_browser-extension-publish.yml")) return "browser";
-  return "custom";
-}
 function safeSource(root: string, path: string): string {
   if (!/^\.github\/workflows\/[^/\\]+\.yml$/.test(path) || path.includes(".."))
     throw Error("Unsafe source path: " + path);
@@ -89,7 +82,6 @@ export interface GenerateOptions {
   output: string;
   workflow?: string;
   existingFiles?: string[];
-  destinationPublish?: string;
 }
 export function generateWorkflows(opts: GenerateOptions): string[] {
   const { config, repository, sourceRoot, output } = opts;
@@ -181,28 +173,6 @@ export function generateWorkflows(opts: GenerateOptions): string[] {
         "Workflow excluded by destination configuration: " + opts.workflow,
       );
     selected = eligible.filter((f) => basename(f) === opts.workflow);
-  }
-  if (selected.includes(".github/workflows/publish.yml")) {
-    if (opts.destinationPublish === undefined)
-      throw Error(
-        "Destination publish.yml content required for compatibility validation",
-      );
-    const canonical = kind(
-      readFileSync(
-        safeSource(sourceRoot, ".github/workflows/publish.yml"),
-        "utf8",
-      ),
-    );
-    const destination = kind(opts.destinationPublish);
-    if (canonical !== destination)
-      throw Error(
-        "Incompatible publish.yml for " +
-          repository +
-          ": destination=" +
-          destination +
-          ", canonical=" +
-          canonical,
-      );
   }
   const selectors = selected.filter(
     (f) =>

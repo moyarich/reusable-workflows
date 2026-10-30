@@ -51,7 +51,7 @@ The reusable workflow takes `repository` (optional destination filter), `dry-run
 
 ## Publishing, package choices, and safety
 
-The generator reads the **canonical** workflow, applies destination-specific overrides, and never merges arbitrary destination YAML. It checks whether an existing `publish.yml` uses a compatible publisher (monorepo npm, single npm package, VS Code, browser extension, or custom). Unmatched types are rejected rather than overwritten. Where the canonical release/publish caller has a placeholder choice such as `packages/example`, it is only selected alongside the canonical `sync-release-package-choices.yml`. The synchronizer updates package options for the destination; it is not the copier's job to hardcode package names.
+The generator reads the **canonical** workflow, applies destination-specific overrides, and never merges arbitrary destination YAML. Publishing workflows are selected by the canonical configuration and copied like other selected workflow files, without reading or validating a destination `publish.yml`. Review publishing changes in the destination pull request. Where the canonical release/publish caller has a placeholder choice such as `packages/example`, it is only selected alongside the canonical `sync-release-package-choices.yml`. The synchronizer updates package options for the destination; it is not the copier's job to hardcode package names.
 
 PR mode preserves existing synchronization review-branch commits and uses non-force pushes; diverged branches require manual reconciliation. No-op content does not create new commits. A dry run does not push. The configuration file itself is not copied to destinations.
 
@@ -59,7 +59,7 @@ PR mode preserves existing synchronization review-branch commits and uses non-fo
 
 - **Missing caller configuration**: create `.github/copy-files-config.yml` in the invoking repository; the upstream repository's configuration is not a fallback for external callers.
 - **Destination not allowlisted**: add the exact `owner/repo` to that caller's configuration and select its default branch.
-- **Publishing incompatibility**: keep a repository-specific exclusion until a compatible canonical publishing caller is available.
+- **Publishing selection**: configure repository-specific includes or exclusions and review changes to publishing callers before merging.
 - **No source files generated**: verify source filename globs, destination selection, exclusions, and package-choice synchronizer selection.
 - **Authentication failure**: verify `_WORKFLOW_TOKEN` rights to destination workflows/contents and source checkout.
 - **Conflicting PR branch**: reconcile review-branch edits instead of force-overwriting them.

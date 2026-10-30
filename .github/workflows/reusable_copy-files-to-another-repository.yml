@@ -183,16 +183,6 @@ jobs:
             cat "$RUNNER_TEMP/inventory-error" >&2
             exit 1
           fi
-      - name: Read existing destination publisher
-        env:
-          GH_TOKEN: ${{ secrets.workflow-token }}
-          DEST_REPO: ${{ matrix.name }}
-          DEST_BRANCH: ${{ matrix.branch }}
-        shell: bash
-        run: |
-          if jq -e 'index("publish.yml") != null' "$RUNNER_TEMP/existing-workflows.json" >/dev/null; then
-            gh api "repos/$DEST_REPO/contents/.github/workflows/publish.yml?ref=$DEST_BRANCH" --jq .content | base64 --decode > "$RUNNER_TEMP/destination-publish.yml"
-          fi
       - name: Generate repository-specific workflows
         env:
           DEST_REPO: ${{ matrix.name }}
@@ -205,9 +195,6 @@ jobs:
             --repository "$DEST_REPO" --workflow "$SELECTED_WORKFLOW"
             --output "$RUNNER_TEMP/generated"
             --existing-files "$RUNNER_TEMP/existing-workflows.json")
-          if [[ -f "$RUNNER_TEMP/destination-publish.yml" ]]; then
-            args+=(--destination-publish-file "$RUNNER_TEMP/destination-publish.yml")
-          fi
           node actions/cli/index.mjs copy-workflow "${args[@]}"
       - id: sync
         name: Copy generated workflows to destination

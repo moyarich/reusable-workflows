@@ -20,10 +20,6 @@ export function createCopyWorkflowCommand(): Command {
       "--existing-files <path>",
       "JSON array of existing destination filenames",
     )
-    .option(
-      "--destination-publish-file <path>",
-      "destination publish workflow file",
-    )
     .option("--source-root <path>", "source repository root", ".")
     .option("--workflow <name>", "workflow name or all", "")
     .action(copyWorkflow);
