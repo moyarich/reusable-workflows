@@ -8,7 +8,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { parse } from "yaml";
 
 const workflowPath = resolve(
@@ -18,7 +18,7 @@ const workflow = parse(readFileSync(workflowPath, "utf8")) as {
   jobs: Record<string, { steps: Array<{ name?: string; run?: string }> }>;
 };
 const step = Object.values(workflow.jobs)
-  .flatMap((job) => job.steps)
+  .flatMap((job) => job.steps ?? [])
   .find((item) => item.name === "Commit changed package choices");
 if (!step?.run)
   throw new Error("Commit changed package choices step not found");
