@@ -59,10 +59,17 @@ jobs:
           repository: moyarich/reusable-workflows
           ref: main
           sparse-checkout: |
-            /.github/copy-files-config.yml
             /actions/cli/
             /package.json
           sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - name: Checkout authoritative caller configuration
+        uses: actions/checkout@v7
+        with:
+          repository: moyarich/reusable-workflows-callers
+          ref: main
+          path: caller-config
+          sparse-checkout: .github/copy-files-config.yml
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
@@ -74,7 +81,7 @@ jobs:
           WORKFLOW_CLI: actions/cli/index.mjs
         run: >-
           node "$WORKFLOW_CLI" copy-workflow
-          --config .github/copy-files-config.yml
+          --config caller-config/.github/copy-files-config.yml
           --repository "$REQUESTED_REPOSITORY" --plan
       - name: Summarize copy plan
         if: always()
@@ -128,7 +135,6 @@ jobs:
           ref: main
           sparse-checkout: |
             /actions/
-            /.github/copy-files-config.yml
             /package.json
           sparse-checkout-cone-mode: false
           persist-credentials: false
@@ -139,6 +145,14 @@ jobs:
           ref: main
           path: source-workflows
           sparse-checkout: .github/workflows
+          persist-credentials: false
+      - name: Checkout authoritative caller configuration
+        uses: actions/checkout@v7
+        with:
+          repository: moyarich/reusable-workflows-callers
+          ref: main
+          path: caller-config
+          sparse-checkout: .github/copy-files-config.yml
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
@@ -164,7 +178,7 @@ jobs:
         env:
           DEST_REPO: ${{ matrix.name }}
           SELECTED_WORKFLOW: ${{ inputs.workflow }}
-          CALLER_CONFIG: .github/copy-files-config.yml
+          CALLER_CONFIG: caller-config/.github/copy-files-config.yml
         shell: bash
         run: |
           args=(--config "$CALLER_CONFIG"

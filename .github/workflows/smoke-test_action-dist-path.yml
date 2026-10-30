@@ -34,7 +34,7 @@ jobs:
       - name: Execute committed workflow CLI without installing dependencies
         run: |
           node actions/cli/index.mjs --help
-          node actions/cli/index.mjs copy-workflow --config .github/copy-files-config.yml --plan
+          node actions/cli/index.mjs copy-workflow --help
       - name: Execute committed setup-workspace-tools bundle
         id: smoke
         shell: bash
