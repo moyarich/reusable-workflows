@@ -354,12 +354,13 @@ jobs:
               if (error.code !== 'ENOENT') throw error;
             }
             if (current) parse(current);
-            if (!previous) {
-              // An initial draft remains pinned to the configured first
-              // release, rather than skipping directly to its next bump.
+            if (!previous && e.MODE !== 'bump') {
+              // Automatic first drafts use the configured initial version.
+              // Explicit bump requests still increment the workspace manifest.
               version = e.EXPLICIT || e.INITIAL;
             } else {
-              const v = parse(e.MODE === 'bump' ? (current || previous) : previous);
+              const baseline = e.MODE === 'bump' ? (current || previous || e.INITIAL) : previous;
+              const v = parse(baseline);
               if (kind === 'major' || kind === 'premajor') { v.major++; v.minor=0; v.patch=0; v.pre=''; }
               else if (kind === 'minor' || kind === 'preminor') { v.minor++; v.patch=0; v.pre=''; }
               else if (kind === 'patch' || kind === 'prepatch' || (kind === 'prerelease' && !v.pre)) { v.patch++; v.pre=''; }
