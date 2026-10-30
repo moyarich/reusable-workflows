@@ -198,9 +198,10 @@ export function generateWorkflows(opts: GenerateOptions): string[] {
         "utf8",
       ),
     );
-    const destination = opts.destinationPublish === undefined
-      ? undefined
-      : kind(opts.destinationPublish);
+    const destination =
+      opts.destinationPublish === undefined
+        ? undefined
+        : kind(opts.destinationPublish);
     if (destination !== undefined && canonical !== destination)
       throw Error(
         "Incompatible publish.yml for " +

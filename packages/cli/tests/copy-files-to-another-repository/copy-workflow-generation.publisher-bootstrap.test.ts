@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { generateWorkflows } from "../../src/copy-files-to-another-repository/generate";
@@ -10,7 +17,8 @@ describe("publisher bootstrap compatibility", () => {
     const sourceRoot = join(root, "source");
     const output = join(root, "generated");
     mkdirSync(join(sourceRoot, ".github/workflows"), { recursive: true });
-    const canonical = "name: Publish\njobs:\n  publish:\n    uses: moyarich/reusable-workflows/.github/workflows/reusable_npm-publish.yml@main\n";
+    const canonical =
+      "name: Publish\njobs:\n  publish:\n    uses: moyarich/reusable-workflows/.github/workflows/reusable_npm-publish.yml@main\n";
     writeFileSync(join(sourceRoot, ".github/workflows/publish.yml"), canonical);
     const config = {
       source: { directory: ".github/workflows", allow: ["publish.yml"] },
@@ -18,11 +26,19 @@ describe("publisher bootstrap compatibility", () => {
     };
     try {
       const files = generateWorkflows({
-        config, repository: "moyarich/console", sourceRoot, output,
-        existingFiles, destinationPublish,
+        config,
+        repository: "moyarich/console",
+        sourceRoot,
+        output,
+        existingFiles,
+        destinationPublish,
       });
-      return { files, copied: existsSync(join(output, ".github/workflows/publish.yml"))
-        ? readFileSync(join(output, ".github/workflows/publish.yml"), "utf8") : undefined };
+      return {
+        files,
+        copied: existsSync(join(output, ".github/workflows/publish.yml"))
+          ? readFileSync(join(output, ".github/workflows/publish.yml"), "utf8")
+          : undefined,
+      };
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -52,12 +68,14 @@ describe("publisher bootstrap compatibility", () => {
   });
 
   it("rejects incompatible existing publishers", () => {
-    expect(() => run(["publish.yml"], "uses: reusable_vscode-publish.yml@main"))
-      .toThrow("Incompatible publish.yml");
+    expect(() =>
+      run(["publish.yml"], "uses: reusable_vscode-publish.yml@main"),
+    ).toThrow("Incompatible publish.yml");
   });
 
   it("accepts a compatible existing publisher", () => {
-    expect(run(["publish.yml"], "uses: reusable_npm-publish.yml@main").files)
-      .toEqual([".github/workflows/publish.yml"]);
+    expect(
+      run(["publish.yml"], "uses: reusable_npm-publish.yml@main").files,
+    ).toEqual([".github/workflows/publish.yml"]);
   });
 });
