@@ -77,7 +77,7 @@ describe("release choice sync commit missing workflow handling", () => {
 
   it("warns for a missing file and succeeds if a tracked workflow is unchanged", () => {
     const present = ".github/workflows/release.yml";
-    const missing = ".github/workflows/check-dist.yml";
+    const missing = ".github/workflows/optional-task.yml";
     const result = execute([missing, present], [present]);
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("::warning title=Workflow skipped::");
@@ -86,7 +86,7 @@ describe("release choice sync commit missing workflow handling", () => {
   });
 
   it("warns and succeeds when every workflow is missing", () => {
-    const result = execute([".github/workflows/check-dist.yml"], []);
+    const result = execute([".github/workflows/optional-task.yml"], []);
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("::warning title=Workflow skipped::");
     expect(result.stdout).toContain("::notice title=No workflows to commit::");
