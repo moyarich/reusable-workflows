@@ -84,6 +84,21 @@ function copyFiles(options) {
 					existingBranch = false;
 				}
 			}
+			if (!pullRequestUrl) {
+				const candidates = JSON.parse(github("pr", "list", "--repo", options.repository, "--base", options.branch, "--state", "open", "--limit", "100", "--json", "number,url,title,body,headRefName").trim());
+				const match = Array.isArray(candidates) ? candidates.filter((pr) => pr.headRefName.startsWith("automation/copy-workflows-") && pr.body?.includes(`Synchronize prepared files from ${options.sourceRepository} at ${options.sourceRef}.`)).sort((a, b) => a.number - b.number)[0] : void 0;
+				if (match) {
+					const sha = authenticatedGit("ls-remote", "--heads", "origin", "refs/heads/" + match.headRefName).trim().split(/\\s+/)[0];
+					if (sha) {
+						pullRequestBranch = match.headRefName;
+						existingBranch = true;
+						existingBranchSha = sha;
+						pullRequestUrl = match.url;
+						pullRequestTitle = match.title;
+						pullRequestStatus = "existing";
+					}
+				}
+			}
 			git("checkout", "-b", pullRequestBranch);
 		}
 		for (const name of readdirSync(options.sourceDirectory)) {
