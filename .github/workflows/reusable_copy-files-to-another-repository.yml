@@ -53,9 +53,11 @@ jobs:
       matrix: ${{ steps.config.outputs.matrix }}
       source-repository: ${{ steps.config.outputs.source_repository }}
     steps:
-      - name: Checkout caller configuration and local runtime
+      - name: Checkout central configuration and shared runtime
         uses: actions/checkout@v7
         with:
+          repository: moyarich/reusable-workflows
+          ref: main
           sparse-checkout: |
             /.github/copy-files-config.yml
             /actions/cli/
@@ -65,20 +67,11 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
-      - name: Checkout shared action runtimes
-        if: github.repository != 'moyarich/reusable-workflows'
-        uses: actions/checkout@v7
-        with:
-          repository: moyarich/reusable-workflows
-          ref: main
-          path: .workflow-tools
-          sparse-checkout: actions/cli
-          persist-credentials: false
       - id: config
         name: Validate copier config and plan destinations
         env:
           REQUESTED_REPOSITORY: ${{ inputs.repository }}
-          WORKFLOW_CLI: ${{ github.repository == 'moyarich/reusable-workflows' && 'actions/cli/index.mjs' || '.workflow-tools/actions/cli/index.mjs' }}
+          WORKFLOW_CLI: actions/cli/index.mjs
         run: >-
           node "$WORKFLOW_CLI" copy-workflow
           --config .github/copy-files-config.yml
@@ -128,23 +121,16 @@ jobs:
       max-parallel: 2
       matrix: ${{ fromJSON(needs.plan.outputs.matrix || '{"include":[]}') }}
     steps:
-      - name: Checkout local runtime and configuration
-        if: github.repository == 'moyarich/reusable-workflows'
+      - name: Checkout central runtime and configuration
         uses: actions/checkout@v7
         with:
+          repository: moyarich/reusable-workflows
+          ref: main
           sparse-checkout: |
             /actions/
             /.github/copy-files-config.yml
             /package.json
           sparse-checkout-cone-mode: false
-          persist-credentials: false
-      - name: Checkout shared action runtime
-        if: github.repository != 'moyarich/reusable-workflows'
-        uses: actions/checkout@v7
-        with:
-          repository: moyarich/reusable-workflows
-          ref: main
-          sparse-checkout: actions
           persist-credentials: false
       - name: Checkout canonical source workflows
         uses: actions/checkout@v7
@@ -153,15 +139,6 @@ jobs:
           ref: main
           path: source-workflows
           sparse-checkout: .github/workflows
-          persist-credentials: false
-      - name: Checkout caller configuration
-        if: github.repository != 'moyarich/reusable-workflows'
-        uses: actions/checkout@v7
-        with:
-          repository: ${{ github.repository }}
-          path: caller-config
-          sparse-checkout: /.github/copy-files-config.yml
-          sparse-checkout-cone-mode: false
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
@@ -187,7 +164,7 @@ jobs:
         env:
           DEST_REPO: ${{ matrix.name }}
           SELECTED_WORKFLOW: ${{ inputs.workflow }}
-          CALLER_CONFIG: ${{ github.repository == 'moyarich/reusable-workflows' && '.github/copy-files-config.yml' || 'caller-config/.github/copy-files-config.yml' }}
+          CALLER_CONFIG: .github/copy-files-config.yml
         shell: bash
         run: |
           args=(--config "$CALLER_CONFIG"
