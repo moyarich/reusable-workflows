@@ -106,24 +106,99 @@ jobs:
             if [ "$INPUT_PACKAGE" = "all" ]; then
               if [ "$CHANGED_PACKAGES_ONLY" = "true" ]; then
                 SELECTED="$(
-                  PACKAGES_JSON="$PACKAGES_JSON" node --input-type=module <<'NODE'
+                  PACKAGES_JSON="$PACKAGES_JSON" VERSION_BUMP="$VERSION_BUMP" node --input-type=module <<'NODE'
           import { execFileSync } from "node:child_process";
+          import { readFileSync } from "node:fs";
           const packages = JSON.parse(process.env.PACKAGES_JSON || "[]");
           const git = (...args) => execFileSync("git", args, { encoding: "utf8" }).trim();
           const selected = packages.filter((pkg) => {
             const prefix = pkg.directory === "." ? pkg.name : pkg.directory;
             const tags = git("tag", "--sort=-version:refname", "--list",
-              prefix + "@*", pkg.name + "@*").split("\\n").filter(Boolean);
+              prefix + "@*", pkg.name + "@*").split("\n").filter(Boolean);
             if (!tags.length) return true;
             const files = git("diff", "--name-only", tags[0], "HEAD", "--", pkg.directory)
-              .split("\\n").filter(Boolean);
+              .split("\n").filter(Boolean);
             const directory = pkg.directory === "." ? "" : pkg.directory + "/";
             return files.some((file) => {
               const local = file.startsWith(directory) ? file.slice(directory.length) : file;
-              return !["package.json", "package-lock.json", "CHANGELOG.md"].includes(local);
+              if (local === "package.json") {
+                const previous = JSON.parse(git("show", tags[0] + ":" + file));
+                const current = JSON.parse(readFileSync(file, "utf8"));
+                return ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"]
+                  .some((field) => JSON.stringify(Object.entries(previous[field] ?? {}).sort()) !==
+                    JSON.stringify(Object.entries(current[field] ?? {}).sort()));
+              }
+              return !["package-lock.json", "CHANGELOG.md"].includes(local);
             });
           });
-          process.stdout.write(JSON.stringify(selected));
+          // A changed host may require a new addon release even when the addon
+          // has no direct file changes. Expand until dependent ranges are valid.
+          const selectedNames = new Set(selected.map((pkg) => pkg.name));
+          const fields = ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"];
+          const parseVersion = (value) => {
+            const match = /^(\d+)\.(\d+)\.(\d+)/.exec(value || "");
+            return match ? match.slice(1).map(Number) : null;
+          };
+          const satisfies = (version, range) => {
+            const target = parseVersion(version);
+            if (!target) return true;
+            const clauses = String(range).split("||").map((part) => part.trim());
+            return clauses.some((clause) => {
+              if (clause === "*" || !clause) return true;
+              const comparators = clause.match(/(?:\^|~|>=|<=|>|<|=)?\s*\d+\.\d+\.\d+/g);
+              if (!comparators || comparators.join(" ").replace(/\s/g, "") !== clause.replace(/\s/g, "")) return true;
+              const cmp = (a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
+              return comparators.every((raw) => {
+                const m = /^(\^|~|>=|<=|>|<|=)?\s*(\d+\.\d+\.\d+)$/.exec(raw.trim());
+                if (!m) return true;
+                const base = parseVersion(m[2]);
+                const relation = cmp(target, base);
+                switch (m[1] || "=") {
+                  case "^": {
+                    const upper = base[0] > 0 ? [base[0] + 1, 0, 0]
+                      : base[1] > 0 ? [0, base[1] + 1, 0] : [0, 0, base[2] + 1];
+                    return relation >= 0 && cmp(target, upper) < 0;
+                  }
+                  case "~": return relation >= 0 && cmp(target, [base[0], base[1] + 1, 0]) < 0;
+                  case ">=": return relation >= 0;
+                  case ">": return relation > 0;
+                  case "<=": return relation <= 0;
+                  case "<": return relation < 0;
+                  default: return relation === 0;
+                }
+              });
+            });
+          };
+          let expanded = true;
+          while (expanded) {
+            expanded = false;
+            for (const pkg of packages) {
+              if (selectedNames.has(pkg.name)) continue;
+              const manifest = JSON.parse(readFileSync(
+                pkg.directory === "." ? "package.json" : pkg.directory + "/package.json", "utf8"));
+              const incompatible = fields.some((field) => Object.entries(manifest[field] ?? {})
+                .some(([name, range]) => {
+                  if (!selectedNames.has(name) || typeof range !== "string") return false;
+                  const dependency = packages.find((candidate) => candidate.name === name);
+                  if (!dependency) return false;
+                  const oldVersion = JSON.parse(readFileSync(
+                    dependency.directory === "." ? "package.json" : dependency.directory + "/package.json",
+                    "utf8")).version;
+                  const parts = parseVersion(oldVersion);
+                  if (!parts) return false;
+                  // The manual bump selection has a predictable next version.
+                  const bump = process.env.VERSION_BUMP || "patch";
+                  if (bump === "major") { parts[0]++; parts[1] = 0; parts[2] = 0; }
+                  else if (bump === "minor") { parts[1]++; parts[2] = 0; }
+                  else if (bump === "patch") parts[2]++;
+                  else return false;
+                  return !satisfies(parts.join("."), range);
+                }));
+              if (incompatible) { selectedNames.add(pkg.name); expanded = true; }
+            }
+          }
+          const expandedSelection = packages.filter((pkg) => selectedNames.has(pkg.name));
+          process.stdout.write(JSON.stringify(expandedSelection));
           NODE
                 )"
               else

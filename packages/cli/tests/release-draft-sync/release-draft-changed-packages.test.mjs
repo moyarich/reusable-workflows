@@ -17,9 +17,9 @@ const workflow = readFileSync(
   ),
   "utf8",
 );
-const section = workflow
-  .split('if [ "$CHANGED_PACKAGES_ONLY" = "true" ]; then')[1]
-  ?.split("              else")[0];
+const section = workflow.split(
+  'if [ "$CHANGED_PACKAGES_ONLY" = "true" ]; then',
+)[1];
 const script = section
   ?.match(/node --input-type=module <<'NODE'\n([\s\S]*?)\n\s*NODE/)?.[1]
   ?.split("\n")
@@ -81,6 +81,89 @@ describe("changed-only release-draft selection", () => {
       expect(JSON.parse(run.stdout).map((p) => p.name)).toEqual([
         "@example/changed",
         "@example/new",
+      ]);
+      writeFileSync(
+        join(root, "packages", "unchanged", "package.json"),
+        JSON.stringify({
+          name: "@example/unchanged",
+          version: "0.1.0",
+          peerDependencies: { "@example/changed": "^1.2.0" },
+        }),
+      );
+      git("add", ".");
+      git("commit", "-m", "update dependency");
+      const dependencyRun = spawnSync(
+        process.execPath,
+        ["--input-type=module", "-e", script],
+        {
+          cwd: root,
+          encoding: "utf8",
+          env: { ...process.env, PACKAGES_JSON: JSON.stringify(packages) },
+        },
+      );
+      expect(dependencyRun.status, dependencyRun.stderr).toBe(0);
+      expect(JSON.parse(dependencyRun.stdout).map((p) => p.name)).toEqual([
+        "@example/changed",
+        "@example/unchanged",
+        "@example/new",
+      ]);
+      // Unchanged dependents must join the draft if Core's new version
+      // is outside their declared range, including transitive dependents.
+      for (const name of ["core", "addon", "consumer", "compatible"]) {
+        mkdirSync(join(root, "packages", name), { recursive: true });
+      }
+      const dependencies = {
+        core: {},
+        addon: { peerDependencies: { "@example/core": "^0.1.0" } },
+        consumer: { dependencies: { "@example/addon": "^0.1.0" } },
+        compatible: { peerDependencies: { "@example/core": ">=0.1.0 <1.0.0" } },
+      };
+      for (const [name, dependency] of Object.entries(dependencies)) {
+        writeFileSync(
+          join(root, "packages", name, "package.json"),
+          JSON.stringify({
+            name: "@example/" + name,
+            version: "0.1.0",
+            ...dependency,
+          }),
+        );
+        writeFileSync(
+          join(root, "packages", name, "index.ts"),
+          "export const value = 1;\\n",
+        );
+      }
+      git("add", ".");
+      git("commit", "-m", "baseline for core dependency chain");
+      for (const name of Object.keys(dependencies))
+        git("tag", "packages/" + name + "@0.1.0");
+      writeFileSync(
+        join(root, "packages", "core", "index.ts"),
+        "export const value = 2;\\n",
+      );
+      git("add", ".");
+      git("commit", "-m", "core implementation change");
+      const chainPackages = Object.keys(dependencies).map((name) => ({
+        name: "@example/" + name,
+        directory: "packages/" + name,
+      }));
+      const cascadeRun = spawnSync(
+        process.execPath,
+        ["--input-type=module", "-e", script],
+        {
+          cwd: root,
+          encoding: "utf8",
+          env: {
+            ...process.env,
+            PACKAGES_JSON: JSON.stringify(chainPackages),
+            VERSION_BUMP: "minor",
+          },
+        },
+      );
+      expect(cascadeRun.status, cascadeRun.stderr).toBe(0);
+      expect(JSON.parse(cascadeRun.stdout).map((p) => p.name)).toEqual([
+        "@example/core",
+        "@example/addon",
+        "@example/consumer",
       ]);
     } finally {
       rmSync(root, { recursive: true, force: true });
