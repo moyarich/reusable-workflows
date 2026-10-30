@@ -55,7 +55,9 @@ describe("publisher copies without destination publisher dependency", () => {
   });
 
   it("copies when destination already has publish.yml", () => {
-    expect(run(["publish.yml"]).files).toEqual([".github/workflows/publish.yml"]);
+    expect(run(["publish.yml"]).files).toEqual([
+      ".github/workflows/publish.yml",
+    ]);
   });
 
   it("copies when destination inventory is not supplied", () => {
@@ -63,7 +65,8 @@ describe("publisher copies without destination publisher dependency", () => {
   });
 
   it("does not require inspection of the existing publisher", () => {
-    expect(run(["publish.yml", "release.yml"]).copied)
-      .toContain("reusable_npm-publish.yml");
+    expect(run(["publish.yml", "release.yml"]).copied).toContain(
+      "reusable_npm-publish.yml",
+    );
   });
 });
