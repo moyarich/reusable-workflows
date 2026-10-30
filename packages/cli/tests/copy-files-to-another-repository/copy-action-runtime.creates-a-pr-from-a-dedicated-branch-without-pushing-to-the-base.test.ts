@@ -42,7 +42,8 @@ beforeEach(() => {
       if (args.includes("--stat")) return "workflow.yml | 1 +\n";
       return "";
     }
-    if (command === "gh" && args[1] === "list") return openPr;
+    if (command === "gh" && args[1] === "list")
+      return args.includes("--head") ? openPr : "[]";
     if (command === "gh" && args[1] === "create")
       return "https://github.com/example/destination/pull/1\n";
     throw new Error("Unexpected subprocess: " + command);
