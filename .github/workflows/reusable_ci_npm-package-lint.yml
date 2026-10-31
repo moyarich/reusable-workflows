@@ -102,11 +102,11 @@ jobs:
             check "$package: publint" npx --yes publint "$RUNNER_TEMP/$tarball" --strict
             echo "::endgroup::"
             echo "::group::TypeScript package compatibility: $package"
-            if ! npx --yes @arethetypeswrong/cli "$RUNNER_TEMP/$tarball" --format table; then
+            if ! npx --yes @arethetypeswrong/cli "$RUNNER_TEMP/$tarball" --format table --exclude-entrypoints styles.css; then
               echo "::error title=Package validation failed::$package: TypeScript compatibility"
               failures=$((failures + 1))
               echo "::group::TypeScript resolution diagnostics: $package"
-              npx --yes @arethetypeswrong/cli "$RUNNER_TEMP/$tarball" --format json || true
+              npx --yes @arethetypeswrong/cli "$RUNNER_TEMP/$tarball" --format json --exclude-entrypoints styles.css || true
               echo "::endgroup::"
             fi
             echo "::endgroup::"
