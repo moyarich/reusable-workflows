@@ -7,6 +7,11 @@ on:
         type: string
         required: false
         default: ""
+      expected-author:
+        description: Expected author value for publishable workspace package manifests; empty disables author lint
+        type: string
+        required: false
+        default: ""
   workflow_dispatch:
     inputs:
       checkout-sha:
@@ -41,6 +46,8 @@ jobs:
             npm run build --workspaces --if-present
           fi
       - name: Lint publishable workspaces and validate exports
+        env:
+          EXPECTED_AUTHOR: ${{ inputs.expected-author }}
         shell: bash
         run: |
           set -euo pipefail
@@ -57,8 +64,19 @@ jobs:
             echo "No publishable npm workspace packages found"
             exit 0
           fi
+          if [[ -n "$EXPECTED_AUTHOR" ]]; then
+            node --input-type=module <<'NODE'
+          import { writeFileSync } from 'node:fs';
+          writeFileSync(process.env.RUNNER_TEMP + '/author-lint-config.json', JSON.stringify({ rules: { 'require-author': 'error', 'valid-values-author': ['error', [process.env.EXPECTED_AUTHOR]] } }));
+          NODE
+          fi
           for entry in "${packages[@]}"; do
             IFS="$(printf '\t')" read -r package location <<< "$entry"
+            if [[ -n "$EXPECTED_AUTHOR" ]]; then
+              echo "::group::Author metadata: $package"
+              npx --yes npm-package-json-lint --configFile "$RUNNER_TEMP/author-lint-config.json" --file "$location/package.json"
+              echo "::endgroup::"
+            fi
             echo "::group::Package lint: $package"
             tarball="$(npm pack --workspace "$package" --ignore-scripts --pack-destination "$RUNNER_TEMP" --silent)"
             (cd "$RUNNER_TEMP" && npx --yes --package=npm-pkg-lint@5.4.0 npm-pkg-lint --tarball "$RUNNER_TEMP/$tarball")
