@@ -70,24 +70,45 @@ jobs:
           writeFileSync(process.env.RUNNER_TEMP + '/author-lint-config.json', JSON.stringify({ rules: { 'require-author': 'error', 'valid-values-author': ['error', [process.env.EXPECTED_AUTHOR]] } }));
           NODE
           fi
+          npm-pkg-lint-wrapper() {
+            (cd "$RUNNER_TEMP" && npx --yes --package=npm-pkg-lint@5.4.0 npm-pkg-lint --tarball "$1")
+          }
+          failures=0
+          check() {
+            local label="$1"
+            shift
+            if ! "$@"; then
+              echo "::error title=Package validation failed::$label"
+              failures=$((failures + 1))
+            fi
+          }
           for entry in "${packages[@]}"; do
             IFS="$(printf '\t')" read -r package location <<< "$entry"
             if [[ -n "$EXPECTED_AUTHOR" ]]; then
               echo "::group::Author metadata: $package"
-              npx --yes npm-package-json-lint --configFile "$RUNNER_TEMP/author-lint-config.json" --noConfigFiles "$location/package.json"
+              check "$package: author metadata" npx --yes npm-package-json-lint --configFile "$RUNNER_TEMP/author-lint-config.json" --noConfigFiles "$location/package.json"
               echo "::endgroup::"
             fi
             echo "::group::Package lint: $package"
-            tarball="$(npm pack --workspace "$package" --ignore-scripts --pack-destination "$RUNNER_TEMP" --silent)"
-            (cd "$RUNNER_TEMP" && npx --yes --package=npm-pkg-lint@5.4.0 npm-pkg-lint --tarball "$RUNNER_TEMP/$tarball")
+            if ! tarball="$(npm pack --workspace "$package" --ignore-scripts --pack-destination "$RUNNER_TEMP" --silent)"; then
+              echo "::error title=Package validation failed::$package: npm pack"
+              failures=$((failures + 1))
+              echo "::endgroup::"
+              continue
+            fi
+            check "$package: npm-pkg-lint" npm-pkg-lint-wrapper "$RUNNER_TEMP/$tarball"
             echo "::endgroup::"
             echo "::group::Publint: $package"
-            npx --yes publint "$RUNNER_TEMP/$tarball" --strict
+            check "$package: publint" npx --yes publint "$RUNNER_TEMP/$tarball" --strict
             echo "::endgroup::"
             echo "::group::TypeScript package compatibility: $package"
-            npx --yes @arethetypeswrong/cli "$RUNNER_TEMP/$tarball" --format table
+            check "$package: TypeScript compatibility" npx --yes @arethetypeswrong/cli "$RUNNER_TEMP/$tarball" --format table
             echo "::endgroup::"
             echo "::group::Validate public exports: $package"
-            npx --yes validate-package-exports "$location/package.json" --check --verbose --info
+            check "$package: exports" npx --yes validate-package-exports "$location/package.json" --check --verbose --info
             echo "::endgroup::"
           done
+          if (( failures > 0 )); then
+            echo "::error::$failures package validation check(s) failed"
+            exit 1
+          fi
