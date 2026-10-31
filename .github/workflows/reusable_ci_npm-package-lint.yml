@@ -1,0 +1,114 @@
+name: Reusable CI / npm package lint
+on:
+  workflow_call:
+    inputs:
+      checkout-sha:
+        description: Exact commit SHA to validate
+        type: string
+        required: false
+        default: ""
+      expected-author:
+        description: Expected author value for publishable workspace package manifests; empty disables author lint
+        type: string
+        required: false
+        default: ""
+  workflow_dispatch:
+    inputs:
+      checkout-sha:
+        description: Exact commit SHA to validate
+        type: string
+        required: false
+        default: ""
+permissions:
+  contents: read
+jobs:
+  npm-package-lint:
+    name: Validate publishable npm tarballs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.checkout-sha || github.sha }}
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --include=optional --no-audit --no-fund
+      - name: Build workspace packages
+        run: |
+          if node -e "process.exit(require('./package.json').scripts?.build ? 0 : 1)"; then
+            npm run build
+          else
+            npm run build --workspaces --if-present
+          fi
+      - name: Lint publishable workspaces and validate exports
+        env:
+          EXPECTED_AUTHOR: ${{ inputs.expected-author }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm query '.workspace' --json > "$RUNNER_TEMP/workspaces.json"
+          mapfile -t packages < <(node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const workspaces = JSON.parse(readFileSync(process.env.RUNNER_TEMP + '/workspaces.json', 'utf8'));
+          for (const pkg of workspaces.filter(p => p.private !== true && p.name && p.location).sort((a, b) => a.name.localeCompare(b.name))) {
+            console.log(`${pkg.name}\t${pkg.location}`);
+          }
+          NODE
+          )
+          if (( ${#packages[@]} == 0 )); then
+            echo "No publishable npm workspace packages found"
+            exit 0
+          fi
+          if [[ -n "$EXPECTED_AUTHOR" ]]; then
+            node --input-type=module <<'NODE'
+          import { writeFileSync } from 'node:fs';
+          writeFileSync(process.env.RUNNER_TEMP + '/author-lint-config.json', JSON.stringify({ rules: { 'require-author': 'error', 'valid-values-author': ['error', [process.env.EXPECTED_AUTHOR]] } }));
+          NODE
+          fi
+          npm-pkg-lint-wrapper() {
+            (cd "$RUNNER_TEMP" && npx --yes --package=npm-pkg-lint@5.4.0 npm-pkg-lint --tarball "$1")
+          }
+          failures=0
+          check() {
+            local label="$1"
+            shift
+            if ! "$@"; then
+              echo "::error title=Package validation failed::$label"
+              failures=$((failures + 1))
+            fi
+          }
+          for entry in "${packages[@]}"; do
+            IFS="$(printf '\t')" read -r package location <<< "$entry"
+            if [[ -n "$EXPECTED_AUTHOR" ]]; then
+              echo "::group::Author metadata: $package"
+              check "$package: author metadata" npx --yes npm-package-json-lint --configFile "$RUNNER_TEMP/author-lint-config.json" --noConfigFiles "$location/package.json"
+              echo "::endgroup::"
+            fi
+            echo "::group::Package lint: $package"
+            if ! tarball="$(npm pack --workspace "$package" --ignore-scripts --pack-destination "$RUNNER_TEMP" --silent)"; then
+              echo "::error title=Package validation failed::$package: npm pack"
+              failures=$((failures + 1))
+              echo "::endgroup::"
+              continue
+            fi
+            check "$package: npm-pkg-lint" npm-pkg-lint-wrapper "$RUNNER_TEMP/$tarball"
+            echo "::endgroup::"
+            echo "::group::Publint: $package"
+            check "$package: publint" npx --yes publint "$RUNNER_TEMP/$tarball" --strict
+            echo "::endgroup::"
+            echo "::group::TypeScript package compatibility: $package"
+            check "$package: TypeScript compatibility" npx --yes @arethetypeswrong/cli "$RUNNER_TEMP/$tarball" --format table
+            echo "::endgroup::"
+            echo "::group::Validate public exports: $package"
+            check "$package: exports" npx --yes validate-package-exports "$location/package.json" --check --verbose --info
+            echo "::endgroup::"
+          done
+          if (( failures > 0 )); then
+            echo "::error::$failures package validation check(s) failed"
+            exit 1
+          fi
