@@ -13,6 +13,7 @@ on:
       - "eslint.config.*"
       - "tsconfig*.json"
       - ".github/workflows/ci_cli.yml"
+      - ".github/workflows/reusable_ci_cli.yml"
   pull_request:
     branches: [main]
   workflow_call:
@@ -36,6 +37,6 @@ permissions:
   contents: read
 jobs:
   cli:
-    uses: $/.github/workflows/reusable_ci_cli.yml
+    uses: ./.github/workflows/reusable_ci_cli.yml
     with:
       checkout-sha: ${{ inputs.checkout-sha }}
