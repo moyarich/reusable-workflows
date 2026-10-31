@@ -63,6 +63,12 @@ jobs:
             tarball="$(npm pack --workspace "$package" --ignore-scripts --pack-destination "$RUNNER_TEMP" --silent)"
             (cd "$RUNNER_TEMP" && npx --yes --package=npm-pkg-lint@5.4.0 npm-pkg-lint --tarball "$RUNNER_TEMP/$tarball")
             echo "::endgroup::"
+            echo "::group::Publint: $package"
+            npx --yes publint "$RUNNER_TEMP/$tarball" --strict
+            echo "::endgroup::"
+            echo "::group::TypeScript package compatibility: $package"
+            npx --yes @arethetypeswrong/cli "$RUNNER_TEMP/$tarball" --format table
+            echo "::endgroup::"
             echo "::group::Validate public exports: $package"
             npx --yes validate-package-exports "$location/package.json" --check --verbose --info
             echo "::endgroup::"
