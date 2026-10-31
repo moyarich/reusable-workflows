@@ -74,7 +74,7 @@ jobs:
             IFS="$(printf '\t')" read -r package location <<< "$entry"
             if [[ -n "$EXPECTED_AUTHOR" ]]; then
               echo "::group::Author metadata: $package"
-              npx --yes npm-package-json-lint --configFile "$RUNNER_TEMP/author-lint-config.json" --file "$location/package.json"
+              npx --yes npm-package-json-lint --configFile "$RUNNER_TEMP/author-lint-config.json" --noConfigFiles "$location/package.json"
               echo "::endgroup::"
             fi
             echo "::group::Package lint: $package"
