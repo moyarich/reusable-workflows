@@ -39,6 +39,8 @@ jobs:
       - name: Install dependencies
         run: npm ci --include=optional --no-audit --no-fund
       - name: Build workspace packages
+        id: build
+        continue-on-error: true
         run: |
           if node -e "process.exit(require('./package.json').scripts?.build ? 0 : 1)"; then
             npm run build
@@ -48,6 +50,7 @@ jobs:
       - name: Lint publishable workspaces and validate exports
         env:
           EXPECTED_AUTHOR: ${{ inputs.expected-author }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
         shell: bash
         run: |
           set -euo pipefail
@@ -74,11 +77,27 @@ jobs:
             (cd "$RUNNER_TEMP" && npx --yes --package=npm-pkg-lint@5.4.0 npm-pkg-lint --tarball "$1")
           }
           failures=0
+          checked=0
+          report="$RUNNER_TEMP/npm-package-lint-report.md"
+          printf '| Package | Check | Result |\n|---|---|---|\n' > "$report"
+          record() {
+            local pkg="$1" label="$2" status="$3"
+            printf '| %s | %s | %s |\n' "$pkg" "$label" "$status" >> "$report"
+          }
+          if [[ "$BUILD_OUTCOME" != success ]]; then
+            echo "::error title=Workspace build failed::Build failed; continuing package-level validation"
+            record "Workspace" "build" "FAIL"
+            failures=$((failures + 1))
+          fi
           check() {
-            local label="$1"
-            shift
-            if ! "$@"; then
-              echo "::error title=Package validation failed::$label"
+            local pkg="$1" label="$2"
+            shift 2
+            checked=$((checked + 1))
+            if "$@"; then
+              record "$pkg" "$label" "PASS"
+            else
+              echo "::error title=Package validation failed::$pkg: $label"
+              record "$pkg" "$label" "FAIL"
               failures=$((failures + 1))
             fi
           }
@@ -86,23 +105,32 @@ jobs:
             IFS="$(printf '\t')" read -r package location <<< "$entry"
             if [[ -n "$EXPECTED_AUTHOR" ]]; then
               echo "::group::Author metadata: $package"
-              check "$package: author metadata" npx --yes npm-package-json-lint --configFile "$RUNNER_TEMP/author-lint-config.json" --noConfigFiles "$location/package.json"
+              check "$package" "author metadata" npx --yes npm-package-json-lint --configFile "$RUNNER_TEMP/author-lint-config.json" --noConfigFiles "$location/package.json"
               echo "::endgroup::"
             fi
             echo "::group::Package lint: $package"
             if ! tarball="$(npm pack --workspace "$package" --ignore-scripts --pack-destination "$RUNNER_TEMP" --silent)"; then
               echo "::error title=Package validation failed::$package: npm pack"
               failures=$((failures + 1))
+              record "$package" "npm pack" "FAIL"
+              echo "::endgroup::"
+              echo "::group::Validate public exports: $package"
+              check "$package" "exports" npx --yes validate-package-exports "$location/package.json" --check --verbose --info
               echo "::endgroup::"
               continue
             fi
-            check "$package: npm-pkg-lint" npm-pkg-lint-wrapper "$RUNNER_TEMP/$tarball"
+            record "$package" "npm pack" "PASS"
+            check "$package" "npm-pkg-lint" npm-pkg-lint-wrapper "$RUNNER_TEMP/$tarball"
             echo "::endgroup::"
             echo "::group::Publint: $package"
-            check "$package: publint" npx --yes publint "$RUNNER_TEMP/$tarball" --strict
+            check "$package" "publint" npx --yes publint "$RUNNER_TEMP/$tarball" --strict
             echo "::endgroup::"
             echo "::group::TypeScript package compatibility: $package"
-            if ! npx --yes @arethetypeswrong/cli "$RUNNER_TEMP/$tarball" --format table --exclude-entrypoints styles.css; then
+            checked=$((checked + 1))
+            if npx --yes @arethetypeswrong/cli "$RUNNER_TEMP/$tarball" --format table --exclude-entrypoints styles.css; then
+              record "$package" "TypeScript compatibility" "PASS"
+            else
+              record "$package" "TypeScript compatibility" "FAIL"
               echo "::error title=Package validation failed::$package: TypeScript compatibility"
               failures=$((failures + 1))
               echo "::group::TypeScript resolution diagnostics: $package"
@@ -111,10 +139,17 @@ jobs:
             fi
             echo "::endgroup::"
             echo "::group::Validate public exports: $package"
-            check "$package: exports" npx --yes validate-package-exports "$location/package.json" --check --verbose --info
+            check "$package" "exports" npx --yes validate-package-exports "$location/package.json" --check --verbose --info
             echo "::endgroup::"
           done
+          {
+            echo "## npm workspace package validation"
+            echo
+            echo "Publishable packages: ${#packages[@]} · Checks executed: $checked · Failures: $failures"
+            echo
+            cat "$report"
+          } >> "$GITHUB_STEP_SUMMARY"
           if (( failures > 0 )); then
-            echo "::error::$failures package validation check(s) failed"
+            echo "::error::$failures validation check(s) failed across ${#packages[@]} publishable packages"
             exit 1
           fi
