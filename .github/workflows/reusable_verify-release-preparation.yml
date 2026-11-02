@@ -38,6 +38,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: ${{ job.workflow_repository || 'moyarich/reusable-workflows' }}
+          github-server-url: https://github.com
           ref: ${{ job.workflow_sha || 'main' }}
           path: .github/reusable-workflows-runtime
           persist-credentials: false
