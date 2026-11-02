@@ -41,8 +41,6 @@ jobs:
           ref: ${{ job.workflow_sha || 'main' }}
           path: .github/reusable-workflows-runtime
           persist-credentials: false
-          sparse-checkout: actions
-          sparse-checkout-cone-mode: false
       - name: Require successful designated pull request CI
         uses: ./.github/reusable-workflows-runtime/actions/verify-workflow-runs
         with:
