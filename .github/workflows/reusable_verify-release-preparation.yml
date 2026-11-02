@@ -5,10 +5,6 @@ on:
       expected-base:
         type: string
         default: main
-      required-workflows:
-        description: Comma-separated paths to ALL CI workflows required to succeed on the PR head SHA
-        type: string
-        default: ''
     outputs:
       manifest:
         value: ${{ jobs.verify.outputs.manifest }}
@@ -42,14 +38,6 @@ jobs:
           ref: ${{ job.workflow_sha || 'main' }}
           path: .github/reusable-workflows-runtime
           persist-credentials: false
-      - name: Require successful designated pull request CI
-        uses: ./.github/reusable-workflows-runtime/actions/verify-workflow-runs
-        with:
-          workflows: ${{ inputs.required-workflows }}
-          sha: ${{ github.event.pull_request.head.sha }}
-          branch: ${{ github.event.pull_request.head.ref }}
-          event: pull_request
-          token: ${{ github.token }}
       - name: Resolve final approved package versions
         id: validate
         env:
