@@ -30,6 +30,15 @@ describe("npm publish dry-run release identity validation", () => {
     expect(validation).not.toContain("DRY_RUN: ${{ inputs.dry-run }}");
   });
 
+  it("validates the release marker against the resolved package name", () => {
+    const marker = step(
+      "Validate release identity marker",
+      "Prepare package artifact directory",
+    );
+    expect(marker).toContain("package-name: ${{ steps.plan.outputs.name }}");
+    expect(marker).toContain('required: "true"');
+  });
+
   it("rejects missing requested release tags even in dry-run mode", () => {
     const plan = step("Resolve publish plan", "Validate requested version");
     expect(plan).toContain('if [ -z "$RELEASE_COMMIT" ]; then');
