@@ -71,7 +71,7 @@ jobs:
       contents: write
       packages: read
       pull-requests: read
-    uses: $/.github/workflows/reusable_restore-release.yml
+    uses: $/.github/workflows/reusable_release-restore.yml
     with:
       draft-template-path: .github/release-drafter-template.yml
       package: ${{ matrix.directory }}
