@@ -711,11 +711,7 @@ jobs:
             printf '| Artifact | `%s` |\n' "$(basename "$ARTIFACT_PATH")"
             printf '| SHA-1 | `%s` |\n' "$(shasum -a 1 "$ARTIFACT_PATH" | awk '{print $1}')"
             echo
-            if [ "$ARTIFACT_SOURCE" = "checkout-preview" ]; then
-              echo "> Dry-run preview only: no canonical Git tag exists. Actual publication requires the canonical tag and matching release."
-            else
-              echo "> Registry publication is authoritative from the canonical Git tag commit. Release assets are updated when the matching GitHub Release is mutable; immutable releases are left unchanged."
-            fi
+            echo "> Registry publication is authoritative from the canonical Git tag commit. Release assets are updated when the matching GitHub Release is mutable; immutable releases are left unchanged."
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Validate packaged CLI entry points
         env:
