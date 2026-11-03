@@ -1,0 +1,784 @@
+name: "Reusable · Restore Release"
+
+run-name: >-
+  Restore release · ${{ inputs.package }} · ${{ inputs.restore-source }} · dry-run=${{ inputs.dry-run }}
+
+on:
+  workflow_call:
+    inputs:
+      package:
+        description: Package selector
+        required: false
+        default: "."
+        type: string
+      draft-template-path:
+        description: Template path; falls back to the reusable workflow's template when absent in the caller
+        required: false
+        default: .github/release-drafter-template.yml
+        type: string
+      target-branch:
+        description: Branch used to resolve the package path and changelog
+        required: false
+        default: main
+        type: string
+      restore-source:
+        description: "Historical source: commit:<sha>, tag:<tag>, run:<id>, artifact:<id>, or github-url:<supported GitHub URL>"
+        required: true
+        type: string
+      tag-prefix:
+        description: Optional release tag prefix override, e.g. v for root VS Code extensions
+        type: string
+        default: ""
+      match-mode:
+        description: Find release by package version or exact tag
+        required: false
+        default: package-json
+        type: string
+      workspace-tools-version:
+        description: Published workspace-tools CLI version providing historical source resolution
+        required: false
+        default: "0.2.0"
+        type: string
+      exact-tag:
+        description: Existing release tag to match when match-mode is exact
+        required: false
+        default: ""
+        type: string
+      skip-finalized:
+        description: Skip existing finalized releases instead of failing; never modifies them
+        required: false
+        default: false
+        type: boolean
+      dry-run:
+        description: Preview recovery without mutating the release or tag
+        required: false
+        default: true
+        type: boolean
+
+permissions: {}
+
+concurrency:
+  group: restore-release-${{ github.repository }}-${{ inputs.package }}
+  cancel-in-progress: false
+
+jobs:
+  dispatch-input-summary:
+    name: "job: Workflow parameters"
+    permissions:
+      contents: read
+    uses: $/.github/workflows/reusable_dispatch-input-summary.yml
+    with:
+      parameters-json: ${{ toJSON(inputs) }}
+      heading: "Restore release · Workflow inputs"
+
+  preflight:
+    name: "job: API-only before-state audit"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      canonical-tag: ${{ steps.snapshot.outputs.canonical-tag }}
+      after-artifact-name: ${{ steps.snapshot.outputs.after-artifact-name }}
+    steps:
+      - name: Capture package release state without checkout
+        id: snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SELECTOR: ${{ inputs.package }}
+          TARGET_BRANCH: ${{ inputs.target-branch }}
+          CUSTOM_TAG_PREFIX: ${{ inputs.tag-prefix }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO="repos/$GITHUB_REPOSITORY"
+          MANIFEST_PATH=""
+          if [ "$SELECTOR" = "." ]; then
+            MANIFEST_PATH=package.json
+          elif [[ "$SELECTOR" == packages/* ]]; then
+            MANIFEST_PATH="${SELECTOR%/}/package.json"
+          fi
+          if [ -z "$MANIFEST_PATH" ]; then
+            TREE="$(gh api "$REPO/git/trees/$TARGET_BRANCH?recursive=1")"
+            mapfile -t FILES < <(jq -r '.tree[] | select(.type == "blob" and (.path == "package.json" or (.path | endswith("/package.json")))) | .path' <<< "$TREE")
+            MATCHES=()
+            for path in "${FILES[@]}"; do
+              CONTENT="$(gh api "$REPO/contents/$path?ref=$TARGET_BRANCH" --jq '.content' | base64 -d)"
+              if [ "$(jq -r '.name // ""' <<< "$CONTENT")" = "$SELECTOR" ]; then
+                MATCHES+=("$path")
+              fi
+            done
+            if [ "${#MATCHES[@]}" -ne 1 ]; then
+              echo "::error::Expected exactly one matching manifest for $SELECTOR, found ${#MATCHES[@]}."
+              exit 1
+            fi
+            MANIFEST_PATH="${MATCHES[0]}"
+          fi
+          MANIFEST="$(gh api "$REPO/contents/$MANIFEST_PATH?ref=$TARGET_BRANCH" --jq '.content' | base64 -d)"
+          VERSION="$(jq -er '.version' <<< "$MANIFEST")"
+          PACKAGE_NAME="$(jq -er '.name' <<< "$MANIFEST")"
+          DIRECTORY="${MANIFEST_PATH%/package.json}"
+          if [ -n "$CUSTOM_TAG_PREFIX" ]; then
+            TAG="$CUSTOM_TAG_PREFIX$VERSION"
+          elif [ "$MANIFEST_PATH" = package.json ]; then
+            TAG="$PACKAGE_NAME@$VERSION"
+          else
+            TAG="$DIRECTORY@$VERSION"
+          fi
+          RELEASES="$(gh api --paginate --slurp "$REPO/releases?per_page=100")"
+          RELEASE="$(jq -c --arg tag "$TAG" '[.[][] | select(.tag_name == $tag)] | first // empty' <<< "$RELEASES")"
+          TAG_STATE=absent
+          TAG_SHA=""
+          RESPONSE="$(mktemp)"
+          if gh api "$REPO/git/ref/tags/$TAG" > "$RESPONSE" 2>"$RESPONSE.err"; then
+            TAG_STATE=present
+            TAG_SHA="$(jq -r '.object.sha' < "$RESPONSE")"
+          elif grep -q 'HTTP 404' "$RESPONSE.err"; then
+            TAG_STATE=absent
+          else
+            echo "::error::Cannot verify existing tag $TAG; state is unknown."
+            cat "$RESPONSE.err" >&2
+            exit 1
+          fi
+          if [ -n "$RELEASE" ]; then
+            jq -n --arg tag "$TAG" --arg sha "$TAG_SHA" --arg tagState "$TAG_STATE" --argjson release "$RELEASE" '{tag:$tag,tag_state:$tagState,tag_sha:$sha,release:{id:$release.id,name:$release.name,draft:$release.draft,immutable:$release.immutable,prerelease:$release.prerelease,updated_at:$release.updated_at}}' > before.json
+          else
+            jq -n --arg tag "$TAG" --arg sha "$TAG_SHA" --arg tagState "$TAG_STATE" '{tag:$tag,tag_state:$tagState,tag_sha:$sha,release:null}' > before.json
+          fi
+          echo "canonical-tag=$TAG" >> "$GITHUB_OUTPUT"
+          SAFE_SELECTOR="$(printf '%s' "$SELECTOR" | tr '/@:' '---' | tr -cd '[:alnum:]_.-')"
+          echo "artifact-name=restore-before-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$SAFE_SELECTOR" >> "$GITHUB_OUTPUT"
+          echo "after-artifact-name=restore-after-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$SAFE_SELECTOR" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Before recovery (GitHub API)"
+            echo
+            echo '~~~json'
+            jq '.' before.json
+            echo '~~~'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Persist original state
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.snapshot.outputs.artifact-name }}
+          path: before.json
+          retention-days: 30
+          if-no-files-found: error
+
+  resolve:
+    needs: [dispatch-input-summary, preflight]
+    name: "job: Resolve recovery target"
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+    outputs:
+      package-name: ${{ steps.package.outputs.name }}
+      package-version: ${{ steps.package.outputs.package-version }}
+      package-directory: ${{ steps.package.outputs.directory }}
+      release-tag: ${{ steps.package.outputs.tag }}
+      release-name: ${{ steps.package.outputs.release-name }}
+      release-query: ${{ steps.package.outputs.release-query }}
+      matched-release-tag: ${{ steps.package.outputs.matched-release-tag }}
+      changelog-path: ${{ steps.package.outputs.changelog }}
+      tag-prefix: ${{ steps.package.outputs.tag-prefix }}
+      release-commit: ${{ steps.package.outputs.release-commit }}
+      restore-source: ${{ steps.package.outputs.restore-source }}
+      restore-source-kind: ${{ steps.package.outputs.restore-source-kind }}
+      resolved-source-kind: ${{ steps.package.outputs.resolved-source-kind }}
+      audit-finalized: ${{ steps.package.outputs.audit-finalized }}
+      backup-release-id: ${{ steps.package.outputs.backup-release-id }}
+      backup-body-base64: ${{ steps.package.outputs.backup-body-base64 }}
+      backup-updated-at: ${{ steps.package.outputs.backup-updated-at }}
+      draft-seed-sha: ${{ steps.package.outputs.draft-seed-sha }}
+      suggested-seed-sha: ${{ steps.package.outputs.suggested-seed-sha }}
+      configured-registry: ${{ steps.package.outputs.configured-registry }}
+      npm-registry-state: ${{ steps.package.outputs.npm-registry-state }}
+      github-registry-state: ${{ steps.package.outputs.github-registry-state }}
+      artifact-equivalence: ${{ steps.package.outputs.artifact-equivalence }}
+      matched-registry: ${{ steps.package.outputs.matched-registry }}
+      equivalence-results: ${{ steps.package.outputs.equivalence-results }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.target-branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+
+      - name: Install release identity CLI
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global "@moyarich/workspace-tools@${{ inputs.workspace-tools-version }}" --registry=https://registry.npmjs.org
+          echo "WORKSPACE_RELEASE_IDENTITY=$(command -v workspace-release-identity)" >> "$GITHUB_ENV"
+
+      - name: Resolve historical package identity
+        id: package
+        env:
+          PACKAGE_SELECTOR: ${{ inputs.package }}
+          RESTORE_SOURCE: ${{ inputs.restore-source }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          MATCH_MODE: ${{ inputs.match-mode }}
+          EXACT_TAG: ${{ inputs.exact-tag }}
+          CUSTOM_TAG_PREFIX: ${{ inputs.tag-prefix }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -z "$RESTORE_SOURCE" ]; then
+            echo "::error::restore-source is required."
+            exit 1
+          fi
+
+          RESOLUTION="$(
+            node "$WORKSPACE_RELEASE_IDENTITY" restore-source --source "$RESTORE_SOURCE" \
+              --repository "$GH_REPO" \
+              --json
+          )"
+
+          echo "$RESOLUTION" | jq -e '
+            type == "object" and
+            (.source | type == "string" and length > 0) and
+            (.kind | type == "string" and length > 0) and
+            (.resolvedKind | type == "string" and length > 0) and
+            (.commit | type == "string" and length == 40)
+          ' >/dev/null
+
+          SOURCE_KIND="$(jq -r '.kind' <<< "$RESOLUTION")"
+          RESOLVED_SOURCE_KIND="$(jq -r '.resolvedKind' <<< "$RESOLUTION")"
+          SOURCE_VALUE="$(jq -r '.value' <<< "$RESOLUTION")"
+          RELEASE_COMMIT="$(jq -r '.commit' <<< "$RESOLUTION")"
+
+          if [ "$PACKAGE_SELECTOR" = "." ]; then
+            PACKAGE_DIRECTORY="."
+            MANIFEST="package.json"
+          elif [ -f "$PACKAGE_SELECTOR/package.json" ]; then
+            PACKAGE_DIRECTORY="${PACKAGE_SELECTOR%/}"
+            MANIFEST="$PACKAGE_DIRECTORY/package.json"
+          else
+            MANIFEST="$(
+              find . -name package.json -not -path './node_modules/*' -print0 |
+                xargs -0 -r jq -r --arg selector "$PACKAGE_SELECTOR" '
+                  select(.name == $selector) | input_filename
+                ' |
+                head -n 1
+            )"
+
+            if [ -z "$MANIFEST" ]; then
+              echo "::error::Unable to resolve package selector: $PACKAGE_SELECTOR"
+              exit 1
+            fi
+
+            MANIFEST="${MANIFEST#./}"
+            PACKAGE_DIRECTORY="${MANIFEST%/package.json}"
+          fi
+
+          MANIFEST_AT_COMMIT="$(git show "${RELEASE_COMMIT}:${MANIFEST}" 2>/dev/null || true)"
+          if [ -z "$MANIFEST_AT_COMMIT" ]; then
+            echo "::error::Package manifest $MANIFEST does not exist at $RELEASE_COMMIT."
+            exit 1
+          fi
+
+          PACKAGE_NAME="$(jq -r '.name // empty' <<< "$MANIFEST_AT_COMMIT")"
+          PACKAGE_VERSION="$(jq -r '.version // empty' <<< "$MANIFEST_AT_COMMIT")"
+          PACKAGE_REGISTRY="$(jq -r '.publishConfig.registry // "https://registry.npmjs.org"' <<< "$MANIFEST_AT_COMMIT")"
+
+          if [ -z "$PACKAGE_NAME" ] || [ -z "$PACKAGE_VERSION" ]; then
+            echo "::error::Historical package name/version is missing from $MANIFEST."
+            exit 1
+          fi
+
+          if [ "$PACKAGE_DIRECTORY" = "." ]; then
+            CHANGELOG_PATH="CHANGELOG.md"
+            TAG_PREFIX="$PACKAGE_NAME@"
+          else
+            CHANGELOG_PATH="$PACKAGE_DIRECTORY/CHANGELOG.md"
+            TAG_PREFIX="$PACKAGE_DIRECTORY@"
+          fi
+
+          if [ -n "$CUSTOM_TAG_PREFIX" ]; then
+            TAG_PREFIX="$CUSTOM_TAG_PREFIX"
+          fi
+
+          RELEASE_TAG="$TAG_PREFIX$PACKAGE_VERSION"
+          RELEASE_NAME="$PACKAGE_NAME v$PACKAGE_VERSION"
+
+          NPM_REGISTRY_STATE="unknown"
+          GITHUB_REGISTRY_STATE="unknown"
+
+          for REGISTRY in "https://registry.npmjs.org" "https://npm.pkg.github.com"; do
+            REGISTRY_HOST="$(node -e 'console.log(new URL(process.argv[1]).host)' "$REGISTRY")"
+            NPMRC="$RUNNER_TEMP/restore-release-${REGISTRY_HOST}.npmrc"
+            {
+              printf 'registry=%s\n' "$REGISTRY"
+              if [ "$REGISTRY_HOST" = "npm.pkg.github.com" ]; then
+                printf '//%s/:_authToken=%s\n' "$REGISTRY_HOST" "$GH_TOKEN"
+              fi
+            } > "$NPMRC"
+
+            REGISTRY_OUTPUT="$(
+              NPM_CONFIG_USERCONFIG="$NPMRC" npm view "$PACKAGE_NAME@$PACKAGE_VERSION" version --registry "$REGISTRY" 2>&1
+            )" && REGISTRY_STATUS=published || REGISTRY_STATUS=unknown
+
+            if [ "$REGISTRY_STATUS" != "published" ] &&
+               grep -Eq 'E404|404 Not Found|No match found|is not in this registry' <<< "$REGISTRY_OUTPUT"; then
+              REGISTRY_STATUS=missing
+            fi
+
+            case "$REGISTRY_HOST" in
+              registry.npmjs.org)
+                NPM_REGISTRY_STATE="$REGISTRY_STATUS"
+                ;;
+              npm.pkg.github.com)
+                GITHUB_REGISTRY_STATE="$REGISTRY_STATUS"
+                ;;
+            esac
+          done
+
+          ARTIFACT_EQUIVALENCE="not-required"
+          MATCHED_REGISTRY=""
+          EQUIVALENCE_RESULTS='[]'
+          REGISTRY_ARGS=()
+
+          if [ "$NPM_REGISTRY_STATE" = "published" ]; then
+            REGISTRY_ARGS+=(--registry "https://registry.npmjs.org")
+          fi
+
+          if [ "$GITHUB_REGISTRY_STATE" = "published" ]; then
+            REGISTRY_ARGS+=(--registry "https://npm.pkg.github.com")
+          fi
+
+          if [ "${#REGISTRY_ARGS[@]}" -gt 0 ]; then
+            EQUIVALENCE="$(
+              GH_TOKEN="$GH_TOKEN" node "$WORKSPACE_RELEASE_IDENTITY" restore-equivalence "$PACKAGE_SELECTOR" \
+                --commit "$RELEASE_COMMIT" \
+                "${REGISTRY_ARGS[@]}" \
+                --json
+            )"
+
+            EQUIVALENCE_RESULTS="$(jq -c '.attempts' <<< "$EQUIVALENCE")"
+            MATCHED_REGISTRY="$(jq -r '.matchedRegistry // ""' <<< "$EQUIVALENCE")"
+
+            if [ "$(jq -r '.equivalent' <<< "$EQUIVALENCE")" = "true" ]; then
+              ARTIFACT_EQUIVALENCE="matched"
+            else
+              ARTIFACT_EQUIVALENCE="mismatch"
+            fi
+          fi
+
+          if [ "$ARTIFACT_EQUIVALENCE" = "mismatch" ]; then
+            {
+              echo
+              echo "## Artifact equivalence"
+              echo
+              echo "The candidate commit does not reproduce any published registry copy."
+              echo
+              echo
+              echo '~~~json'
+              jq '.' <<< "$EQUIVALENCE_RESULTS"
+              echo '~~~'
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            echo "::error::Restore source does not match any published copy of $PACKAGE_NAME@$PACKAGE_VERSION."
+            exit 1
+          fi
+
+          case "$MATCH_MODE" in
+            package-json)
+              RELEASE_QUERY="$PACKAGE_VERSION"
+              ;;
+            exact)
+              if [ -z "$EXACT_TAG" ]; then
+                echo "::error::exact-tag is required when match-mode is exact."
+                exit 1
+              fi
+              if [ "$EXACT_TAG" != "$RELEASE_TAG" ]; then
+                echo "::error::Exact tag must match the historical package's canonical tag: $RELEASE_TAG"
+                exit 1
+              fi
+              RELEASE_QUERY="$EXACT_TAG"
+              ;;
+            *)
+              echo "::error::match-mode must be package-json or exact."
+              exit 1
+              ;;
+          esac
+
+          TAGS="$(
+            gh api --paginate "repos/${{ github.repository }}/tags?per_page=100" --jq '.[].name'
+          )"
+          RELEASE_TAGS="$(
+            gh api --paginate "repos/${{ github.repository }}/releases?per_page=100" --jq '.[].tag_name'
+          )"
+          CANDIDATES="$(
+            {
+              printf '%s\n' "$TAGS"
+              printf '%s\n' "$RELEASE_TAGS"
+            } | sed '/^$/d' | sort -u
+          )"
+
+          if [ "$MATCH_MODE" = "exact" ]; then
+            MATCHED_RELEASE_TAG="$(
+              printf '%s\n' "$CANDIDATES" | grep -Fx -- "$RELEASE_QUERY" || true
+            )"
+
+            if [ -z "$MATCHED_RELEASE_TAG" ]; then
+              echo "::error::Exact release tag not found: $RELEASE_QUERY"
+              exit 1
+            fi
+          else
+            EXACT="$(
+              printf '%s\n' "$CANDIDATES" | grep -Fx -- "$RELEASE_QUERY" || true
+            )"
+
+            if [ -n "$EXACT" ]; then
+              MATCHED_RELEASE_TAG="$EXACT"
+            else
+              MATCHES="$(
+                printf '%s\n' "$CANDIDATES" |
+                  awk -v query="$RELEASE_QUERY" '
+                    BEGIN { q = tolower(query) }
+                    index(tolower($0), q) > 0
+                  '
+              )"
+              MATCH_COUNT="$(printf '%s\n' "$MATCHES" | sed '/^$/d' | wc -l | tr -d ' ')"
+
+              if [ "$MATCH_COUNT" -eq 1 ]; then
+                MATCHED_RELEASE_TAG="$MATCHES"
+              elif [ "$MATCH_COUNT" -eq 0 ]; then
+                MATCHED_RELEASE_TAG=""
+              else
+                {
+                  echo "## Ambiguous restore release search"
+                  echo
+                  printf 'Search: `%s`\n\n' "$RELEASE_QUERY"
+                  echo "Matching release tags:"
+                  printf '%s\n' "$MATCHES" | sed 's/^/- `/' | sed 's/$/`/'
+                } >> "$GITHUB_STEP_SUMMARY"
+
+                echo "::error::Release search matched $MATCH_COUNT tags. Use match-mode=exact and provide exact-tag."
+                exit 1
+              fi
+            fi
+          fi
+
+          BACKUP_RELEASE=""
+          if [ -n "$MATCHED_RELEASE_TAG" ]; then
+            BACKUP_RELEASE="$(
+              gh api --paginate --slurp "repos/${{ github.repository }}/releases?per_page=100" |
+                jq -c --arg tag "$MATCHED_RELEASE_TAG" '
+                  [.[][] | select(.tag_name == $tag)]
+                  | sort_by(.updated_at // .created_at)
+                  | last // empty
+                '
+            )"
+          fi
+
+          AUDIT_FINALIZED=false
+          BACKUP_RELEASE_ID=""
+          BACKUP_BODY_BASE64=""
+          BACKUP_UPDATED_AT=""
+          DRAFT_SEED_SHA=""
+          SUGGESTED_SEED_SHA="$RELEASE_COMMIT"
+
+          if [ -n "$BACKUP_RELEASE" ]; then
+            BACKUP_RELEASE_ID="$(jq -r '.id' <<< "$BACKUP_RELEASE")"
+            BACKUP_UPDATED_AT="$(jq -r '.updated_at // .created_at // ""' <<< "$BACKUP_RELEASE")"
+            BACKUP_BODY="$(jq -r '.body // ""' <<< "$BACKUP_RELEASE")"
+            BACKUP_BODY_BASE64="$(printf '%s' "$BACKUP_BODY" | base64 -w 0)"
+            DRAFT_SEED_SHA="$(
+              sed -n 's/.*release-draft-sync:seed-sha=\([^ ]*\).*/\1/p' <<< "$BACKUP_BODY" |
+                head -n 1
+            )"
+
+            if [ "$(jq -r '.immutable // false' <<< "$BACKUP_RELEASE")" = "true" ]; then
+              if [ "${{ inputs.dry-run }}" = "true" ] || [ "${{ inputs.skip-finalized }}" = "true" ]; then
+                AUDIT_FINALIZED=true
+                echo "::notice::$RELEASE_TAG is immutable; audit/skip only, no release assets or tags will be changed."
+              else
+                echo "::error::$RELEASE_TAG is immutable. Restore cannot delete or move its release assets or tag."
+                exit 1
+              fi
+            fi
+          fi
+
+          {
+            echo "name=$PACKAGE_NAME"
+            echo "package-version=$PACKAGE_VERSION"
+            echo "directory=$PACKAGE_DIRECTORY"
+            echo "tag=$RELEASE_TAG"
+            echo "release-name=$RELEASE_NAME"
+            echo "release-query=$RELEASE_QUERY"
+            echo "matched-release-tag=$MATCHED_RELEASE_TAG"
+            echo "changelog=$CHANGELOG_PATH"
+            echo "tag-prefix=$TAG_PREFIX"
+            echo "release-commit=$RELEASE_COMMIT"
+            echo "restore-source=$RESTORE_SOURCE"
+            echo "restore-source-kind=$SOURCE_KIND"
+            echo "resolved-source-kind=$RESOLVED_SOURCE_KIND"
+            echo "audit-finalized=$AUDIT_FINALIZED"
+            echo "backup-release-id=$BACKUP_RELEASE_ID"
+            echo "backup-body-base64=$BACKUP_BODY_BASE64"
+            echo "backup-updated-at=$BACKUP_UPDATED_AT"
+            echo "draft-seed-sha=$DRAFT_SEED_SHA"
+            echo "suggested-seed-sha=$SUGGESTED_SEED_SHA"
+            echo "configured-registry=$PACKAGE_REGISTRY"
+            echo "npm-registry-state=$NPM_REGISTRY_STATE"
+            echo "github-registry-state=$GITHUB_REGISTRY_STATE"
+            echo "artifact-equivalence=$ARTIFACT_EQUIVALENCE"
+            echo "matched-registry=$MATCHED_REGISTRY"
+            echo "equivalence-results=$EQUIVALENCE_RESULTS"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "# Restore release"
+            echo
+            echo "| Setting | Value |"
+            echo "| --- | --- |"
+            printf '| Package | `%s` |\n' "$PACKAGE_NAME"
+            printf '| Version | `%s` |\n' "$PACKAGE_VERSION"
+            printf '| Canonical release tag | `%s` |\n' "$RELEASE_TAG"
+            printf '| Matched existing tag | `%s` |\n' "${MATCHED_RELEASE_TAG:-none}"
+            printf '| Source kind | `%s` |\n' "$SOURCE_KIND"
+            printf '| Resolved source kind | `%s` |\n' "$RESOLVED_SOURCE_KIND"
+            printf '| Source value | `%s` |\n' "$SOURCE_VALUE"
+            printf '| Resolved restore commit | `%s` |\n' "$RELEASE_COMMIT"
+            printf '| Existing release backup | `%s` |\n' "${BACKUP_RELEASE_ID:-none}"
+            printf '| Finalized release (audit only) | `%s` |\n' "$AUDIT_FINALIZED"
+            printf '| Existing draft seed SHA | `%s` |\n' "${DRAFT_SEED_SHA:-none}"
+            printf '| Suggested manual seed SHA | `%s` |\n' "$SUGGESTED_SEED_SHA"
+            printf '| Configured package registry | `%s` |\n' "$PACKAGE_REGISTRY"
+            echo
+            echo "## Registry publication state"
+            echo
+            echo "| Registry | State |"
+            echo "| --- | --- |"
+            printf '| npmjs.org | **%s** |\n' "$NPM_REGISTRY_STATE"
+            printf '| GitHub Packages | **%s** |\n' "$GITHUB_REGISTRY_STATE"
+            echo
+            echo "## Artifact equivalence"
+            echo
+            printf 'Status: **%s**\n\n' "$ARTIFACT_EQUIVALENCE"
+            if [ "$ARTIFACT_EQUIVALENCE" = "matched" ]; then
+              printf 'Matched published copy: `%s`\n\n' "$MATCHED_REGISTRY"
+            elif [ "$ARTIFACT_EQUIVALENCE" = "not-required" ]; then
+              echo "No supported registry contains this exact version, so published-artifact equivalence is not required."
+              echo
+            fi
+            if [ "$EQUIVALENCE_RESULTS" != "[]" ]; then
+              echo '~~~json'
+              jq '.' <<< "$EQUIVALENCE_RESULTS"
+              echo '~~~'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+
+      - name: Checkout version-matched reusable workflow actions
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .github/reusable-workflows-runtime
+          persist-credentials: false
+          sparse-checkout: actions
+          sparse-checkout-cone-mode: false
+      - name: Validate selected release marker before recovery
+        uses: ./.github/reusable-workflows-runtime/actions/validate-release-identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          release-tag: ${{ steps.package.outputs.tag }}
+          version: ${{ steps.package.outputs.package-version }}
+          package-name: ${{ steps.package.outputs.name }}
+          target: ${{ steps.package.outputs.directory }}
+
+
+  delete-release:
+    name: "stage: Delete current release + tag"
+    needs: resolve
+    if: ${{ needs.resolve.result == 'success' && needs.resolve.outputs.audit-finalized != 'true' }}
+    permissions:
+      contents: write
+    uses: $/.github/workflows/reusable_delete-release-tag.yml
+    with:
+      tag: ${{ needs.resolve.outputs.matched-release-tag || needs.resolve.outputs.release-tag }}
+      dry-run: ${{ inputs.dry-run }}
+
+  restore-tag:
+    name: "stage: Move canonical release tag"
+    needs:
+      - resolve
+      - delete-release
+    if: ${{ needs.resolve.result == 'success' && needs.delete-release.result == 'success' }}
+    permissions:
+      contents: write
+    uses: $/.github/workflows/reusable_release-tag-move.yml
+    with:
+      target-branch: ${{ inputs.target-branch }}
+      tag: ${{ needs.resolve.outputs.release-tag }}
+      commit: ${{ needs.resolve.outputs.release-commit }}
+      dry-run: ${{ inputs.dry-run }}
+
+  create-draft:
+    name: "stage: Restore release draft"
+    needs:
+      - resolve
+      - restore-tag
+    if: ${{ needs.resolve.result == 'success' && needs.restore-tag.result == 'success' }}
+    permissions:
+      contents: write
+      pull-requests: read
+    uses: $/.github/workflows/reusable_release-drafter.yml
+    with:
+      show-input-summary: false
+      target-branch: ${{ inputs.target-branch }}
+      version: ${{ needs.resolve.outputs.package-version }}
+      initial-version: "0.1.0"
+      release-tag: ${{ needs.resolve.outputs.release-tag }}
+      tag-prefix: ${{ needs.resolve.outputs.tag-prefix }}
+      package-name: ${{ needs.resolve.outputs.package-name }}
+      package-directory: ${{ needs.resolve.outputs.package-directory }}
+      release-name: ${{ needs.resolve.outputs.release-name }}
+      changelog-path: ${{ needs.resolve.outputs.changelog-path }}
+      template-path: ${{ inputs.draft-template-path }}
+      seed-body-base64: ${{ needs.resolve.outputs.backup-body-base64 }}
+      seed-updated-at: ${{ needs.resolve.outputs.backup-updated-at }}
+      dry-run: ${{ inputs.dry-run }}
+
+  summary:
+    name: "job: Restore summary"
+    needs:
+      - preflight
+      - resolve
+      - delete-release
+      - restore-tag
+      - create-draft
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Verify after-state and summarize changes
+        if: ${{ always() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.resolve.outputs.release-tag }}
+          DRY_RUN: ${{ inputs.dry-run }}
+          RESOLVE_RESULT: ${{ needs.resolve.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "## After recovery"
+            echo
+            if [ -z "$RELEASE_TAG" ]; then
+              echo "Recovery target was not resolved; no after-state can be verified."
+              jq -n '{tag:null,tag_state:"unknown",release_state:"unknown",release:null}' > after.json
+              exit 0
+            fi
+            RELEASE_STATUS=unknown
+            RELEASE=""
+            if gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RUNNER_TEMP/after-releases.json"; then
+              RELEASE="$(jq -c --arg tag "$RELEASE_TAG" '[.[][] | select(.tag_name == $tag)] | first // empty' "$RUNNER_TEMP/after-releases.json")"
+              RELEASE_STATUS="$([ -n "$RELEASE" ] && echo present || echo absent)"
+            else
+              echo "::warning::Unable to fetch after-state releases."
+            fi
+            TAG_STATUS=unknown
+            TAG_SHA=""
+            if gh api -i "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" > "$RUNNER_TEMP/after-tag-response" 2>&1; then
+              TAG_STATUS=present
+              TAG_SHA="$(sed -n '/^{/,$p' "$RUNNER_TEMP/after-tag-response" | jq -r '.object.sha // empty' 2>/dev/null || true)"
+            elif grep -Eq 'HTTP/[0-9.]+ 404|404 Not Found' "$RUNNER_TEMP/after-tag-response"; then
+              TAG_STATUS=absent
+            else
+              echo "::warning::Unable to fetch after-state tag."
+            fi
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            printf '| Canonical tag | `%s` |\n' "$RELEASE_TAG"
+            printf '| Tag lookup | `%s` |\n' "$TAG_STATUS"
+            printf '| Tag object SHA | `%s` |\n' "${TAG_SHA:-unknown}"
+            if [ -n "$RELEASE" ]; then
+              printf '| Release ID | `%s` |\n' "$(jq -r '.id' <<< "$RELEASE")"
+              printf '| Release state | `%s` |\n' "$(jq -r 'if .draft then "draft" else "published" end' <<< "$RELEASE")"
+              printf '| Immutable | `%s` |\n' "$(jq -r '.immutable // false' <<< "$RELEASE")"
+              printf '| Title | %s |\n' "$(jq -r '.name // "" | gsub("[\\r\\n|]"; " ")' <<< "$RELEASE")"
+            else
+              printf '| Release lookup | `%s` |\n' "$RELEASE_STATUS"
+            fi
+            echo
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "Dry-run: this is an unchanged-state audit, not proof of a recovery mutation."
+            elif [ "$RESOLVE_RESULT" != "success" ]; then
+              echo "Recovery failed during resolution; after-state recorded for diagnosis."
+            else
+              echo "After-state independently queried from GitHub; compare it with Before recovery above."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$RELEASE_TAG" ]; then
+            jq -n --arg tag "$RELEASE_TAG" --arg tagState "${TAG_STATUS:-unknown}" --arg tagSha "${TAG_SHA:-}" --arg releaseState "${RELEASE_STATUS:-unknown}" --argjson release "${RELEASE:-null}" '{tag:$tag,tag_state:$tagState,tag_sha:$tagSha,release_state:$releaseState,release:$release}' > after.json
+          else
+            jq -n '{tag:null,tag_state:"unknown",release_state:"unknown",release:null}' > after.json
+          fi
+          if [ "${TAG_STATUS:-unknown}" = unknown ] || [ "${RELEASE_STATUS:-unknown}" = unknown ]; then
+            echo "::warning::After-state is not fully verifiable using GitHub API."
+          fi
+      - name: Upload after-state audit artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ needs.preflight.outputs.after-artifact-name }}
+          path: after.json
+          retention-days: 30
+          if-no-files-found: warn
+      - name: Restore result
+        shell: bash
+        run: |
+          {
+            echo "# Release restore result"
+            echo
+            echo "| Stage | Result |"
+            echo "| --- | --- |"
+            echo "| Resolve historical release | **${{ needs.resolve.result }}** |"
+            echo "| Delete current release + tag | **${{ needs.delete-release.result }}** |"
+            echo "| Restore canonical tag | **${{ needs.restore-tag.result }}** |"
+            echo "| Restore release draft | **${{ needs.create-draft.result }}** |"
+            echo
+            echo "## Draft seed marker"
+            echo
+            if [ -n "${{ needs.resolve.outputs.draft-seed-sha }}" ] &&
+               [ "${{ needs.resolve.outputs.draft-seed-sha }}" != "${{ needs.resolve.outputs.suggested-seed-sha }}" ]; then
+              echo "> Restore preserves the existing release-draft-sync seed marker. If you want the draft baseline to align with the restored release source, manually change seed-sha to the suggested value."
+              echo
+            fi
+            if [ "${{ needs.resolve.outputs.audit-finalized }}" = "true" ]; then
+              echo "> Finalized release left untouched. Recovery stages intentionally skipped; no published release was rewritten."
+            elif [ "${{ inputs.dry-run }}" = "true" ]; then
+              echo '> Preview only. Re-run with dry-run=false to restore this historical release identity.'
+            else
+              echo "> Recovery completed. The canonical tag and release draft now point to the requested historical commit."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${{ needs.resolve.outputs.audit-finalized }}" = "true" ] &&
+             { [ "${{ inputs.dry-run }}" = "true" ] || [ "${{ inputs.skip-finalized }}" = "true" ]; } &&
+             [ "${{ needs.resolve.result }}" = "success" ]; then
+            # Finalized releases are audit-only. Skipped mutation stages are expected.
+            exit 0
+          fi
+          if [ "${{ needs.resolve.result }}" != "success" ] ||
+             [ "${{ needs.delete-release.result }}" != "success" ] ||
+             [ "${{ needs.restore-tag.result }}" != "success" ] ||
+             [ "${{ needs.create-draft.result }}" != "success" ]; then
+            exit 1
+          fi
