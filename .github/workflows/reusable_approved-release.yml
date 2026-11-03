@@ -31,7 +31,7 @@ jobs:
       actions: read
       statuses: read
       pull-requests: read
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_verify-release-preparation.yml@feat/approved-release-manual-pr-20261103
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_verify-release-preparation.yml@main
     with:
       expected-base: ${{ inputs.expected-base }}
       pr-number: ${{ inputs.pr-number }}
