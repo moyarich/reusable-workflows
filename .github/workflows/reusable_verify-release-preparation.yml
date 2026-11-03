@@ -5,15 +5,20 @@ on:
       expected-base:
         type: string
         default: main
+      pr-number:
+        type: string
+        default: ''
     outputs:
       manifest:
         value: ${{ jobs.verify.outputs.manifest }}
       packages:
         value: ${{ jobs.verify.outputs.packages }}
+      merge-sha:
+        value: ${{ jobs.verify.outputs.merge-sha }}
 permissions: {}
 jobs:
   verify:
-    if: ${{ github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.event.pull_request.head.ref, 'release/prepare-') && github.event.pull_request.base.ref == inputs.expected-base }}
+    if: ${{ (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.event.pull_request.head.ref, 'release/prepare-') && github.event.pull_request.base.ref == inputs.expected-base) || (github.event_name == 'workflow_dispatch' && inputs.pr-number != '') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -24,10 +29,35 @@ jobs:
     outputs:
       manifest: ${{ steps.validate.outputs.manifest }}
       packages: ${{ steps.validate.outputs.packages }}
+      merge-sha: ${{ steps.approved.outputs.merge-sha }}
     steps:
+      - name: Resolve and validate approved merge
+        id: approved
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ inputs.pr-number }}
+          EXPECTED_BASE: ${{ inputs.expected-base }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            [[ "$PR_NUMBER" =~ ^[1-9][0-9]*$ ]] || { echo '::error::Invalid PR number'; exit 1; }
+            gh api "repos/$GH_REPO/pulls/$PR_NUMBER" > "$RUNNER_TEMP/approved-pr.json"
+          else
+            cp "$GITHUB_EVENT_PATH" "$RUNNER_TEMP/approved-event.json"
+            jq '.pull_request' "$RUNNER_TEMP/approved-event.json" > "$RUNNER_TEMP/approved-pr.json"
+          fi
+          jq -e --arg repo "$GH_REPO" --arg base "$EXPECTED_BASE" '
+            .merged == true and .state == "closed" and .base.ref == $base and
+            .head.repo.full_name == $repo and (.head.ref | startswith("release/prepare-")) and
+            (.merge_commit_sha | type == "string" and test("^[a-f0-9]{40}$"))
+          ' "$RUNNER_TEMP/approved-pr.json" > /dev/null || { echo '::error::PR is not an approved merged release preparation'; exit 1; }
+          echo "merge-sha=$(jq -r '.merge_commit_sha' "$RUNNER_TEMP/approved-pr.json")" >> "$GITHUB_OUTPUT"
+          echo "pr-file=$RUNNER_TEMP/approved-pr.json" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          ref: ${{ steps.approved.outputs.merge-sha }}
           fetch-depth: 0
           persist-credentials: false
       - name: Checkout version-matched reusable workflow actions
@@ -41,7 +71,8 @@ jobs:
       - name: Resolve final approved package versions
         id: validate
         env:
-          EXPECTED_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          EXPECTED_SHA: ${{ steps.approved.outputs.merge-sha }}
+          APPROVED_PR_FILE: ${{ steps.approved.outputs.pr-file }}
         shell: bash
         run: |
           set -euo pipefail
@@ -52,8 +83,8 @@ jobs:
           const git=(args)=>execFileSync("git",args,{encoding:"utf8"}).trim();
           // Package selection is maintained in the editable PR description.
           // The merged commit is authoritative for code and final versions.
-          const event=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,"utf8"));
-          const body=event.pull_request?.body ?? "";
+          const approved=JSON.parse(fs.readFileSync(process.env.APPROVED_PR_FILE,"utf8"));
+          const body=approved.body ?? "";
           const marker=/<!-- release-preparation:start -->\s*```json\s*([\s\S]*?)\s*```\s*<!-- release-preparation:end -->/g;
           const matches=[...body.matchAll(marker)];
           if(matches.length!==1) throw Error("Expected exactly one release preparation JSON section in the merged PR description");
