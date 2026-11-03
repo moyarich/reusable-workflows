@@ -16,7 +16,7 @@ permissions:
   contents: write
 jobs:
   release:
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_npm-release.yml@v0
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_release-npm.yml@v0
     with:
       package: ${{ inputs.package }}
       target-branch: ${{ github.ref_name }}
