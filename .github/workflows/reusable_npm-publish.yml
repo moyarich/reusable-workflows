@@ -409,11 +409,9 @@ jobs:
               PACKAGE_DIRECTORY="."
             fi
 
-            if [ "$PACKAGE_DIRECTORY" = "." ]; then
-              REQUESTED_RELEASE_TAG="$PACKAGE_NAME@$REQUESTED_VERSION"
-            else
-              REQUESTED_RELEASE_TAG="$PACKAGE_DIRECTORY@$REQUESTED_VERSION"
-            fi
+            # Release drafts and immutable tags use the npm package name,
+            # independently of the workspace directory or root location.
+            REQUESTED_RELEASE_TAG="$PACKAGE_NAME@$REQUESTED_VERSION"
 
             RELEASE_COMMIT="$(git rev-list -n 1 "$REQUESTED_RELEASE_TAG" 2>/dev/null || true)"
             if [ -z "$RELEASE_COMMIT" ]; then
@@ -474,9 +472,12 @@ jobs:
           {
             echo "name=$(jq -r '.packages[0].name' <<< "$PLAN")"
             echo "version=$PACKAGE_VERSION"
-            echo "release-tag=$(jq -r '.packages[0].releaseIdentity.tagName' <<< "$PLAN")"
-            echo "release-name=$(jq -r '.packages[0].releaseIdentity.releaseName' <<< "$PLAN")"
-            RELEASE_TAG="$(jq -r '.packages[0].releaseIdentity.tagName' <<< "$PLAN")"
+            # Match reusable_release-workspace-package.yml's release identity.
+            # The Workspace Tools plan may still use a directory-based tag.
+            PACKAGE_NAME="$(jq -r '.packages[0].name' <<< "$PLAN")"
+            RELEASE_TAG="$PACKAGE_NAME@$PACKAGE_VERSION"
+            echo "release-tag=$RELEASE_TAG"
+            echo "release-name=$PACKAGE_NAME v$PACKAGE_VERSION"
             RELEASE_COMMIT="$(git rev-list -n 1 "$RELEASE_TAG" 2>/dev/null || true)"
             echo "release-commit=$RELEASE_COMMIT"
             echo "distribution-tag=$RESOLVED_DIST_TAG"
