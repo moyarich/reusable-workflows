@@ -4,7 +4,7 @@ description: Copyable reset release reusable workflow caller.
 ---
 
 import workflow from "./workflow.yml?raw";
-import reusableWorkflow from "../../.github/workflows/reusable_reset-release.yml?raw";
+import reusableWorkflow from "../../.github/workflows/reusable_release-reset.yml?raw";
 
 # Reset release
 
@@ -12,7 +12,7 @@ import reusableWorkflow from "../../.github/workflows/reusable_reset-release.yml
   files={[
     { name: "workflow.yml", source: workflow, language: "yaml" },
     {
-      name: "reusable_reset-release.yml",
+      name: "reusable_release-reset.yml",
       source: reusableWorkflow,
       language: "yaml",
     },
