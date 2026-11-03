@@ -415,11 +415,8 @@ jobs:
 
             RELEASE_COMMIT="$(git rev-list -n 1 "$REQUESTED_RELEASE_TAG" 2>/dev/null || true)"
             if [ -z "$RELEASE_COMMIT" ]; then
-              if [ "${{ inputs.dry-run }}" != "true" ]; then
-                echo "::error::Requested release tag does not exist: $REQUESTED_RELEASE_TAG"
-                exit 1
-              fi
-              echo "::notice::Release tag $REQUESTED_RELEASE_TAG is missing; using checked-out source for the dry-run plan."
+              echo "::error::Requested release tag does not exist: $REQUESTED_RELEASE_TAG"
+              exit 1
             fi
 
             if [ -n "$RELEASE_COMMIT" ]; then
@@ -503,7 +500,6 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ steps.plan.outputs.release-tag }}
           RELEASE_NAME: ${{ steps.plan.outputs.release-name }}
-          DRY_RUN: ${{ inputs.dry-run }}
           REGISTRY_SELECTION: ${{ inputs.registry }}
         shell: bash
         run: |
@@ -571,7 +567,7 @@ jobs:
             echo
           } >> "$GITHUB_STEP_SUMMARY"
 
-          if [ "$VALID" != "true" ] && [ "$DRY_RUN" != "true" ]; then
+          if [ "$VALID" != "true" ]; then
             echo "::error::$REASON"
             echo "::error::This release-oriented publish workflow requires a matching GitHub Release identity."
             exit 1
@@ -599,7 +595,6 @@ jobs:
           PACKAGE_NAME: ${{ steps.plan.outputs.name }}
           PACKAGE_SELECTOR: ${{ inputs.package-directory }}
           RELEASE_COMMIT: ${{ steps.plan.outputs.release-commit }}
-          DRY_RUN: ${{ inputs.dry-run }}
         shell: bash
         run: |
           set -euo pipefail
@@ -608,13 +603,8 @@ jobs:
 
           ARTIFACT_SOURCE="canonical-tag"
           if [ -z "$RELEASE_COMMIT" ]; then
-            if [ "$DRY_RUN" != "true" ]; then
-              echo "::error::Cannot resolve the canonical Git tag commit for ${{ steps.plan.outputs.release-tag }}."
-              exit 1
-            fi
-            RELEASE_COMMIT="$GITHUB_SHA"
-            ARTIFACT_SOURCE="checkout-preview"
-            echo "::notice::Release tag is missing; packaging the checked-out commit as a dry-run preview, not a canonical release artifact."
+            echo "::error::Cannot resolve the canonical Git tag commit for ${{ steps.plan.outputs.release-tag }}."
+            exit 1
           fi
 
           WORKTREE="$RUNNER_TEMP/npm-release-source"
