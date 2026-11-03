@@ -13,13 +13,13 @@ These notes document repository maintenance and advanced consumer workflow confi
 
 To release reusable workflows, run [`.github/workflows/release.yml`](.github/workflows/release.yml) using **Actions → Release → Run workflow**. Select `package-json` to release the manifest version unchanged, `auto` to calculate the next patch from the latest published release, or an explicit `bump`/`exact` version as appropriate. Verify the resolved version with `dry-run: true` before publishing. A non-dry-run release publishes the immutable `vX.Y.Z` GitHub Release/tag, and advances the compatible `vX` alias if selected. Consumers use a compatible major alias or a pinned published release tag; no npm or GitHub Packages publication is involved.
 
-The `reusable_npm-prepare-release.yml`, `reusable_npm-release.yml`, and `reusable_npm-publish.yml` workflows exist **for other repositories to call** via `workflow_call`. They are not part of this repository's release pipeline. The npm workflows are **separate, explicitly initiated operations**: they are not triggered by `.github/workflows/release.yml`. If you later decide to distribute an npm package from this repository, first make its intended package publishable (including reviewing `private`, package contents, registry, and authentication), then deliberately run the appropriate npm workflow. Keep `dry-run: true` until its checks pass.
+The `reusable_release-npm-prepare.yml`, `reusable_release-npm.yml`, and `reusable_npm-publish.yml` workflows exist **for other repositories to call** via `workflow_call`. They are not part of this repository's release pipeline. The npm workflows are **separate, explicitly initiated operations**: they are not triggered by `.github/workflows/release.yml`. If you later decide to distribute an npm package from this repository, first make its intended package publishable (including reviewing `private`, package contents, registry, and authentication), then deliberately run the appropriate npm workflow. Keep `dry-run: true` until its checks pass.
 
 The npm/CLI implementation is released separately as `@moyarich/workspace-tools`. The `0.2.0` reference below is the Workspace Tools CLI version, not the reusable-workflows release version.
 
 ## Workflow-file token for dynamic package dropdowns
 
-The reusable `reusable_sync-release-package-choices.yml` workflow discovers publishable workspace packages and updates the `workflow_dispatch` choices in release-draft, release, and publish YAML files. Because it **writes under `.github/workflows/`**, a standard `GITHUB_TOKEN` with `contents: write` is not sufficient for the failed GitHub App push scenario; provide a credential authorized to modify workflows.
+The reusable `reusable_release-sync-package-choices.yml` workflow discovers publishable workspace packages and updates the `workflow_dispatch` choices in release-draft, release, and publish YAML files. Because it **writes under `.github/workflows/`**, a standard `GITHUB_TOKEN` with `contents: write` is not sufficient for the failed GitHub App push scenario; provide a credential authorized to modify workflows.
 
 1. Open [GitHub personal access tokens](https://github.com/settings/tokens). Choose **Generate new token (classic)**, give it a descriptive name and suitable expiration, and select the `repo` and `workflow` scopes. Alternatively, use a fine-grained token with repository **Contents: Read and write** and **Workflows: Read and write** permissions, if supported for the target repository.
 2. In the **calling** repository, open **Settings → Secrets and variables → Actions → New repository secret**. Store the token value as `_WORKFLOW_TOKEN` (or any preferred secret name). Never commit the actual token.
@@ -30,7 +30,7 @@ jobs:
   sync:
     permissions:
       contents: write
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_sync-release-package-choices.yml@main
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_release-sync-package-choices.yml@main
     with:
       workflow-files: '[".github/workflows/release-draft.yml",".github/workflows/release.yml",".github/workflows/publish.yml"]'
       packages-directory: packages
@@ -102,7 +102,7 @@ additional reusable summary:
 ```yaml
 jobs:
   release:
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_npm-release.yml@v0
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_release-npm.yml@v0
     with:
       package: .
       show-input-summary: false

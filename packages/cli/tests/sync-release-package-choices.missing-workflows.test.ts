@@ -12,7 +12,7 @@ import { join } from "node:path";
 import { parse } from "yaml";
 
 const workflowPath = new URL(
-  "../../../.github/workflows/reusable_sync-release-package-choices.yml",
+  "../../../.github/workflows/reusable_release-sync-package-choices.yml",
   import.meta.url,
 );
 const workflow = parse(readFileSync(workflowPath, "utf8")) as {

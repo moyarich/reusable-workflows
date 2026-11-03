@@ -82,7 +82,7 @@ jobs:
       actions: read
       contents: write
       pull-requests: read
-    uses: ./.github/workflows/reusable_workspace-package-release.yml
+    uses: ./.github/workflows/reusable_release-workspace-package.yml
     with:
       workspace-tools-source: ${{ inputs.workspace-tools-source }}
       package: ${{ inputs.package }}
