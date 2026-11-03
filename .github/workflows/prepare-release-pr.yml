@@ -42,7 +42,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    uses: ./.github/workflows/reusable_prepare-release-pr.yml
+    uses: ./.github/workflows/reusable_release-prepare-pr.yml
     with:
       package: ${{ inputs.package }}
       version-mode: ${{ inputs.version-mode }}

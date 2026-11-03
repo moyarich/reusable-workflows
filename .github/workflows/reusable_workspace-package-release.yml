@@ -67,7 +67,7 @@ jobs:
     needs: discover-packages
     permissions:
       contents: read
-    uses: $/.github/workflows/reusable_select-release-packages.yml
+    uses: $/.github/workflows/reusable_release-select-packages.yml
     with:
       packages-json: ${{ needs.discover-packages.outputs.packages }}
       package: ${{ inputs.package }}

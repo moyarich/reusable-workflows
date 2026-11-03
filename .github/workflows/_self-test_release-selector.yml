@@ -3,7 +3,7 @@ name: "Self-test · Release selector"
 on:
   pull_request:
     paths:
-      - .github/workflows/reusable_select-release-packages.yml
+      - .github/workflows/reusable_release-select-packages.yml
       - .github/workflows/_self-test_release-selector.yml
   workflow_dispatch:
 
@@ -13,7 +13,7 @@ jobs:
   selection:
     permissions:
       contents: read
-    uses: $/.github/workflows/reusable_select-release-packages.yml
+    uses: $/.github/workflows/reusable_release-select-packages.yml
     with:
       packages-json: '{"included":[{"name":"example","directory":"packages/example"}],"filtered":[],"total":1}'
       package: example

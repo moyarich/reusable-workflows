@@ -46,7 +46,7 @@ jobs:
       contents: write
       packages: read
       pull-requests: read
-    uses: $/.github/workflows/reusable_bulk-reset-release.yml
+    uses: $/.github/workflows/reusable_release-bulk-reset.yml
     with:
       package: ${{ inputs.package }}
       target-branch: ${{ inputs.target-branch }}
