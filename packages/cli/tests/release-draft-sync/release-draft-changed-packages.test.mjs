@@ -12,7 +12,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 
 const workflow = readFileSync(
   new URL(
-    "../../../../.github/workflows/reusable_select-release-packages.yml",
+    "../../../../.github/workflows/reusable_release-select-packages.yml",
     import.meta.url,
   ),
   "utf8",

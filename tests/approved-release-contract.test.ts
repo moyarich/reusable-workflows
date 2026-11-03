@@ -15,7 +15,7 @@ describe("approved-release workflow contract", () => {
 
     // Nested calls must resolve in reusable-workflows, not in the external caller.
     expect(approved).toContain(
-      "uses: $/.github/workflows/reusable_verify-release-preparation.yml",
+      "uses: $/.github/workflows/reusable_release-verify-preparation.yml",
     );
     expect(approved).toContain(
       "uses: $/.github/workflows/reusable_release.yml",

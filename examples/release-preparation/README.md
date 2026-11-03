@@ -18,7 +18,7 @@ The release preparation workflow creates an editable `release/prepare-*` branch 
 
 The description is the source of truth for **which packages** belong to the release. It may be edited before merging the PR. Code, tests, changelogs, dependencies and package versions on the PR branch remain editable as well.
 
-On merge, `reusable_verify-release-preparation.yml` reads package selection from the merged PR description and takes **final versions** from each selected package's `package.json` in the **merge commit**.
+On merge, `reusable_release-verify-preparation.yml` reads package selection from the merged PR description and takes **final versions** from each selected package's `package.json` in the **merge commit**.
 
 The initiating preparation workflow also uploads `prepared-release-manifest` as an Actions artifact for diagnostics. The artifact is not used to determine final release versions or package selection after merge.
 
