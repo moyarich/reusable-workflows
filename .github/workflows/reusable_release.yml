@@ -119,7 +119,7 @@ jobs:
     if: ${{ inputs.show-input-summary }}
     permissions:
       contents: read
-    uses: $/.github/workflows/reusable_dispatch-input-summary.yml
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_dispatch-input-summary.yml@main
     with:
       parameters-json: ${{ toJSON(inputs) }}
       exclude-inputs: '["show-input-summary"]'
