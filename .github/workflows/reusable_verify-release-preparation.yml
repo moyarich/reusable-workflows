@@ -13,6 +13,8 @@ on:
         value: ${{ jobs.verify.outputs.manifest }}
       packages:
         value: ${{ jobs.verify.outputs.packages }}
+      merge-sha:
+        value: ${{ jobs.verify.outputs.merge-sha }}
 permissions: {}
 jobs:
   verify:
@@ -27,6 +29,7 @@ jobs:
     outputs:
       manifest: ${{ steps.validate.outputs.manifest }}
       packages: ${{ steps.validate.outputs.packages }}
+      merge-sha: ${{ steps.approved.outputs.merge-sha }}
     steps:
       - name: Resolve and validate approved merge
         id: approved
