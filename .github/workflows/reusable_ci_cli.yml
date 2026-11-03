@@ -39,7 +39,13 @@ jobs:
         shell: bash
         run: |
           if [[ -f eslint.config.js || -f eslint.config.mjs || -f eslint.config.cjs || -f eslint.config.ts ]]; then
-            npx --no-install eslint . --max-warnings 0
+            # The repository may restrict typed linting to configured TS projects.
+            # Prefer its lint script instead of linting every file indiscriminately.
+            if node -e "process.exit(typeof require('./package.json').scripts?.lint === 'string' ? 0 : 1)"; then
+              npm run lint -- --max-warnings 0
+            else
+              npx --no-install eslint . --max-warnings 0
+            fi
           else
             echo "No ESLint configuration; skipping lint."
           fi
