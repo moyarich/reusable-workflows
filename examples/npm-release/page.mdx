@@ -4,7 +4,7 @@ description: Copyable npm Release caller workflow.
 ---
 
 import workflow from "./workflow.yml?raw";
-import reusableWorkflow from "../../.github/workflows/reusable_npm-release.yml?raw";
+import reusableWorkflow from "../../.github/workflows/reusable_release-npm.yml?raw";
 
 # npm Release
 
@@ -12,7 +12,7 @@ import reusableWorkflow from "../../.github/workflows/reusable_npm-release.yml?r
   files={[
     { name: "workflow.yml", source: workflow, language: "yaml" },
     {
-      name: "reusable_npm-release.yml",
+      name: "reusable_release-npm.yml",
       source: reusableWorkflow,
       language: "yaml",
     },

@@ -40,7 +40,7 @@ jobs:
   select:
     permissions:
       contents: read
-    uses: $/.github/workflows/reusable_select-recovery-packages.yml
+    uses: $/.github/workflows/reusable_release-select-recovery-packages.yml
     with:
       package: ${{ inputs.package }}
       workspace-tools-source: ${{ inputs.workspace-tools-source }}

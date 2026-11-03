@@ -7,7 +7,7 @@ on:
       - .github/workflows/reusable_npm-registry-matrix.yml
       - .github/workflows/reusable_registry-publication-check.yml
       - .github/workflows/_self-test_registry-config.yml
-      - .github/workflows/reusable_workspace-package-release.yml
+      - .github/workflows/reusable_release-workspace-package.yml
   workflow_dispatch:
 permissions:
   contents: read
@@ -23,7 +23,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.9 -ignore 'shellcheck reported issue' .github/workflows/reusable_npm-publish.yml .github/workflows/reusable_bulk-npm-publish.yml .github/workflows/reusable_npm-release.yml .github/workflows/reusable_npm-prepare-release.yml .github/workflows/reusable_workspace-package-release.yml .github/workflows/reusable_registry-publication-check.yml .github/workflows/reusable_npm-registry-matrix.yml .github/workflows/_self-test_registry-config.yml
+          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.9 -ignore 'shellcheck reported issue' .github/workflows/reusable_npm-publish.yml .github/workflows/reusable_bulk-npm-publish.yml .github/workflows/reusable_release-npm.yml .github/workflows/reusable_release-npm-prepare.yml .github/workflows/reusable_release-workspace-package.yml .github/workflows/reusable_registry-publication-check.yml .github/workflows/reusable_npm-registry-matrix.yml .github/workflows/_self-test_registry-config.yml
       - name: Validate registry defaults and extension behavior
         id: contracts
         shell: bash

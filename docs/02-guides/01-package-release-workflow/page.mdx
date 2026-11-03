@@ -250,7 +250,7 @@ Do not reproduce the tag or release-name formula independently in workflow YAML 
 
 ## 1. Resolve the target version
 
-`reusable_npm-release.yml` resolves the target version before any release mutation.
+`reusable_release-npm.yml` resolves the target version before any release mutation.
 
 It invokes `workspace-release` in dry-run mode first.
 
@@ -282,7 +282,7 @@ If the target is already published or its immutable Git tag already exists, the 
 
 ## 2. Ensure the matching draft through `reusable_release.yml`
 
-Once the target version is known, `reusable_npm-release.yml` delegates GitHub Release handling to the generic `reusable_release.yml` workflow, which looks for a GitHub Release with the exact canonical tag.
+Once the target version is known, `reusable_release-npm.yml` delegates GitHub Release handling to the generic `reusable_release.yml` workflow, which looks for a GitHub Release with the exact canonical tag.
 
 ### Matching draft exists
 
@@ -527,7 +527,7 @@ A Git tag with neither a matching draft nor a published GitHub Release is an orp
 | Stage                        | Responsibility                                                                         |
 | ---------------------------- | -------------------------------------------------------------------------------------- |
 | Draft workflow               | Select changed packages and prepare candidate notes                                    |
-| `reusable_npm-release.yml`   | Resolve the package version and run package-specific release preparation               |
+| `reusable_release-npm.yml`   | Resolve the package version and run package-specific release preparation               |
 | `workspace-release-identity` | Produce the canonical package release name and Git tag                                 |
 | `workspace-release`          | Version package files, create the release commit, and create the immutable package tag |
 | `reusable_release.yml`       | Create or reuse the matching GitHub Release draft from explicit release identity       |
