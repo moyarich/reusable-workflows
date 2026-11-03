@@ -4,13 +4,18 @@ import { describe, expect, it } from "vitest";
 
 const workflow = readFileSync(
   fileURLToPath(
-    new URL("../../../../.github/workflows/reusable_npm-publish.yml", import.meta.url),
+    new URL(
+      "../../../../.github/workflows/reusable_npm-publish.yml",
+      import.meta.url,
+    ),
   ),
   "utf8",
 );
 
 const step = (name: string, nextName: string) =>
-  workflow.split(`      - name: ${name}\n`)[1]?.split(`      - name: ${nextName}\n`)[0] ?? "";
+  workflow
+    .split(`      - name: ${name}\n`)[1]
+    ?.split(`      - name: ${nextName}\n`)[0] ?? "";
 
 describe("npm publish dry-run release identity validation", () => {
   it("fails when the canonical GitHub Release is missing or mismatched in every mode", () => {
@@ -22,7 +27,7 @@ describe("npm publish dry-run release identity validation", () => {
     expect(validation).toContain('echo "::error::$REASON"');
     expect(validation).toContain("exit 1");
     expect(validation).not.toContain('&& [ "$DRY_RUN" != "true" ]');
-    expect(validation).not.toContain('DRY_RUN: ${{ inputs.dry-run }}');
+    expect(validation).not.toContain("DRY_RUN: ${{ inputs.dry-run }}");
   });
 
   it("rejects missing requested release tags even in dry-run mode", () => {
