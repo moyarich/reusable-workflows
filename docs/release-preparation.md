@@ -2,8 +2,8 @@
 
 Two new reusable workflows:
 
-1. reusable_prepare-release-pr.yml selects publishable npm workspaces, bumps versions, updates internal dependency ranges and the lockfile, and creates a reviewed release PR. The proposed manifest is uploaded as an Actions artifact, not committed.
-2. reusable_verify-release-preparation.yml derives the final approved package versions from the merged changes to publishable workspace package.json files. Manual changes made to the PR are therefore respected.
+1. reusable_release-prepare-pr.yml selects publishable npm workspaces, bumps versions, updates internal dependency ranges and the lockfile, and creates a reviewed release PR. The proposed manifest is uploaded as an Actions artifact, not committed.
+2. reusable_release-verify-preparation.yml derives the final approved package versions from the merged changes to publishable workspace package.json files. Manual changes made to the PR are therefore respected.
 
 ## Caller example: Console
 
@@ -30,7 +30,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_prepare-release-pr.yml@main
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_release-prepare-pr.yml@main
     with:
       package: ${{ inputs.package }}
       version-bump: ${{ inputs.version-bump }}
@@ -55,7 +55,7 @@ jobs:
     if: ${{ github.event.pull_request.merged && startsWith(github.event.pull_request.head.ref, 'release/prepare-') }}
     permissions:
       contents: read
-    uses: moyarich/reusable-workflows/.github/workflows/reusable_verify-release-preparation.yml@main
+    uses: moyarich/reusable-workflows/.github/workflows/reusable_release-verify-preparation.yml@main
 ```
 
 ## Publication boundary

@@ -32,7 +32,7 @@ jobs:
     needs: dispatch-input-summary
     permissions:
       contents: write
-    uses: $/.github/workflows/reusable_delete-release-tag.yml
+    uses: $/.github/workflows/reusable_release-delete-tag.yml
     with:
       tag: ${{ inputs.tag }}
       dry-run: ${{ inputs.dry-run }}

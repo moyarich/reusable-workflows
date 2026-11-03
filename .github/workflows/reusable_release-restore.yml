@@ -608,7 +608,7 @@ jobs:
     if: ${{ needs.resolve.result == 'success' && needs.resolve.outputs.audit-finalized != 'true' }}
     permissions:
       contents: write
-    uses: $/.github/workflows/reusable_delete-release-tag.yml
+    uses: $/.github/workflows/reusable_release-delete-tag.yml
     with:
       tag: ${{ needs.resolve.outputs.matched-release-tag || needs.resolve.outputs.release-tag }}
       dry-run: ${{ inputs.dry-run }}
