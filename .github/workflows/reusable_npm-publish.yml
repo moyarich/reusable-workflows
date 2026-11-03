@@ -580,7 +580,7 @@ jobs:
         with:
           release-tag: ${{ steps.plan.outputs.release-tag }}
           version: ${{ steps.plan.outputs.version }}
-          package-name: ${{ steps.plan.outputs.package-name }}
+          package-name: ${{ steps.plan.outputs.name }}
           required: "true"
 
       - name: Prepare package artifact directory
