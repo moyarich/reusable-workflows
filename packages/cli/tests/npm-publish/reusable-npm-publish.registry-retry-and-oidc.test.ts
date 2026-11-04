@@ -26,15 +26,24 @@ const step =
     ?.split("      - name: Record registry result\n")[0] ?? "";
 
 describe("npm registry publishing is safe to retry", () => {
-  it("checks existing versions and refuses to accept different canonical tarball checksums", () => {
+  it("warns and skips versions that already exist without attempting to publish them again", () => {
     expect(step).toContain('local_shasum="$(shasum -a 1');
     expect(step).toContain('npm view "$pkg_name@$pkg_version" dist.shasum');
     expect(step).toContain('"$published_shasum" != "$local_shasum"');
-    expect(step).toContain("refusing to overwrite or silently skip");
-    expect(step).toContain("reason=identical version already published");
+    expect(step).toContain("existing artifact left unchanged");
+    expect(step).toContain("::warning title=Already published:");
+    expect(step).toContain('echo "status=skipped" >> "$GITHUB_OUTPUT"');
+    expect(step).toContain("skipping registry publication");
     expect(
       step.indexOf('npm view "$pkg_name@$pkg_version" dist.shasum'),
     ).toBeLessThan(step.indexOf('args=(publish "${files[0]}"'));
+  });
+
+  it("treats skipped existing versions as completed without hiding genuine registry failures", () => {
+    expect(workflow).toContain('.status=="skipped"');
+    expect(workflow).toContain('.status=="failed"');
+    expect(workflow).toContain('.status=="blocked"');
+    expect(workflow).toContain("elif all(.[]; .status==\"skipped\") then \"skipped\"");
   });
 
   it("uses OIDC for npm trusted publishing and propagates id-token permission through every nested stage", () => {
