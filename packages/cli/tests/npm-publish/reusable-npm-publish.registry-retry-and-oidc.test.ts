@@ -58,7 +58,9 @@ describe("npm registry publishing is safe to retry", () => {
   });
 
   it("stages new npmjs.org versions instead of publishing directly or prompting for OTP", () => {
-    expect(step).toContain('if [ "$REGISTRY_URL" = "https://registry.npmjs.org" ]; then');
+    expect(step).toContain(
+      'if [ "$REGISTRY_URL" = "https://registry.npmjs.org" ]; then',
+    );
     expect(step).toContain('args=(stage publish "${files[0]}"');
     expect(step).toContain('echo "status=staged" >> "$GITHUB_OUTPUT"');
     expect(step).toContain("manual 2FA approval required");
@@ -72,7 +74,9 @@ describe("npm registry publishing is safe to retry", () => {
     expect(workflow).toContain('.status=="staged"');
     expect(workflow).toContain("fullyPublished:all(");
     expect(workflow).toContain('echo "fully-published=$(jq');
-    expect(workflow).toContain("needs.aggregate.outputs.fully-published == 'true'");
+    expect(workflow).toContain(
+      "needs.aggregate.outputs.fully-published == 'true'",
+    );
   });
 
   it("keeps dry runs mutation-free while validating registry versions", () => {
