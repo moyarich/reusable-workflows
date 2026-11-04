@@ -52,8 +52,27 @@ describe("npm registry publishing is safe to retry", () => {
     expect(workflow).toContain("id-token: write");
     expect(workflow).toContain("package-manager-cache: false");
     expect(step).toContain("ACTIONS_ID_TOKEN_REQUEST_URL");
-    expect(step).toContain("npm trusted publishing requires npm >= 11.5.1");
+    expect(workflow).toContain("npm install --global 'npm@^11.21.0'");
+    expect(step).toContain("npm stage publish requires npm >= 11.15.0");
     expect((bulk.match(/id-token: write/g) ?? []).length).toBe(8);
+  });
+
+  it("stages new npmjs.org versions instead of publishing directly or prompting for OTP", () => {
+    expect(step).toContain('if [ "$REGISTRY_URL" = "https://registry.npmjs.org" ]; then');
+    expect(step).toContain('args=(stage publish "${files[0]}"');
+    expect(step).toContain('echo "status=staged" >> "$GITHUB_OUTPUT"');
+    expect(step).toContain("manual 2FA approval required");
+    expect(step).toContain('args=(publish "${files[0]}"');
+    expect(step.indexOf('if [ "$DRY_RUN" = "true" ]; then')).toBeLessThan(
+      step.indexOf('args=(stage publish "${files[0]}"'),
+    );
+  });
+
+  it("does not finalize GitHub Releases while npmjs.org publication is only staged", () => {
+    expect(workflow).toContain('.status=="staged"');
+    expect(workflow).toContain("fullyPublished:all(");
+    expect(workflow).toContain('echo "fully-published=$(jq');
+    expect(workflow).toContain("needs.aggregate.outputs.fully-published == 'true'");
   });
 
   it("keeps dry runs mutation-free while validating registry versions", () => {
