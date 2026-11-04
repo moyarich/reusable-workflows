@@ -70,6 +70,15 @@ describe("npm registry publishing is safe to retry", () => {
     );
   });
 
+  it("skips npm stage E409 only when npm confirms the version was previously published", () => {
+    expect(step).toContain("npm error code E409");
+    expect(step).toContain('Cannot stage previously published version');
+    expect(step).toContain('echo "::warning title=Already published: $pkg_name@$pkg_version (npmjs.org)');
+    expect(step).toContain('echo "status=skipped" >> "$GITHUB_OUTPUT"');
+    expect(step).toContain('npm "${args[@]}" >"$stage_log" 2>&1');
+    expect(step).toContain('echo "::error::Could not stage $pkg_name@$pkg_version on npmjs.org');
+  });
+
   it("does not finalize GitHub Releases while npmjs.org publication is only staged", () => {
     expect(workflow).toContain('.status=="staged"');
     expect(workflow).toContain("fullyPublished:all(");
