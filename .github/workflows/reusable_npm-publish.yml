@@ -865,6 +865,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
     strategy:
       fail-fast: false
       matrix:
@@ -878,6 +879,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ inputs.node-version || '24' }}
+          package-manager-cache: false
       - name: Publish one configured registry
         id: publish
         env:
@@ -909,37 +911,60 @@ jobs:
             echo "status=blocked" >> "$GITHUB_OUTPUT"
             echo "reason=$reason" >> "$GITHUB_OUTPUT"
           }
-          if [ -z "$token" ]; then
+          # Every attempt, including real publication, must check existing versions
+          # before mutating registries. A retry is safe only for identical artifacts.
+          tar -tzf "${files[0]}" >/dev/null
+          package_json="$(tar -xOzf "${files[0]}" package/package.json)"
+          pkg_name="$(jq -er '.name' <<< "$package_json")"
+          pkg_version="$(jq -er '.version' <<< "$package_json")"
+          local_shasum="$(shasum -a 1 "${files[0]}" | awk '{print $1}')"
+          if npm view "$pkg_name@$pkg_version" dist.shasum --registry="$REGISTRY_URL" --userconfig="$npmrc" --json > "$RUNNER_TEMP/npm-registry-version.json" 2>"$RUNNER_TEMP/npm-registry-version.err"; then
+            published_shasum="$(jq -r 'if type == "string" then . else empty end' "$RUNNER_TEMP/npm-registry-version.json")"
+            if [ -z "$published_shasum" ] || [ "$published_shasum" != "$local_shasum" ]; then
+              echo "::error::Existing $pkg_name@$pkg_version on $REGISTRY_ALIAS has a missing or different tarball checksum; refusing to overwrite or silently skip."
+              exit 1
+            fi
+            echo "::notice::Identical $pkg_name@$pkg_version already published on $REGISTRY_ALIAS; no mutation needed."
+            echo "status=success" >> "$GITHUB_OUTPUT"
+            echo "reason=identical version already published" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! grep -Eq 'E404|404 Not Found' "$RUNNER_TEMP/npm-registry-version.err"; then
+            echo "::error::Cannot inspect $pkg_name@$pkg_version on $REGISTRY_ALIAS; refusing to publish without confirming version availability."
+            exit 1
+          fi
+
+          # npm's trusted publishing requires a matching publisher configuration
+          # on npmjs.com and Actions OIDC. Tokens remain supported for other registries.
+          npm_oidc=false
+          if [ "$REGISTRY_URL" = "https://registry.npmjs.org" ] && [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]; then
+            npm_oidc=true
+          fi
+          if [ -z "$token" ] && [ "$npm_oidc" != true ]; then
             if [ "$DRY_RUN" = "true" ]; then
-              report_blocked "credential unavailable ($SOURCE_NAME)"
+              report_blocked "credential unavailable ($SOURCE_NAME); configure npm trusted publishing or a valid registry token"
               exit 0
             fi
-            echo "::error::Missing credential for $REGISTRY_ALIAS ($SOURCE_NAME)"
+            echo "::error::Missing credential for $REGISTRY_ALIAS ($SOURCE_NAME); configure npm trusted publishing or a valid registry token."
             exit 1
           fi
           if [ "$DRY_RUN" = "true" ]; then
-            # Validate the actual tarball, without calling npm publish --dry-run
-            # (npm rejects an already-published version even in dry-run mode).
-            tar -tzf "${files[0]}" >/dev/null
-            package_json="$(tar -xOzf "${files[0]}" package/package.json)"
-            pkg_name="$(jq -er '.name' <<< "$package_json")"
-            pkg_version="$(jq -er '.version' <<< "$package_json")"
-            if npm view "$pkg_name@$pkg_version" version --registry="$REGISTRY_URL" --userconfig="$npmrc" --json > "$RUNNER_TEMP/npm-registry-version.json" 2>"$RUNNER_TEMP/npm-registry-version.err"; then
-              report_blocked "version $pkg_version already published"
-              exit 0
-            fi
-            # A 404 means the version has not been published. A timeout,
-            # authentication error, or other registry error must fail.
-            if ! grep -Eq 'E404|404 Not Found' "$RUNNER_TEMP/npm-registry-version.err"; then
-              echo "::error::Unable to verify version on registry $REGISTRY_ALIAS"
-              exit 1
-            fi
             echo "status=preview" >> "$GITHUB_OUTPUT"
-            echo "✅ **$REGISTRY_ALIAS:** version $pkg_version eligible for publication" >> "$GITHUB_STEP_SUMMARY"
+            echo "✅ **$REGISTRY_ALIAS:** version $pkg_version not published; credentials or OIDC present (no registry mutation)." >> "$GITHUB_STEP_SUMMARY"
           else
             args=(publish "${files[0]}" --registry="$REGISTRY_URL" --userconfig="$npmrc" --access=public)
             if [ -n "$DIST_TAG" ]; then args+=(--tag="$DIST_TAG"); fi
-            npm "${args[@]}"
+            if [ "$npm_oidc" = true ]; then
+              npm_version="$(npm --version)"
+              node -e 'const [major,minor]=process.argv[1].split(".").map(Number);if(major < 11 || (major === 11 && minor < 5))process.exit(1)' "$npm_version" || {
+                echo "::error::npm trusted publishing requires npm >= 11.5.1; got $npm_version."
+                exit 1
+              }
+            fi
+            npm "${args[@]}" || {
+              echo "::error::Registry $REGISTRY_ALIAS rejected publishing $pkg_name@$pkg_version. For npm EOTP, configure an npm trusted publisher for this GitHub workflow, or provide an authorized publishing credential."
+              exit 1
+            }
             echo "status=success" >> "$GITHUB_OUTPUT"
           fi
       - name: Record registry result
