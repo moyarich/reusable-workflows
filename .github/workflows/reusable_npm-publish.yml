@@ -880,6 +880,13 @@ jobs:
         with:
           node-version: ${{ inputs.node-version || '24' }}
           package-manager-cache: false
+      - name: Ensure supported npm staging CLI
+        if: ${{ matrix.target.url == 'https://registry.npmjs.org' && !inputs.dry-run }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global 'npm@^11.21.0'
+          npm --version
       - name: Publish one configured registry
         id: publish
         env:
@@ -957,20 +964,32 @@ jobs:
             echo "status=preview" >> "$GITHUB_OUTPUT"
             echo "✅ **$REGISTRY_ALIAS:** version $pkg_version not published; credentials or OIDC present (no registry mutation)." >> "$GITHUB_STEP_SUMMARY"
           else
-            args=(publish "${files[0]}" --registry="$REGISTRY_URL" --userconfig="$npmrc" --access=public)
-            if [ -n "$DIST_TAG" ]; then args+=(--tag="$DIST_TAG"); fi
-            if [ "$npm_oidc" = true ]; then
+            if [ "$REGISTRY_URL" = "https://registry.npmjs.org" ]; then
+              # Staging defers two-factor authentication to the maintainer's approval.
               npm_version="$(npm --version)"
-              node -e 'const [major,minor]=process.argv[1].split(".").map(Number);if(major < 11 || (major === 11 && minor < 5))process.exit(1)' "$npm_version" || {
-                echo "::error::npm trusted publishing requires npm >= 11.5.1; got $npm_version."
+              node -e 'const [major,minor]=process.argv[1].split(".").map(Number);if(major < 11 || (major === 11 && minor < 15))process.exit(1)' "$npm_version" || {
+                echo "::error::npm stage publish requires npm >= 11.15.0; got $npm_version."
                 exit 1
               }
+              args=(stage publish "${files[0]}" --registry="$REGISTRY_URL" --userconfig="$npmrc" --access=public)
+              if [ -n "$DIST_TAG" ]; then args+=(--tag="$DIST_TAG"); fi
+              npm "${args[@]}" || {
+                echo "::error::Could not stage $pkg_name@$pkg_version on npmjs.org. Check package access and npm credentials/trusted publisher settings."
+                exit 1
+              }
+              echo "status=staged" >> "$GITHUB_OUTPUT"
+              echo "reason=staged on npmjs.org; manual 2FA approval required" >> "$GITHUB_OUTPUT"
+              echo "::notice title=npmjs.org staged::$pkg_name@$pkg_version staged; approve in npmjs.com Staged Packages using 2FA."
+              echo "npmjs.org: $pkg_name@$pkg_version staged, pending maintainer approval with 2FA." >> "$GITHUB_STEP_SUMMARY"
+            else
+              args=(publish "${files[0]}" --registry="$REGISTRY_URL" --userconfig="$npmrc" --access=public)
+              if [ -n "$DIST_TAG" ]; then args+=(--tag="$DIST_TAG"); fi
+              npm "${args[@]}" || {
+                echo "::error::Registry $REGISTRY_ALIAS rejected publishing $pkg_name@$pkg_version."
+                exit 1
+              }
+              echo "status=success" >> "$GITHUB_OUTPUT"
             fi
-            npm "${args[@]}" || {
-              echo "::error::Registry $REGISTRY_ALIAS rejected publishing $pkg_name@$pkg_version. For npm EOTP, configure an npm trusted publisher for this GitHub workflow, or provide an authorized publishing credential."
-              exit 1
-            }
-            echo "status=success" >> "$GITHUB_OUTPUT"
           fi
       - name: Record registry result
         if: ${{ always() }}
@@ -999,6 +1018,7 @@ jobs:
     outputs:
       publish-status: ${{ steps.collect.outputs.publish-status }}
       can-publish: ${{ steps.collect.outputs.can-publish }}
+      fully-published: ${{ steps.collect.outputs.fully-published }}
       result-json: ${{ steps.collect.outputs.result-json }}
     steps:
       - uses: actions/download-artifact@v8
@@ -1018,7 +1038,7 @@ jobs:
           files=()
           while IFS= read -r -d '' file; do files+=("$file"); done < <(find "$RUNNER_TEMP/registry-results" -name result.json -print0)
           [ "${#files[@]}" -gt 0 ] || { echo "::error::No registry results"; exit 1; }
-          result="$(jq -sc '{operation:"publish", registries:., status:(if any(.[]; .status=="failed") then "failed" elif any(.[]; .status=="blocked") then "blocked" elif all(.[]; .status=="skipped") then "skipped" else "success" end),canPublish:all(.[]; .status=="success" or .status=="preview" or .status=="skipped")}' "${files[@]}")"
+          result="$(jq -sc '{operation:"publish", registries:., status:(if any(.[]; .status=="failed") then "failed" elif any(.[]; .status=="blocked") then "blocked" elif any(.[]; .status=="staged") then "staged" elif all(.[]; .status=="skipped") then "skipped" else "success" end),canPublish:all(.[]; .status=="success" or .status=="preview" or .status=="skipped" or .status=="staged"),fullyPublished:all(.[]; .status=="success" or .status=="skipped")}' "${files[@]}")"
           expected="$(jq 'length' <<< "$EXPECTED")"
           actual="$(jq '.registries|length' <<< "$result")"
           if [ "$MATRIX_RESULT" != success ] || [ "$actual" -ne "$expected" ] || [ "$(jq -r '.status' <<< "$result")" = failed ]; then
@@ -1030,10 +1050,11 @@ jobs:
             echo "::error::Required registry publication did not complete"
             exit 1
           fi
-          status="$(if [ "$can_publish" != true ]; then echo blocked; elif [ "$(jq -r '.status' <<< "$result")" = skipped ]; then echo skipped; elif [ "$DRY_RUN" = true ]; then echo preview; else echo success; fi)"
+          status="$(if [ "$can_publish" != true ]; then echo blocked; elif [ "$DRY_RUN" = true ]; then echo preview; else jq -r '.status' <<< "$result"; fi)"
           {
             echo "publish-status=$status"
             echo "can-publish=$can_publish"
+            echo "fully-published=$(jq -r '.fullyPublished' <<< "$result")"
             echo "result-json=$result"
           } >> "$GITHUB_OUTPUT"
           echo "## Registry publication results" >> "$GITHUB_STEP_SUMMARY"
@@ -1042,7 +1063,7 @@ jobs:
   finalize-github-release:
     name: "job: Finalize GitHub Release after npm registries"
     needs: [publish-package, aggregate]
-    if: ${{ !inputs.dry-run && needs.aggregate.result == 'success' && needs.publish-package.outputs.publish-github-release == 'true' && needs.publish-package.outputs.release-is-draft == 'true' }}
+    if: ${{ !inputs.dry-run && needs.aggregate.result == 'success' && needs.aggregate.outputs.fully-published == 'true' && needs.publish-package.outputs.publish-github-release == 'true' && needs.publish-package.outputs.release-is-draft == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
