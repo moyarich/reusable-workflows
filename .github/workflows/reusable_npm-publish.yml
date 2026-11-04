@@ -973,10 +973,29 @@ jobs:
               }
               args=(stage publish "${files[0]}" --registry="$REGISTRY_URL" --userconfig="$npmrc" --access=public)
               if [ -n "$DIST_TAG" ]; then args+=(--tag="$DIST_TAG"); fi
-              npm "${args[@]}" || {
+              # npm's stage endpoint can report an existing immutable version
+              # even when npm view dist.shasum gave E404. Treat ONLY that
+              # explicit E409 response as a no-op; preserve genuine failures.
+              stage_log="$(mktemp)"
+              if npm "${args[@]}" >"$stage_log" 2>&1; then
+                cat "$stage_log"
+              elif grep -Eq 'npm error code E409|npm ERR! code E409' "$stage_log" &&
+                   grep -Fq "Cannot stage previously published version \"$pkg_version\"" "$stage_log"; then
+                cat "$stage_log"
+                reason="version $pkg_version previously published; npm staging returned E409"
+                echo "::warning title=Already published: $pkg_name@$pkg_version (npmjs.org)::$reason; skipping staging."
+                echo "npmjs.org: $pkg_name@$pkg_version skipped — $reason." >> "$GITHUB_STEP_SUMMARY"
+                echo "status=skipped" >> "$GITHUB_OUTPUT"
+                echo "reason=$reason" >> "$GITHUB_OUTPUT"
+                rm -f "$stage_log"
+                exit 0
+              else
+                cat "$stage_log"
+                rm -f "$stage_log"
                 echo "::error::Could not stage $pkg_name@$pkg_version on npmjs.org. Check package access and npm credentials/trusted publisher settings."
                 exit 1
-              }
+              fi
+              rm -f "$stage_log"
               echo "status=staged" >> "$GITHUB_OUTPUT"
               echo "reason=staged on npmjs.org; manual 2FA approval required" >> "$GITHUB_OUTPUT"
               echo "::notice title=npmjs.org staged::$pkg_name@$pkg_version staged; approve in npmjs.com Staged Packages using 2FA."
