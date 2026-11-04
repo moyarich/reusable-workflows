@@ -911,8 +911,8 @@ jobs:
             echo "status=blocked" >> "$GITHUB_OUTPUT"
             echo "reason=$reason" >> "$GITHUB_OUTPUT"
           }
-          # Every attempt, including real publication, must check existing versions
-          # before mutating registries. A retry is safe only for identical artifacts.
+          # Never republish an existing version; npm and GitHub Packages
+          # treat versions as immutable. Report a warning and skip this target.
           tar -tzf "${files[0]}" >/dev/null
           package_json="$(tar -xOzf "${files[0]}" package/package.json)"
           pkg_name="$(jq -er '.name' <<< "$package_json")"
@@ -920,13 +920,18 @@ jobs:
           local_shasum="$(shasum -a 1 "${files[0]}" | awk '{print $1}')"
           if npm view "$pkg_name@$pkg_version" dist.shasum --registry="$REGISTRY_URL" --userconfig="$npmrc" --json > "$RUNNER_TEMP/npm-registry-version.json" 2>"$RUNNER_TEMP/npm-registry-version.err"; then
             published_shasum="$(jq -r 'if type == "string" then . else empty end' "$RUNNER_TEMP/npm-registry-version.json")"
-            if [ -z "$published_shasum" ] || [ "$published_shasum" != "$local_shasum" ]; then
-              echo "::error::Existing $pkg_name@$pkg_version on $REGISTRY_ALIAS has a missing or different tarball checksum; refusing to overwrite or silently skip."
-              exit 1
+            reason="version $pkg_version already published"
+            if [ -z "$published_shasum" ]; then
+              reason="$reason (registry checksum unavailable; existing artifact not verified)"
+            elif [ "$published_shasum" != "$local_shasum" ]; then
+              reason="$reason (checksum differs from canonical tarball; existing artifact left unchanged)"
+            else
+              reason="$reason (identical canonical tarball)"
             fi
-            echo "::notice::Identical $pkg_name@$pkg_version already published on $REGISTRY_ALIAS; no mutation needed."
-            echo "status=success" >> "$GITHUB_OUTPUT"
-            echo "reason=identical version already published" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Already published: $pkg_name@$pkg_version ($REGISTRY_ALIAS)::$reason; skipping registry publication."
+            echo "⚠️ **$REGISTRY_ALIAS:** $pkg_name@$pkg_version skipped — $reason." >> "$GITHUB_STEP_SUMMARY"
+            echo "status=skipped" >> "$GITHUB_OUTPUT"
+            echo "reason=$reason" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           if ! grep -Eq 'E404|404 Not Found' "$RUNNER_TEMP/npm-registry-version.err"; then
@@ -1013,7 +1018,7 @@ jobs:
           files=()
           while IFS= read -r -d '' file; do files+=("$file"); done < <(find "$RUNNER_TEMP/registry-results" -name result.json -print0)
           [ "${#files[@]}" -gt 0 ] || { echo "::error::No registry results"; exit 1; }
-          result="$(jq -sc '{operation:"publish", registries:., status:(if any(.[]; .status=="failed") then "failed" elif any(.[]; .status=="blocked") then "blocked" else "success" end),canPublish:all(.[]; .status=="success" or .status=="preview")}' "${files[@]}")"
+          result="$(jq -sc '{operation:"publish", registries:., status:(if any(.[]; .status=="failed") then "failed" elif any(.[]; .status=="blocked") then "blocked" elif all(.[]; .status=="skipped") then "skipped" else "success" end),canPublish:all(.[]; .status=="success" or .status=="preview" or .status=="skipped")}' "${files[@]}")"
           expected="$(jq 'length' <<< "$EXPECTED")"
           actual="$(jq '.registries|length' <<< "$result")"
           if [ "$MATRIX_RESULT" != success ] || [ "$actual" -ne "$expected" ] || [ "$(jq -r '.status' <<< "$result")" = failed ]; then
@@ -1025,7 +1030,7 @@ jobs:
             echo "::error::Required registry publication did not complete"
             exit 1
           fi
-          status="$(if [ "$can_publish" != true ]; then echo blocked; elif [ "$DRY_RUN" = true ]; then echo preview; else echo success; fi)"
+          status="$(if [ "$can_publish" != true ]; then echo blocked; elif [ "$(jq -r '.status' <<< "$result")" = skipped ]; then echo skipped; elif [ "$DRY_RUN" = true ]; then echo preview; else echo success; fi)"
           {
             echo "publish-status=$status"
             echo "can-publish=$can_publish"
