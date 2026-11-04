@@ -43,7 +43,9 @@ describe("npm registry publishing is safe to retry", () => {
     expect(workflow).toContain('.status=="skipped"');
     expect(workflow).toContain('.status=="failed"');
     expect(workflow).toContain('.status=="blocked"');
-    expect(workflow).toContain("elif all(.[]; .status==\"skipped\") then \"skipped\"");
+    expect(workflow).toContain(
+      'elif all(.[]; .status=="skipped") then "skipped"',
+    );
   });
 
   it("uses OIDC for npm trusted publishing and propagates id-token permission through every nested stage", () => {
