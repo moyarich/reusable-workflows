@@ -7,6 +7,11 @@ on:
         type: string
         required: false
         default: ""
+      setup-python-poetry:
+        description: Install a compatible Python interpreter and Poetry before building
+        type: boolean
+        required: false
+        default: false
   workflow_dispatch:
     inputs:
       checkout-sha:
@@ -31,6 +36,16 @@ jobs:
         with:
           node-version: "24"
           cache: npm
+
+      - name: Set up Python
+        if: inputs.setup-python-poetry
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install Poetry
+        if: inputs.setup-python-poetry
+        run: pipx install poetry
 
       - name: Install dependencies
         run: npm ci --include=optional --no-audit --no-fund
