@@ -29,18 +29,34 @@ describe("npm registry publishing is safe to retry", () => {
   it("names artifacts by canonical package identity, not only by shared version", () => {
     expect(workflow).toContain('ARTIFACT_KEY="$(printf');
     expect(workflow).toContain('"$PACKAGE_NAME@$PACKAGE_VERSION" | sha256sum');
-    expect(workflow).toContain("artifact-key: ${{ steps.plan.outputs.artifact-key }}");
-    expect(workflow).toContain("npm-package-${{ steps.plan.outputs.artifact-key");
-    expect(workflow).toContain("npm-package-${{ needs.publish-package.outputs.artifact-key }}");
-    expect(workflow).toContain("npm-registry-result-${{ needs.publish-package.outputs.artifact-key }}-${{ matrix.target.alias }}");
-    expect(workflow).toContain("pattern: npm-registry-result-${{ needs.publish-package.outputs.artifact-key }}-*");
-    expect(workflow).not.toContain("name: npm-package-${{ steps.plan.outputs.version");
+    expect(workflow).toContain(
+      "artifact-key: ${{ steps.plan.outputs.artifact-key }}",
+    );
+    expect(workflow).toContain(
+      "npm-package-${{ steps.plan.outputs.artifact-key",
+    );
+    expect(workflow).toContain(
+      "npm-package-${{ needs.publish-package.outputs.artifact-key }}",
+    );
+    expect(workflow).toContain(
+      "npm-registry-result-${{ needs.publish-package.outputs.artifact-key }}-${{ matrix.target.alias }}",
+    );
+    expect(workflow).toContain(
+      "pattern: npm-registry-result-${{ needs.publish-package.outputs.artifact-key }}-*",
+    );
+    expect(workflow).not.toContain(
+      "name: npm-package-${{ steps.plan.outputs.version",
+    );
     expect(workflow).not.toContain("pattern: npm-registry-result-*");
   });
 
   it("fails closed before registry requests when a downloaded artifact belongs to another package", () => {
-    expect(step).toContain("EXPECTED_PACKAGE_NAME: ${{ needs.publish-package.outputs.package-name }}");
-    expect(step).toContain("EXPECTED_PACKAGE_VERSION: ${{ needs.publish-package.outputs.package-version }}");
+    expect(step).toContain(
+      "EXPECTED_PACKAGE_NAME: ${{ needs.publish-package.outputs.package-name }}",
+    );
+    expect(step).toContain(
+      "EXPECTED_PACKAGE_VERSION: ${{ needs.publish-package.outputs.package-version }}",
+    );
     expect(step).toContain('"$pkg_name" != "$EXPECTED_PACKAGE_NAME"');
     expect(step).toContain('"$pkg_version" != "$EXPECTED_PACKAGE_VERSION"');
     expect(step).toContain("Canonical artifact identity mismatch");
