@@ -34,10 +34,23 @@ jobs:
           ACTIONLINT_VERSION='1.7.12'
           ARCHIVE="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
           URL="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${ARCHIVE}"
-          curl --fail --location --retry 3 --silent --show-error "$URL" -o "$RUNNER_TEMP/$ARCHIVE"
           mkdir -p "$RUNNER_TEMP/actionlint-bin"
-          tar -xzf "$RUNNER_TEMP/$ARCHIVE" -C "$RUNNER_TEMP/actionlint-bin" actionlint
           ACTIONLINT="$RUNNER_TEMP/actionlint-bin/actionlint"
+          # GitHub release downloads can return transient 5xx errors. Fall back
+          # to the same pinned version from the Go module proxy, not to an
+          # unverified or missing binary. Both paths must fail closed.
+          if curl --fail --location --retry 3 --retry-all-errors --retry-delay 2 --connect-timeout 15 --max-time 90 --silent --show-error "$URL" -o "$RUNNER_TEMP/$ARCHIVE" &&
+             tar -xzf "$RUNNER_TEMP/$ARCHIVE" -C "$RUNNER_TEMP/actionlint-bin" actionlint; then
+            echo "Installed Actionlint v$ACTIONLINT_VERSION from GitHub releases."
+          else
+            echo "::warning title=Actionlint download unavailable::GitHub release download or archive extraction failed; installing pinned version via Go modules."
+            rm -f "$ACTIONLINT"
+            GOBIN="$RUNNER_TEMP/actionlint-bin" go install "github.com/rhysd/actionlint/cmd/actionlint@v$ACTIONLINT_VERSION"
+          fi
+          if [ ! -x "$ACTIONLINT" ]; then
+            echo "::error::Unable to install Actionlint v$ACTIONLINT_VERSION from either source."
+            exit 1
+          fi
           "$ACTIONLINT" -version
           RAW="$RUNNER_TEMP/actionlint-raw.txt"
           FILTERED="$RUNNER_TEMP/actionlint-filtered.txt"
@@ -137,7 +150,7 @@ jobs:
               "Counts are from structured JSON diagnostics from an unfiltered pass; the filtered pass determines CI success.",
               "Suppression rules remain active even when their matching count is zero.",
               "",
-              "Actionlint version: `1.7.12` (runner-installed release)",
+              "Actionlint version: `1.7.12` (release archive or pinned Go module fallback)",
           ])
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as handle:
               handle.write("\n".join(summary) + "\n")
