@@ -172,6 +172,7 @@ jobs:
       release-name: ${{ steps.plan.outputs.release-name }}
       package-name: ${{ steps.plan.outputs.name }}
       package-version: ${{ steps.plan.outputs.version }}
+      artifact-key: ${{ steps.plan.outputs.artifact-key }}
       distribution-tag: ${{ steps.plan.outputs.distribution-tag }}
     env:
       GH_TOKEN: ${{ github.token }}
@@ -475,6 +476,10 @@ jobs:
             RELEASE_TAG="$PACKAGE_NAME@$PACKAGE_VERSION"
             echo "release-tag=$RELEASE_TAG"
             echo "release-name=$PACKAGE_NAME v$PACKAGE_VERSION"
+            # Use one unique artifact namespace per npm package and version.
+            # All nested reusable publishing calls share the same Actions run.
+            ARTIFACT_KEY="$(printf '%s' "$PACKAGE_NAME@$PACKAGE_VERSION" | sha256sum | cut -c 1-24)"
+            echo "artifact-key=$ARTIFACT_KEY"
             RELEASE_COMMIT="$(git rev-list -n 1 "$RELEASE_TAG" 2>/dev/null || true)"
             echo "release-commit=$RELEASE_COMMIT"
             echo "distribution-tag=$RESOLVED_DIST_TAG"
@@ -852,7 +857,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
-          name: npm-package-${{ steps.plan.outputs.version || 'unresolved' }}
+          name: npm-package-${{ steps.plan.outputs.artifact-key || 'unresolved' }}
           path: ${{ runner.temp }}/npm-package-artifacts/*.tgz
           if-no-files-found: ignore
           retention-days: 14
@@ -874,7 +879,7 @@ jobs:
       - name: Download canonical package artifact
         uses: actions/download-artifact@v8
         with:
-          name: npm-package-${{ needs.publish-package.outputs.package-version }}
+          name: npm-package-${{ needs.publish-package.outputs.artifact-key }}
           path: ${{ runner.temp }}/npm-artifact
       - uses: actions/setup-node@v7
         with:
@@ -897,6 +902,8 @@ jobs:
           REGISTRY_TOKEN: ${{ matrix.target.tokenSource == 'github-token' && github.token || secrets[matrix.target.tokenSource] }}
           DRY_RUN: ${{ inputs.dry-run }}
           DIST_TAG: ${{ needs.publish-package.outputs.distribution-tag }}
+          EXPECTED_PACKAGE_NAME: ${{ needs.publish-package.outputs.package-name }}
+          EXPECTED_PACKAGE_VERSION: ${{ needs.publish-package.outputs.package-version }}
         shell: bash
         run: |
           set -euo pipefail
@@ -924,6 +931,10 @@ jobs:
           package_json="$(tar -xOzf "${files[0]}" package/package.json)"
           pkg_name="$(jq -er '.name' <<< "$package_json")"
           pkg_version="$(jq -er '.version' <<< "$package_json")"
+          if [ "$pkg_name" != "$EXPECTED_PACKAGE_NAME" ] || [ "$pkg_version" != "$EXPECTED_PACKAGE_VERSION" ]; then
+            echo "::error::Canonical artifact identity mismatch: expected $EXPECTED_PACKAGE_NAME@$EXPECTED_PACKAGE_VERSION but received $pkg_name@$pkg_version. Refusing to publish or stage another package."
+            exit 1
+          fi
           local_shasum="$(shasum -a 1 "${files[0]}" | awk '{print $1}')"
           if npm view "$pkg_name@$pkg_version" dist.shasum --registry="$REGISTRY_URL" --userconfig="$npmrc" --json > "$RUNNER_TEMP/npm-registry-version.json" 2>"$RUNNER_TEMP/npm-registry-version.err"; then
             published_shasum="$(jq -r 'if type == "string" then . else empty end' "$RUNNER_TEMP/npm-registry-version.json")"
@@ -1023,7 +1034,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: ${{ always() }}
         with:
-          name: npm-registry-result-${{ matrix.target.alias }}
+          name: npm-registry-result-${{ needs.publish-package.outputs.artifact-key }}-${{ matrix.target.alias }}
           path: ${{ runner.temp }}/registry-result/result.json
           if-no-files-found: error
 
@@ -1042,7 +1053,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v8
         with:
-          pattern: npm-registry-result-*
+          pattern: npm-registry-result-${{ needs.publish-package.outputs.artifact-key }}-*
           path: ${{ runner.temp }}/registry-results
           merge-multiple: false
       - name: Collect results and fail closed
