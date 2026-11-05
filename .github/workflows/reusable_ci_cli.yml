@@ -12,6 +12,11 @@ on:
         type: boolean
         required: false
         default: false
+      setup-playwright-chromium:
+        description: Install Chromium and system dependencies for browser integration tests
+        type: boolean
+        required: false
+        default: false
   workflow_dispatch:
     inputs:
       checkout-sha:
@@ -118,6 +123,10 @@ jobs:
           elif [[ -f tsconfig.json ]]; then
             npx --no-install tsc -p tsconfig.json --noEmit
           fi
+
+      - name: Install Playwright Chromium
+        if: inputs.setup-playwright-chromium
+        run: npx --no-install playwright install --with-deps chromium
 
       - name: Run tests (root and workspaces if present)
         id: vitest
