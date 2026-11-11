@@ -34,7 +34,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: "24"
+          node-version: "26"
           cache: npm
       - name: Install dependencies
         run: npm ci --include=optional --no-audit --no-fund
@@ -127,14 +127,51 @@ jobs:
             echo "::endgroup::"
             echo "::group::TypeScript package compatibility: $package"
             checked=$((checked + 1))
-            if npx --yes @arethetypeswrong/cli "$RUNNER_TEMP/$tarball" --format table --exclude-entrypoints styles.css; then
+            # The package declares its supported module format via exports and engines.
+            # Legacy node10 resolution and CJS require() are not promised by modern,
+            # ESM-only packages. Validate every supported resolution mode instead.
+            diagnostics="$RUNNER_TEMP/attw-$(echo "$package" | tr '/@' '--').json"
+            npx --yes @arethetypeswrong/cli "$RUNNER_TEMP/$tarball" --format json --exclude-entrypoints styles.css > "$diagnostics" || true
+            if node --input-type=module - "$location/package.json" "$diagnostics" <<'NODE'
+          import { readFileSync } from 'node:fs';
+
+          const manifest = JSON.parse(readFileSync(process.argv[2], 'utf8'));
+          const diagnostics = JSON.parse(readFileSync(process.argv[3], 'utf8'));
+          const problems = diagnostics.problems ?? {};
+          const exportEntries = Object.values(manifest.exports ?? {});
+          const esmOnly = manifest.type === 'module' &&
+            exportEntries.length > 0 &&
+            exportEntries.every(entry => typeof entry === 'object' && entry !== null &&
+              'import' in entry && !('require' in entry));
+          const modernNode = /(?:>=|\^)\s*(?:2[2-9]|[3-9]\d)/.test(manifest.engines?.node ?? '');
+          const ignored = new Set();
+          if (modernNode) ignored.add('node10');
+          if (esmOnly) ignored.add('node16-cjs');
+
+          const failures = [];
+          for (const [kind, entries] of Object.entries(problems)) {
+            for (const problem of entries) {
+              if (!ignored.has(problem.resolutionKind)) {
+                failures.push(`${kind}: ${problem.entrypoint} (${problem.resolutionKind})`);
+              }
+            }
+          }
+          if (failures.length) {
+            console.error('Unsupported package resolutions:');
+            for (const failure of failures) console.error('  ' + failure);
+            process.exitCode = 1;
+          } else {
+            console.log('All declared ESM and bundler resolutions passed.');
+          }
+          NODE
+            then
               record "$package" "TypeScript compatibility" "PASS"
             else
               record "$package" "TypeScript compatibility" "FAIL"
               echo "::error title=Package validation failed::$package: TypeScript compatibility"
               failures=$((failures + 1))
               echo "::group::TypeScript resolution diagnostics: $package"
-              npx --yes @arethetypeswrong/cli "$RUNNER_TEMP/$tarball" --format json --exclude-entrypoints styles.css || true
+              cat "$diagnostics"
               echo "::endgroup::"
             fi
             echo "::endgroup::"
