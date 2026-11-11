@@ -114,7 +114,20 @@ jobs:
           # Release selection metadata is committed even when versions already match.
           # Subsequent commits on this branch are normal development changes.
           git add -u
-          if ! git diff --cached --quiet; then git commit -m "release: prepare selected workspace versions"; fi
+          if git diff --cached --quiet; then
+            echo "::notice title=No version changes::Selected packages already have the requested versions. No release preparation PR is required."
+            {
+              echo "## No version changes to prepare"
+              echo
+              echo "The selected package versions already match the target branch. GitHub cannot open a pull request without changed files."
+              echo
+              echo "To publish an existing version, use the **Release package** workflow with \`version-mode: package-json\`, \`draft: false\`, and \`dry-run: false\` after reviewing its existing draft."
+              echo
+              echo "No new release, tag, or pull request was created by this preparation run."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git commit -m "release: prepare selected workspace versions"
           git push "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git" "HEAD:refs/heads/$branch"
           node --input-type=module <<'NODE'
           import { readFileSync, writeFileSync } from "node:fs";
