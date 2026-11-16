@@ -6,7 +6,10 @@ import { expect, test } from "vitest";
 
 /** Exercise the same inline validator invoked by the reusable workflow. */
 const workflow = readFileSync(
-  new URL("../.github/workflows/reusable_ci_npm-package-lint.yml", import.meta.url),
+  new URL(
+    "../.github/workflows/reusable_ci_npm-package-lint.yml",
+    import.meta.url,
+  ),
   "utf8",
 );
 const embeddedScript = workflow.match(
@@ -68,12 +71,12 @@ test("ESM-only packages with CSS and type-only exports ignore unsupported Common
       { entrypoint: "./vite", resolutionKind: "node16-cjs" },
       { entrypoint: "./virtual", resolutionKind: "node16-cjs" },
     ],
-    NoResolution: [
-      { entrypoint: "./vite", resolutionKind: "node10" },
-    ],
+    NoResolution: [{ entrypoint: "./vite", resolutionKind: "node10" }],
   });
   expect(result.status, result.stderr).toBe(0);
-  expect(result.stdout).toContain("All declared ESM and bundler resolutions passed.");
+  expect(result.stdout).toContain(
+    "All declared ESM and bundler resolutions passed.",
+  );
 });
 
 test("ESM and bundler resolution errors still fail with a CSS export", () => {
@@ -99,9 +102,7 @@ test("a declared CommonJS entry is not exempted from CommonJS validation", () =>
       "./styles.css": "./dist/styles.css",
     },
     {
-      CJSResolvesToESM: [
-        { entrypoint: ".", resolutionKind: "node16-cjs" },
-      ],
+      CJSResolvesToESM: [{ entrypoint: ".", resolutionKind: "node16-cjs" }],
     },
   );
   expect(result.status).toBe(1);
