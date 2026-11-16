@@ -138,9 +138,17 @@ jobs:
           const manifest = JSON.parse(readFileSync(process.argv[2], 'utf8'));
           const diagnostics = JSON.parse(readFileSync(process.argv[3], 'utf8'));
           const problems = diagnostics.problems ?? {};
-          const exportEntries = Object.values(manifest.exports ?? {});
+          // Stylesheets are assets, not JavaScript entry points. A CSS
+          // export must not make an otherwise ESM-only package appear to
+          // support CommonJS require() in TypeScript's Node16 mode.
+          const exportEntries = Object.entries(manifest.exports ?? {})
+            .filter(([subpath, target]) =>
+              !(subpath.endsWith('.css') &&
+                typeof target === 'string' &&
+                target.endsWith('.css')))
+            .map(([, target]) => target);
           // A type-only subpath is not a CommonJS runtime entry point.
-          // Derive support from export conditions, not particular filenames.
+          // Derive support from JavaScript export conditions, not filenames.
           const esmOnly = manifest.type === 'module' &&
             exportEntries.length > 0 &&
             exportEntries.every(entry => typeof entry === 'object' && entry !== null &&
