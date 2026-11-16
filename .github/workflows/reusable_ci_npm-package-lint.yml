@@ -139,10 +139,14 @@ jobs:
           const diagnostics = JSON.parse(readFileSync(process.argv[3], 'utf8'));
           const problems = diagnostics.problems ?? {};
           const exportEntries = Object.values(manifest.exports ?? {});
+          // A type-only subpath is not a CommonJS runtime entry point.
+          // Derive support from export conditions, not particular filenames.
           const esmOnly = manifest.type === 'module' &&
             exportEntries.length > 0 &&
             exportEntries.every(entry => typeof entry === 'object' && entry !== null &&
-              'import' in entry && !('require' in entry));
+              !('require' in entry) &&
+              (typeof entry.import === 'string' ||
+                (typeof entry.types === 'string' && !('default' in entry))));
           const modernNode = /(?:>=|\^)\s*(?:2[2-9]|[3-9]\d)/.test(manifest.engines?.node ?? '');
           const ignored = new Set();
           if (modernNode) ignored.add('node10');
