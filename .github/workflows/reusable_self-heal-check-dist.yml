@@ -245,10 +245,13 @@ jobs:
           set -euo pipefail
           sha="$(git rev-parse HEAD)"
           remote=""
-          if [[ "$COMMIT_CHANGES" == "true" ]]; then
+          # Only a repair that created a commit needs to confirm the remote
+          # branch still points at that commit. A no-op verification must not
+          # fail just because another workflow advanced the target branch.
+          if [[ "$COMMIT_CHANGES" == "true" && "$CHANGED" == "true" ]]; then
             remote="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TARGET_BRANCH" --jq .sha)"
           fi
-          if [[ "$COMMIT_CHANGES" == "true" && "$remote" != "$sha" ]]; then
+          if [[ "$COMMIT_CHANGES" == "true" && "$CHANGED" == "true" && "$remote" != "$sha" ]]; then
             echo "::error::Target branch advanced during distribution repair"
             exit 1
           fi
