@@ -363,9 +363,13 @@ jobs:
             custom-registry-token) plan_token="$BASE_CUSTOM_TOKEN" ;;
             *) plan_token="" ;;
           esac
-          export _CUSTOM_REGISTRY_TOKEN="$BASE_CUSTOM_TOKEN"
-          export _NPM_TOKEN="$BASE_NPM_TOKEN"
-          export _GITHUB_TOKEN="$BASE_GITHUB_TOKEN"
+          # The CLI selects credentials by backend; use only the selected target token.
+          export _CUSTOM_REGISTRY_TOKEN="" _NPM_TOKEN="" _GITHUB_TOKEN=""
+          case "$PLAN_REGISTRY" in
+            npm) export _NPM_TOKEN="$plan_token" ;;
+            github) export _GITHUB_TOKEN="$plan_token" ;;
+            custom) export _CUSTOM_REGISTRY_TOKEN="$plan_token" ;;
+          esac
           PLAN_ARGS=(
             "--package=$PACKAGE_SELECTOR"
             --registry="$PLAN_REGISTRY"
@@ -439,10 +443,14 @@ jobs:
             # Override scoped registry routing at environment precedence, without
             # changing the install registry used by the rest of the job.
             plan_scope="$(jq -r '.name // empty' "$PACKAGE_SELECTOR/package.json" 2>/dev/null || true)"
+            if [[ -z "$plan_scope" ]]; then
+              plan_scope="$(npm query .workspace --json | jq -r --arg selector "$PACKAGE_SELECTOR" '.[] | select(.name == $selector or .location == $selector) | .name' | head -n 1)"
+            fi
             if [[ "$PACKAGE_SELECTOR" == @* ]]; then plan_scope="$PACKAGE_SELECTOR"; fi
             if [[ "$plan_scope" != @* ]]; then plan_scope="$INSTALL_REGISTRY_SCOPE"; fi
             plan_scope="${plan_scope%%/*}"
             npm_env=("npm_config_registry=$PLAN_URL" "NODE_AUTH_TOKEN=$plan_token")
+            if [[ "$INSTALL_REGISTRY_SCOPE" == @* ]]; then npm_env+=("npm_config_$INSTALL_REGISTRY_SCOPE:registry=$PLAN_URL"); fi
             if [[ "$plan_scope" == @* ]]; then npm_env+=("npm_config_$plan_scope:registry=$PLAN_URL"); fi
             env "${npm_env[@]}" node "$WORKSPACE_TOOLS_BIN/workspace-publish.mjs" "${PLAN_ARGS[@]}"
           )"
