@@ -76,6 +76,54 @@ jobs:
           npm-pkg-lint-wrapper() {
             (cd "$RUNNER_TEMP" && npx --yes --package=npm-pkg-lint@5.4.0 npm-pkg-lint --tarball "$1")
           }
+          validate-exports() {
+            local manifest="$1"
+            # The external validator requires a root export and cannot expand
+            # nested wildcard targets. Check the actual packed files for these
+            # valid Node export maps instead.
+            if node -e 'const p=require(require("node:path").resolve(process.argv[1])); process.exit(p.exports && (!Object.hasOwn(p.exports,".") || Object.keys(p.exports).some(k=>k.includes("*"))) ? 0 : 1)' "$manifest"; then
+              node --input-type=module - "$manifest" <<'NODE'
+          import { readFileSync, statSync } from 'node:fs';
+          import { dirname, resolve } from 'node:path';
+          import { execFileSync } from 'node:child_process';
+          const manifest = resolve(process.argv[2]);
+          const root = dirname(manifest);
+          const pkg = JSON.parse(readFileSync(manifest, 'utf8'));
+          const packed = new Set(JSON.parse(execFileSync('npm', ['pack','--dry-run','--ignore-scripts','--json'], {cwd:root, encoding:'utf8'}))[0].files.map(f=>f.path));
+          let count = 0;
+          function targets(value) {
+            if (typeof value === 'string') return [value];
+            if (value === null) return [];
+            if (typeof value === 'object') return Object.values(value).flatMap(targets);
+            throw new Error('Invalid export target: '+JSON.stringify(value));
+          }
+          for (const [key, value] of Object.entries(pkg.exports)) {
+            const paths = targets(value);
+            let captures;
+            for (const target of paths) {
+              if (!target.startsWith('./') || target.split('/').includes('..')) throw new Error('Invalid export target: '+target);
+              const file = target.slice(2);
+              if (file.includes('*')) {
+                if (!key.includes('*')) throw new Error('Wildcard target without wildcard key: '+key);
+                const [prefix, suffix] = file.split('*');
+                const matches = new Set([...packed].filter(p=>p.startsWith(prefix)&&p.endsWith(suffix)&&p.length>prefix.length+suffix.length).map(p=>p.slice(prefix.length,p.length-suffix.length)));
+                if (!matches.size) throw new Error('No packed files match '+target);
+                if (captures && (captures.size!==matches.size || [...captures].some(p=>!matches.has(p)))) throw new Error('Inconsistent wildcard targets for '+key);
+                captures = matches;
+                count += matches.size;
+              } else {
+                if (!packed.has(file) || !statSync(resolve(root,file)).isFile()) throw new Error('Missing packed export '+target);
+                count++;
+              }
+            }
+          }
+          if (!count) throw new Error('No public export targets');
+          console.log('Validated '+count+' packed export targets');
+          NODE
+            else
+              npx --yes validate-package-exports "$manifest" --check --verbose --info
+            fi
+          }
           failures=0
           checked=0
           report="$RUNNER_TEMP/npm-package-lint-report.md"
@@ -115,7 +163,7 @@ jobs:
               record "$package" "npm pack" "FAIL"
               echo "::endgroup::"
               echo "::group::Validate public exports: $package"
-              check "$package" "exports" npx --yes validate-package-exports "$location/package.json" --check --verbose --info
+              check "$package" "exports" validate-exports "$location/package.json"
               echo "::endgroup::"
               continue
             fi
@@ -188,7 +236,7 @@ jobs:
             fi
             echo "::endgroup::"
             echo "::group::Validate public exports: $package"
-            check "$package" "exports" npx --yes validate-package-exports "$location/package.json" --check --verbose --info
+            check "$package" "exports" validate-exports "$location/package.json"
             echo "::endgroup::"
           done
           {
