@@ -644,7 +644,7 @@ jobs:
               npm run typecheck --if-present
               npm run test --if-present
               npm run build --if-present
-              npm pack --json --pack-destination "$ARTIFACT_DIRECTORY" > "$RUNNER_TEMP/release-pack.json"
+              npm pack --pack-destination "$ARTIFACT_DIRECTORY"
             else
               # Build transitive local workspace dependencies before checking the selected
               # package. This runs against the canonical release worktree, not the caller checkout.
@@ -698,13 +698,19 @@ jobs:
               npm run build --workspace "$PACKAGE_NAME" --if-present
               npm pack \
                 --workspace "$PACKAGE_NAME" \
-                --json \
-                --pack-destination "$ARTIFACT_DIRECTORY" > "$RUNNER_TEMP/release-pack.json"
+                --pack-destination "$ARTIFACT_DIRECTORY"
             fi
           )
 
-          PACK_JSON="$(cat "$RUNNER_TEMP/release-pack.json")"
-          ARTIFACT_PATH="$ARTIFACT_DIRECTORY/$(jq -r '.[0].filename' <<< "$PACK_JSON")"
+          # Lifecycle scripts may write to stdout during npm pack. Discover the
+          # tarball in the dedicated, freshly cleared artifact directory instead.
+          shopt -s nullglob
+          artifacts=("$ARTIFACT_DIRECTORY"/*.tgz)
+          if [ "${#artifacts[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one npm package artifact; found ${#artifacts[@]}."
+            exit 1
+          fi
+          ARTIFACT_PATH="${artifacts[0]}"
           cleanup
           trap - EXIT
 
