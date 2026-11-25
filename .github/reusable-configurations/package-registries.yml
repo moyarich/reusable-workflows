@@ -1,4 +1,5 @@
 # Built-in registries. Caller registries-file extends or overrides by key.
+# Install-only defaults. Publication must override scoped routing per target.
 install-registry: https://npm.pkg.github.com
 install-scope: '@moyarich'
 registries:
