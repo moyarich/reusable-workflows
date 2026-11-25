@@ -355,8 +355,7 @@ jobs:
 
           PLAN_REGISTRY="$EFFECTIVE_REGISTRY"
           if [ "$PLAN_REGISTRY" = all ]; then PLAN_REGISTRY="$(jq -r '.[0].registry' <<< "$REGISTRIES_JSON")"; fi
-          PLAN_URL="$CUSTOM_REGISTRY_URL"
-          if [ "$PLAN_REGISTRY" = custom ]; then PLAN_URL="$(jq -r '.[0].url' <<< "$REGISTRIES_JSON")"; fi
+          PLAN_URL="$(jq -er '.[0].url' <<< "$REGISTRIES_JSON")"
           plan_source="$(jq -r '.[0].tokenSource' <<< "$REGISTRIES_JSON")"
           case "$plan_source" in
             npm-token) plan_token="$BASE_NPM_TOKEN" ;;
@@ -364,9 +363,13 @@ jobs:
             custom-registry-token) plan_token="$BASE_CUSTOM_TOKEN" ;;
             *) plan_token="" ;;
           esac
-          export _CUSTOM_REGISTRY_TOKEN="$plan_token"
-          export _NPM_TOKEN="$plan_token"
-          export _GITHUB_TOKEN="$plan_token"
+          # The CLI selects credentials by backend; use only the selected target token.
+          export _CUSTOM_REGISTRY_TOKEN="" _NPM_TOKEN="" _GITHUB_TOKEN=""
+          case "$PLAN_REGISTRY" in
+            npm) export _NPM_TOKEN="$plan_token" ;;
+            github) export _GITHUB_TOKEN="$plan_token" ;;
+            custom) export _CUSTOM_REGISTRY_TOKEN="$plan_token" ;;
+          esac
           PLAN_ARGS=(
             "--package=$PACKAGE_SELECTOR"
             --registry="$PLAN_REGISTRY"
@@ -437,7 +440,19 @@ jobs:
 
           PLAN="$(
             cd "$PLAN_ROOT"
-            node "$WORKSPACE_TOOLS_BIN/workspace-publish.mjs" "${PLAN_ARGS[@]}"
+            # Override scoped registry routing at environment precedence, without
+            # changing the install registry used by the rest of the job.
+            plan_scope="$(jq -r '.name // empty' "$PACKAGE_SELECTOR/package.json" 2>/dev/null || true)"
+            if [[ -z "$plan_scope" ]]; then
+              plan_scope="$(npm query .workspace --json | jq -r --arg selector "$PACKAGE_SELECTOR" '.[] | select(.name == $selector or .location == $selector) | .name' | head -n 1)"
+            fi
+            if [[ "$PACKAGE_SELECTOR" == @* ]]; then plan_scope="$PACKAGE_SELECTOR"; fi
+            if [[ "$plan_scope" != @* ]]; then plan_scope="$INSTALL_REGISTRY_SCOPE"; fi
+            plan_scope="${plan_scope%%/*}"
+            npm_env=("npm_config_registry=$PLAN_URL" "NODE_AUTH_TOKEN=$plan_token")
+            if [[ "$INSTALL_REGISTRY_SCOPE" == @* ]]; then npm_env+=("npm_config_$INSTALL_REGISTRY_SCOPE:registry=$PLAN_URL"); fi
+            if [[ "$plan_scope" == @* ]]; then npm_env+=("npm_config_$plan_scope:registry=$PLAN_URL"); fi
+            env "${npm_env[@]}" node "$WORKSPACE_TOOLS_BIN/workspace-publish.mjs" "${PLAN_ARGS[@]}"
           )"
 
           cleanup_plan_worktree
@@ -934,6 +949,11 @@ jobs:
           if [ "$pkg_name" != "$EXPECTED_PACKAGE_NAME" ] || [ "$pkg_version" != "$EXPECTED_PACKAGE_VERSION" ]; then
             echo "::error::Canonical artifact identity mismatch: expected $EXPECTED_PACKAGE_NAME@$EXPECTED_PACKAGE_VERSION but received $pkg_name@$pkg_version. Refusing to publish or stage another package."
             exit 1
+          fi
+          # Use the target registry for scoped packages as well as unscoped ones.
+          printf 'registry=%s\n' "$REGISTRY_URL" >> "$npmrc"
+          if [[ "$pkg_name" == @*/* ]]; then
+            printf '%s:registry=%s\n' "${pkg_name%%/*}" "$REGISTRY_URL" >> "$npmrc"
           fi
           local_shasum="$(shasum -a 1 "${files[0]}" | awk '{print $1}')"
           if npm view "$pkg_name@$pkg_version" dist.shasum --registry="$REGISTRY_URL" --userconfig="$npmrc" --json > "$RUNNER_TEMP/npm-registry-version.json" 2>"$RUNNER_TEMP/npm-registry-version.err"; then
