@@ -124,6 +124,76 @@ jobs:
               npx --yes validate-package-exports "$manifest" --check --verbose --info
             fi
           }
+          smoke-install() {
+            local archive="$1" package="$2" consumer
+            consumer="$(mktemp -d "$RUNNER_TEMP/npm-consumer.XXXXXX")" || return 1
+            (
+              set -e
+              cd "$consumer" || exit 1
+              printf '{"private":true,"type":"module"}\n' > package.json
+              npm install --ignore-scripts --no-audit --no-fund "$archive" || exit 1
+              node --input-type=module - "$package" <<'NODE' || exit 1
+          import { readFileSync, writeFileSync } from 'node:fs';
+          import { createRequire } from 'node:module';
+          import { resolve } from 'node:path';
+          const name = process.argv[2];
+          const pkg = JSON.parse(readFileSync(resolve('node_modules', name, 'package.json'), 'utf8'));
+          const exports = pkg.exports;
+          const root = exports && typeof exports === 'object' && !Array.isArray(exports) &&
+            Object.keys(exports).some(k => k.startsWith('.')) ? exports['.'] : exports;
+          function target(value, conditions) {
+            if (typeof value === 'string') return value;
+            if (Array.isArray(value)) return value.map(v => target(v, conditions)).find(Boolean);
+            if (value && typeof value === 'object') {
+              for (const [key, entry] of Object.entries(value)) {
+                if (key === 'default' || conditions.has(key)) {
+                  const result = target(entry, conditions);
+                  if (result) return result;
+                }
+              }
+            }
+          }
+          const runtime = value => typeof value === 'string' && /\.(?:[cm]?js|node)$/.test(value);
+          const types = value => typeof value === 'string' && /\.d\.[cm]?ts$/.test(value);
+          const conditions = mode => new Set(['node', 'node-addons', mode, 'module-sync']);
+          const importTarget = exports === undefined ? pkg.main ?? 'index.js' : target(root, conditions('import'));
+          const requireTarget = exports === undefined ? pkg.main ?? 'index.js' : target(root, conditions('require'));
+          const commonjs = runtime(requireTarget) && (
+            requireTarget.endsWith('.cjs') ||
+            (!requireTarget.endsWith('.mjs') && pkg.type !== 'module') ||
+            (root && typeof root === 'object' && Object.hasOwn(root, 'require'))
+          );
+          const specifier = JSON.stringify(name);
+          const sources = [];
+          if (runtime(importTarget)) {
+            await import(name);
+            console.log('Installed ESM import passed');
+            if (types(target(root, new Set([...conditions('import'), 'types']))) || pkg.types || pkg.typings) {
+              writeFileSync('consumer.mts', 'import * as library from ' + specifier + ';\nvoid library;\n');
+              sources.push('consumer.mts');
+            }
+          }
+          if (commonjs) {
+            createRequire(import.meta.url)(name);
+            console.log('Installed CommonJS require passed');
+            if (types(target(root, new Set([...conditions('require'), 'types']))) || pkg.types || pkg.typings) {
+              writeFileSync('consumer.cts', 'import library = require(' + specifier + ');\nvoid library;\n');
+              sources.push('consumer.cts');
+            }
+          }
+          if (!runtime(importTarget) && !commonjs) console.log('No Node JavaScript root export; runtime smoke skipped');
+          writeFileSync('smoke-sources.json', JSON.stringify(sources));
+          NODE
+              if [[ "$(cat smoke-sources.json)" != '[]' ]]; then
+                npm exec --yes --package=typescript -- tsc --noEmit --strict --skipLibCheck --module NodeNext --moduleResolution NodeNext --target ES2022 consumer.*ts || exit 1
+              else
+                echo "No declared root TypeScript entry point; compilation skipped"
+              fi
+            )
+            local status=$?
+            rm -rf "$consumer"
+            return "$status"
+          }
           failures=0
           checked=0
           report="$RUNNER_TEMP/npm-package-lint-report.md"
@@ -169,6 +239,9 @@ jobs:
             fi
             record "$package" "npm pack" "PASS"
             check "$package" "npm-pkg-lint" npm-pkg-lint-wrapper "$RUNNER_TEMP/$tarball"
+            echo "::endgroup::"
+            echo "::group::Installation smoke tests: $package"
+            check "$package" "installation smoke" smoke-install "$RUNNER_TEMP/$tarball" "$package"
             echo "::endgroup::"
             echo "::group::Publint: $package"
             check "$package" "publint" npx --yes publint "$RUNNER_TEMP/$tarball" --strict
