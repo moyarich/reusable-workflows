@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       checkout-sha:
-        description: Exact commit SHA to validate (e.g. after self-heal)
+        description: Exact commit SHA to validate
         type: string
         required: false
         default: ""
@@ -27,50 +27,102 @@ jobs:
         with:
           node-version: "24"
           cache: npm
-      - run: npm ci --include=optional --no-audit --no-fund
-      - name: Discover Playwright configuration
+      - name: Install project dependencies
+        run: npm ci --include=dev --include=optional --no-audit --no-fund
+      - name: Discover browser test configurations
         id: discover
         shell: bash
         run: |
           node --input-type=module <<'NODE'
-          import {existsSync,appendFileSync,readFileSync} from 'node:fs';
-          const root=JSON.parse(readFileSync('package.json','utf8'));
-          const configured=['playwright.config.ts','playwright.config.js','playwright.config.mjs','playwright.config.cts'].some(existsSync);
-          const runnable=configured && (root.scripts?.['test:e2e']||root.devDependencies?.['@playwright/test']||root.dependencies?.['@playwright/test']);
-          appendFileSync(process.env.GITHUB_OUTPUT,`enabled=${Boolean(runnable)}\n`);
-          console.log(runnable?'Playwright configured':'No root Playwright configuration; skipping');
+          import { existsSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs';
+          import { execFileSync } from 'node:child_process';
+          import { join } from 'node:path';
+
+          const root = JSON.parse(readFileSync('package.json', 'utf8'));
+          const workspaces = root.workspaces
+            ? JSON.parse(execFileSync('npm', ['query', '.workspace', '--json'], { encoding: 'utf8' }))
+            : [];
+          const directories = [...new Set(['.', ...workspaces.map(workspace => workspace.location)])];
+          const extensions = ['ts', 'js', 'mts', 'mjs', 'cts', 'cjs'];
+          const targets = [];
+          for (const directory of directories) {
+            const manifest = JSON.parse(readFileSync(join(directory, 'package.json'), 'utf8'));
+            const dependencies = { ...manifest.dependencies, ...manifest.devDependencies };
+            const config = (prefix) => extensions
+              .map(extension => prefix + '.' + extension)
+              .find(file => existsSync(join(directory, file)));
+            const standalone = config('playwright.config');
+            if (standalone && (dependencies.playwright || dependencies['@playwright/test'] || manifest.scripts?.['test:e2e'])) {
+              targets.push({ directory, runner: 'playwright', config: standalone });
+            }
+            const browser = config('vitest.browser.config');
+            if (browser) {
+              targets.push({ directory, runner: 'vitest', config: browser });
+            }
+          }
+          writeFileSync(join(process.env.RUNNER_TEMP, 'browser-test-targets.json'), JSON.stringify(targets));
+          appendFileSync(process.env.GITHUB_OUTPUT, 'enabled=' + (targets.length > 0) + '\n');
+          console.log(targets.length ? targets : 'No browser test configurations found; skipping.');
           NODE
-      - name: Discover Playwright tests
-        id: tests
+      - name: Install browser dependencies and run browser tests
+        id: test
         if: steps.discover.outputs.enabled == 'true'
         shell: bash
         run: |
-          set +e
-          output="$(npx --no-install playwright test --list 2>&1)"
-          status=$?
-          set -e
-          printf '%s\n' "$output"
-          if grep -Eq 'No tests found|Total: 0 tests' <<< "$output"; then
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "No Playwright tests found; skipping Chromium installation and test execution."
-          elif [[ "$status" -ne 0 ]]; then
-            exit "$status"
-          else
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Install Chromium
-        if: steps.tests.outputs.enabled == 'true'
-        run: npx --no-install playwright install --with-deps chromium
-      - name: Run Playwright
-        id: test
-        if: steps.tests.outputs.enabled == 'true'
-        run: npx --no-install playwright test
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          import { spawnSync } from 'node:child_process';
+          import { join } from 'node:path';
+
+          const targets = JSON.parse(readFileSync(join(process.env.RUNNER_TEMP, 'browser-test-targets.json'), 'utf8'));
+          let failed = false;
+          const installed = new Set();
+          for (const { directory, runner, config } of targets) {
+            console.log('::group::' + runner + ' (' + directory + '/' + config + ')');
+            try {
+              const run = (args, capture = false) => {
+                const result = spawnSync('npm', ['exec', '--no', '--', ...args], {
+                  cwd: directory,
+                  encoding: 'utf8',
+                  stdio: capture ? ['ignore', 'pipe', 'pipe'] : 'inherit',
+                });
+                if (result.error) throw result.error;
+                return result;
+              };
+              if (runner === 'playwright') {
+                const list = run(['playwright', 'test', '--config', config, '--list'], true);
+                const output = (list.stdout || '') + (list.stderr || '');
+                console.log(output);
+                if (/No tests found|Total: 0 tests/.test(output)) continue;
+                if (list.status !== 0) throw new Error('Playwright test discovery failed');
+              }
+              // Use the project's locked Playwright version and install browser binaries
+              // plus OS libraries. npm exec --no forbids downloading unpinned packages.
+              if (!installed.has(directory)) {
+                const install = run(['playwright', 'install', '--with-deps', 'chromium', 'firefox', 'webkit']);
+                if (install.status !== 0) throw new Error('Playwright browser installation failed');
+                installed.add(directory);
+              }
+              const args = runner === 'vitest'
+                ? ['vitest', 'run', '--config', config]
+                : ['playwright', 'test', '--config', config];
+              if (run(args).status !== 0) throw new Error('Browser tests failed');
+            } catch (error) {
+              console.error('::error::' + directory + ': ' + error.message);
+              failed = true;
+            } finally {
+              console.log('::endgroup::');
+            }
+          }
+          if (failed) process.exitCode = 1;
+          NODE
       - name: Upload failure traces
         if: failure() && steps.test.outcome == 'failure'
         uses: actions/upload-artifact@v6
         with:
           name: playwright-traces
           path: |
-            test-results/
-            playwright-report/
+            **/test-results/
+            **/playwright-report/
+            **/__screenshots__/
           if-no-files-found: ignore
