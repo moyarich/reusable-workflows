@@ -124,14 +124,54 @@ jobs:
               npx --yes validate-package-exports "$manifest" --check --verbose --info
             fi
           }
+          # Pack all publishable workspaces before testing any consumer.
+          archive_dir="$RUNNER_TEMP/workspace-tarballs"
+          mkdir -p "$archive_dir"
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from 'node:fs';
+          import { resolve } from 'node:path';
+          import { execFileSync } from 'node:child_process';
+          const temp = process.env.RUNNER_TEMP;
+          const workspaces = JSON.parse(readFileSync(resolve(temp, 'workspaces.json'), 'utf8'));
+          const packs = workspaces.filter(p => p.private !== true && p.name && p.location).map(p => {
+            const manifest = JSON.parse(readFileSync(resolve(p.location, 'package.json'), 'utf8'));
+            const [pack] = JSON.parse(execFileSync('npm', ['pack', '--workspace', p.name, '--ignore-scripts', '--pack-destination', resolve(temp, 'workspace-tarballs'), '--json'], {encoding:'utf8'}));
+            return {...pack, manifest};
+          });
+          writeFileSync(resolve(temp, 'workspace-packs.json'), JSON.stringify(packs));
+          NODE
           smoke-install() {
             local archive="$1" package="$2" consumer
+            local -a local_archives=()
             consumer="$(mktemp -d "$RUNNER_TEMP/npm-consumer.XXXXXX")" || return 1
             (
               set -e
               cd "$consumer" || exit 1
               printf '{"private":true,"type":"module"}\n' > package.json
-              npm install --ignore-scripts --no-audit --no-fund "$archive" || exit 1
+              # Resolve local runtime dependency closure from workspace manifests,
+              # not the registry. npm still checks the declared dependency ranges.
+              node --input-type=module - "$package" <<'NODE' > local-archives.txt || exit 1
+          import { readFileSync } from 'node:fs';
+          import { resolve } from 'node:path';
+          const temp = process.env.RUNNER_TEMP;
+          const packs = JSON.parse(readFileSync(resolve(temp, 'workspace-packs.json'), 'utf8'));
+          const manifests = new Map(packs.map(p => [p.name, p.manifest]));
+          const archives = new Map(packs.map(p => [p.name, resolve(temp, 'workspace-tarballs', p.filename)]));
+          const seen = new Set([process.argv[2]]);
+          function visit(name) {
+            const manifest = manifests.get(name);
+            if (!manifest) return;
+            for (const dep of Object.keys({...manifest.dependencies, ...manifest.optionalDependencies, ...manifest.peerDependencies})) {
+              if (seen.has(dep) || !archives.has(dep)) continue;
+              seen.add(dep);
+              console.log(archives.get(dep));
+              visit(dep);
+            }
+          }
+          visit(process.argv[2]);
+          NODE
+              mapfile -t local_archives < local-archives.txt
+              npm install --ignore-scripts --no-audit --no-fund "$archive" "${local_archives[@]}" || exit 1
               node --input-type=module - "$package" <<'NODE' || exit 1
           import { readFileSync, writeFileSync } from 'node:fs';
           import { createRequire } from 'node:module';
