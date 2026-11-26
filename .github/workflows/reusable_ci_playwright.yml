@@ -15,6 +15,7 @@ on:
         default: ""
 permissions:
   contents: read
+  packages: read
 jobs:
   playwright:
     runs-on: ubuntu-latest
@@ -27,8 +28,14 @@ jobs:
         with:
           node-version: "24"
           cache: npm
+      - name: Configure GitHub Packages authentication
+        shell: bash
+        run: |
+          printf '%s\n' '//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}' >> "$HOME/.npmrc"
       - name: Install project dependencies
         run: npm ci --include=dev --include=optional --no-audit --no-fund
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
       - name: Discover browser test configurations
         id: discover
         shell: bash
@@ -64,6 +71,9 @@ jobs:
           appendFileSync(process.env.GITHUB_OUTPUT, 'enabled=' + (targets.length > 0) + '\n');
           console.log(targets.length ? targets : 'No browser test configurations found; skipping.');
           NODE
+      - name: Build browser test prerequisites
+        if: steps.discover.outputs.enabled == 'true'
+        run: npm run build:browser --if-present
       - name: Install browser dependencies and run browser tests
         id: test
         if: steps.discover.outputs.enabled == 'true'
