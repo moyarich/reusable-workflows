@@ -28,14 +28,18 @@ jobs:
         with:
           node-version: "24"
           cache: npm
-      - name: Configure GitHub Packages authentication
-        shell: bash
-        run: |
-          printf '%s\n' '//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}' >> "$HOME/.npmrc"
       - name: Install project dependencies
-        run: npm ci --include=dev --include=optional --no-audit --no-fund
         env:
           NODE_AUTH_TOKEN: ${{ github.token }}
+          npm_config_userconfig: ${{ runner.temp }}/playwright-npmrc
+        shell: bash
+        run: |
+          # Authenticate only requests to GitHub Packages; keep registry selection
+          # in the consuming repository's .npmrc and lockfile.
+          umask 077
+          printf '%s\n' '//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}' > "$npm_config_userconfig"
+          trap 'rm -f "$npm_config_userconfig"' EXIT
+          npm ci --include=dev --include=optional --no-audit --no-fund
       - name: Discover browser test configurations
         id: discover
         shell: bash
