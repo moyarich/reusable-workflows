@@ -18,8 +18,7 @@ permissions:
   packages: read
 jobs:
   playwright:
-    # Keep the runner on a supported Playwright Linux distribution.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
