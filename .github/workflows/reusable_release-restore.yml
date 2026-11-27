@@ -441,39 +441,7 @@ jobs:
               exit 1
             fi
           else
-            EXACT="$(
-              printf '%s\n' "$CANDIDATES" | grep -Fx -- "$RELEASE_QUERY" || true
-            )"
-
-            if [ -n "$EXACT" ]; then
-              MATCHED_RELEASE_TAG="$EXACT"
-            else
-              MATCHES="$(
-                printf '%s\n' "$CANDIDATES" |
-                  awk -v query="$RELEASE_QUERY" '
-                    BEGIN { q = tolower(query) }
-                    index(tolower($0), q) > 0
-                  '
-              )"
-              MATCH_COUNT="$(printf '%s\n' "$MATCHES" | sed '/^$/d' | wc -l | tr -d ' ')"
-
-              if [ "$MATCH_COUNT" -eq 1 ]; then
-                MATCHED_RELEASE_TAG="$MATCHES"
-              elif [ "$MATCH_COUNT" -eq 0 ]; then
-                MATCHED_RELEASE_TAG=""
-              else
-                {
-                  echo "## Ambiguous restore release search"
-                  echo
-                  printf 'Search: `%s`\n\n' "$RELEASE_QUERY"
-                  echo "Matching release tags:"
-                  printf '%s\n' "$MATCHES" | sed 's/^/- `/' | sed 's/$/`/'
-                } >> "$GITHUB_STEP_SUMMARY"
-
-                echo "::error::Release search matched $MATCH_COUNT tags. Use match-mode=exact and provide exact-tag."
-                exit 1
-              fi
-            fi
+            MATCHED_RELEASE_TAG="$(printf '%s\n' "$CANDIDATES" | grep -Fx -- "$RELEASE_TAG" || true)"
           fi
 
           BACKUP_RELEASE=""
