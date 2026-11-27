@@ -18,6 +18,16 @@ describe("release recovery tag contract", () => {
       expect(source).toContain('TAG="$CUSTOM_TAG_PREFIX$VERSION"');
       expect(source).toContain('TAG_PREFIX="$CUSTOM_TAG_PREFIX"');
       expect(source).toContain(".immutable // false");
+      expect(source).toContain('[ "$EXACT_TAG" = "$PACKAGE_DIRECTORY@$PACKAGE_VERSION" ]');
+      expect(source).toContain('RELEASE_TAG="$EXACT_TAG"');
+      expect(source).toContain('TAG="$EXACT_TAG"');
+      const bulk = readFileSync(
+        new URL(`../.github/workflows/reusable_release-bulk-${operation}.yml`, import.meta.url),
+        "utf8",
+      );
+      expect(bulk).toContain("match-mode: ${{ inputs.match-mode }}");
+      expect(bulk).toContain("exact-tag: ${{ inputs.exact-tag }}");
+      expect(bulk).not.toContain("matrix.directory, matrix.version");
     });
   }
 });
