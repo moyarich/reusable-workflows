@@ -69,7 +69,7 @@ jobs:
       package: ${{ matrix.directory }}
       target-branch: ${{ inputs.target-branch }}
       match-mode: exact
-      exact-tag: ${{ inputs.match-mode == 'exact' && inputs.exact-tag != '' && inputs.package != 'all' && inputs.exact-tag || format('{0}@{1}', matrix.directory, matrix.version) }}
+      exact-tag: ${{ inputs.match-mode == 'exact' && inputs.exact-tag != '' && inputs.package != 'all' && inputs.exact-tag || format('{0}@{1}', matrix.name, matrix.version) }}
       dry-run: ${{ inputs.dry-run }}
 
   coverage:
