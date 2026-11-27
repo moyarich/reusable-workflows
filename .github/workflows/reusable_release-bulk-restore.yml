@@ -76,8 +76,8 @@ jobs:
       draft-template-path: .github/release-drafter-template.yml
       package: ${{ matrix.directory }}
       target-branch: ${{ inputs.target-branch }}
-      match-mode: exact
-      exact-tag: ${{ inputs.match-mode == 'exact' && inputs.exact-tag != '' && inputs.package != 'all' && inputs.exact-tag || format('{0}@{1}', matrix.directory, matrix.version) }}
+      match-mode: ${{ inputs.match-mode }}
+      exact-tag: ${{ inputs.exact-tag }}
       restore-source: ${{ inputs.restore-source }}
       skip-finalized: ${{ inputs.skip-finalized }}
       dry-run: ${{ inputs.dry-run }}

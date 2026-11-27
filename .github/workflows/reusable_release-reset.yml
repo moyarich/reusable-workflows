@@ -73,6 +73,8 @@ jobs:
           SELECTOR: ${{ inputs.package }}
           TARGET_BRANCH: ${{ inputs.target-branch }}
           CUSTOM_TAG_PREFIX: ${{ inputs.tag-prefix }}
+          MATCH_MODE: ${{ inputs.match-mode }}
+          EXACT_TAG: ${{ inputs.exact-tag }}
         shell: bash
         run: |
           set -euo pipefail
@@ -106,6 +108,9 @@ jobs:
             TAG="$CUSTOM_TAG_PREFIX$VERSION"
           else
             TAG="$PACKAGE_NAME@$VERSION"
+          fi
+          if [ "$MATCH_MODE" = exact ]; then
+            TAG="$EXACT_TAG"
           fi
           RELEASES="$(gh api --paginate --slurp "$REPO/releases?per_page=100")"
           RELEASE="$(jq -c --arg tag "$TAG" '[.[][] | select(.tag_name == $tag)] | first // empty' <<< "$RELEASES")"
@@ -240,6 +245,10 @@ jobs:
           fi
 
           RELEASE_TAG="$TAG_PREFIX$PACKAGE_VERSION"
+          if [ "$MATCH_MODE" = exact ] && [ "$PACKAGE_DIRECTORY" != "." ] && [ "$EXACT_TAG" = "$PACKAGE_DIRECTORY@$PACKAGE_VERSION" ]; then
+            TAG_PREFIX="$PACKAGE_DIRECTORY@"
+            RELEASE_TAG="$EXACT_TAG"
+          fi
           RELEASE_NAME="$PACKAGE_NAME v$PACKAGE_VERSION"
           RESET_COMMIT="$(git rev-parse HEAD)"
           PREVIOUS_TAG_COMMIT="$(git rev-list -n 1 "$RELEASE_TAG" 2>/dev/null || true)"
@@ -348,7 +357,7 @@ jobs:
                 exit 1
               fi
               if [ "$EXACT_TAG" != "$RELEASE_TAG" ]; then
-                echo "::error::Exact tag must match the package canonical tag: $RELEASE_TAG"
+                echo "::error::Exact tag must match the selected package and version (canonical or legacy): $RELEASE_TAG"
                 exit 1
               fi
               RELEASE_QUERY="$EXACT_TAG"

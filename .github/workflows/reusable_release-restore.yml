@@ -87,6 +87,8 @@ jobs:
           SELECTOR: ${{ inputs.package }}
           TARGET_BRANCH: ${{ inputs.target-branch }}
           CUSTOM_TAG_PREFIX: ${{ inputs.tag-prefix }}
+          MATCH_MODE: ${{ inputs.match-mode }}
+          EXACT_TAG: ${{ inputs.exact-tag }}
         shell: bash
         run: |
           set -euo pipefail
@@ -120,6 +122,9 @@ jobs:
             TAG="$CUSTOM_TAG_PREFIX$VERSION"
           else
             TAG="$PACKAGE_NAME@$VERSION"
+          fi
+          if [ "$MATCH_MODE" = exact ]; then
+            TAG="$EXACT_TAG"
           fi
           RELEASES="$(gh api --paginate --slurp "$REPO/releases?per_page=100")"
           RELEASE="$(jq -c --arg tag "$TAG" '[.[][] | select(.tag_name == $tag)] | first // empty' <<< "$RELEASES")"
@@ -306,6 +311,10 @@ jobs:
           fi
 
           RELEASE_TAG="$TAG_PREFIX$PACKAGE_VERSION"
+          if [ "$MATCH_MODE" = exact ] && [ "$PACKAGE_DIRECTORY" != "." ] && [ "$EXACT_TAG" = "$PACKAGE_DIRECTORY@$PACKAGE_VERSION" ]; then
+            TAG_PREFIX="$PACKAGE_DIRECTORY@"
+            RELEASE_TAG="$EXACT_TAG"
+          fi
           RELEASE_NAME="$PACKAGE_NAME v$PACKAGE_VERSION"
 
           NPM_REGISTRY_STATE="unknown"
@@ -390,7 +399,7 @@ jobs:
 
           case "$MATCH_MODE" in
             package-json)
-              RELEASE_QUERY="$PACKAGE_VERSION"
+              RELEASE_QUERY="$RELEASE_TAG"
               ;;
             exact)
               if [ -z "$EXACT_TAG" ]; then
@@ -398,7 +407,7 @@ jobs:
                 exit 1
               fi
               if [ "$EXACT_TAG" != "$RELEASE_TAG" ]; then
-                echo "::error::Exact tag must match the historical package's canonical tag: $RELEASE_TAG"
+                echo "::error::Exact tag must match the selected package and version (canonical or legacy): $RELEASE_TAG"
                 exit 1
               fi
               RELEASE_QUERY="$EXACT_TAG"
@@ -432,39 +441,7 @@ jobs:
               exit 1
             fi
           else
-            EXACT="$(
-              printf '%s\n' "$CANDIDATES" | grep -Fx -- "$RELEASE_QUERY" || true
-            )"
-
-            if [ -n "$EXACT" ]; then
-              MATCHED_RELEASE_TAG="$EXACT"
-            else
-              MATCHES="$(
-                printf '%s\n' "$CANDIDATES" |
-                  awk -v query="$RELEASE_QUERY" '
-                    BEGIN { q = tolower(query) }
-                    index(tolower($0), q) > 0
-                  '
-              )"
-              MATCH_COUNT="$(printf '%s\n' "$MATCHES" | sed '/^$/d' | wc -l | tr -d ' ')"
-
-              if [ "$MATCH_COUNT" -eq 1 ]; then
-                MATCHED_RELEASE_TAG="$MATCHES"
-              elif [ "$MATCH_COUNT" -eq 0 ]; then
-                MATCHED_RELEASE_TAG=""
-              else
-                {
-                  echo "## Ambiguous restore release search"
-                  echo
-                  printf 'Search: `%s`\n\n' "$RELEASE_QUERY"
-                  echo "Matching release tags:"
-                  printf '%s\n' "$MATCHES" | sed 's/^/- `/' | sed 's/$/`/'
-                } >> "$GITHUB_STEP_SUMMARY"
-
-                echo "::error::Release search matched $MATCH_COUNT tags. Use match-mode=exact and provide exact-tag."
-                exit 1
-              fi
-            fi
+            MATCHED_RELEASE_TAG="$(printf '%s\n' "$CANDIDATES" | grep -Fx -- "$RELEASE_TAG" || true)"
           fi
 
           BACKUP_RELEASE=""
