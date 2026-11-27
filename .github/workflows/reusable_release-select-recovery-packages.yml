@@ -73,7 +73,11 @@ jobs:
             echo "::error::Unknown package selector: $SELECTOR"
             exit 1
           fi
-          if [ "$MATCH_MODE" = exact ] && [ "$COUNT" -eq 1 ] && [ -z "$EXACT_TAG" ]; then
+          if [ "$MATCH_MODE" = exact ] && { [ "$SELECTOR" = all ] || [ "$COUNT" -ne 1 ]; }; then
+            echo "::error::Exact mode requires one explicitly selected package."
+            exit 1
+          fi
+          if [ "$MATCH_MODE" = exact ] && [ -z "$EXACT_TAG" ]; then
             echo "::error::exact-tag is required in exact mode."
             exit 1
           fi
