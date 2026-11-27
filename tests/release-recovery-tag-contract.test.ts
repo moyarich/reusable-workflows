@@ -5,7 +5,10 @@ describe("release recovery tag contract", () => {
   for (const operation of ["reset", "restore"]) {
     it(`${operation} uses manifest names for root and workspace packages`, () => {
       const source = readFileSync(
-        new URL(`../.github/workflows/reusable_release-${operation}.yml`, import.meta.url),
+        new URL(
+          `../.github/workflows/reusable_release-${operation}.yml`,
+          import.meta.url,
+        ),
         "utf8",
       );
       expect(source).toContain('TAG="$PACKAGE_NAME@$VERSION"');
