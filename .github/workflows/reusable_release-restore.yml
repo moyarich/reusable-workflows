@@ -116,13 +116,10 @@ jobs:
           MANIFEST="$(gh api "$REPO/contents/$MANIFEST_PATH?ref=$TARGET_BRANCH" --jq '.content' | base64 -d)"
           VERSION="$(jq -er '.version' <<< "$MANIFEST")"
           PACKAGE_NAME="$(jq -er '.name' <<< "$MANIFEST")"
-          DIRECTORY="${MANIFEST_PATH%/package.json}"
           if [ -n "$CUSTOM_TAG_PREFIX" ]; then
             TAG="$CUSTOM_TAG_PREFIX$VERSION"
-          elif [ "$MANIFEST_PATH" = package.json ]; then
-            TAG="$PACKAGE_NAME@$VERSION"
           else
-            TAG="$DIRECTORY@$VERSION"
+            TAG="$PACKAGE_NAME@$VERSION"
           fi
           RELEASES="$(gh api --paginate --slurp "$REPO/releases?per_page=100")"
           RELEASE="$(jq -c --arg tag "$TAG" '[.[][] | select(.tag_name == $tag)] | first // empty' <<< "$RELEASES")"
@@ -299,11 +296,10 @@ jobs:
 
           if [ "$PACKAGE_DIRECTORY" = "." ]; then
             CHANGELOG_PATH="CHANGELOG.md"
-            TAG_PREFIX="$PACKAGE_NAME@"
           else
             CHANGELOG_PATH="$PACKAGE_DIRECTORY/CHANGELOG.md"
-            TAG_PREFIX="$PACKAGE_DIRECTORY@"
           fi
+          TAG_PREFIX="$PACKAGE_NAME@"
 
           if [ -n "$CUSTOM_TAG_PREFIX" ]; then
             TAG_PREFIX="$CUSTOM_TAG_PREFIX"
