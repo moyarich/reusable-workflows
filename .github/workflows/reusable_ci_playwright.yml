@@ -127,6 +127,10 @@ jobs:
           }
           if (failed) process.exitCode = 1;
           NODE
+      - name: Run optional playground navigation tests
+        if: steps.discover.outputs.enabled == 'true'
+        shell: bash
+        run: npm run --if-present test:playground:navigation
       - name: Upload failure traces
         if: failure() && steps.test.outcome == 'failure'
         uses: actions/upload-artifact@v6
